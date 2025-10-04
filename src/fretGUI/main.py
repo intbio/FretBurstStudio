@@ -1,6 +1,6 @@
 import custom_nodes
 import graph_engene
-
+from custom_widgets.toogle_widget import IconToggleButton
 import sys
 
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from Qt import QtWidgets, QtCore
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
 from NodeGraphQt import PropertiesBinWidget
-from toogle_widget import IconToggleButton
+
 
 
 

@@ -1,7 +1,7 @@
 from NodeGraphQt import NodeBaseWidget  
 from Qt import QtWidgets, QtCore    
 from abc import abstractmethod 
-from abstract_widget_wrapper import AbstractWidgetWrapper
+from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 
 
      

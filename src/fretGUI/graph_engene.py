@@ -1,5 +1,4 @@
 from NodeGraphQt import NodeGraph
-from collections import deque
         
 
 class GraphEngene:
