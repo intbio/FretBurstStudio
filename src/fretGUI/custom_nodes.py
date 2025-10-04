@@ -160,11 +160,6 @@ class CalcBGNode(AbstractRecomputable):
         self.add_output('outport')
         self.time_s_slider = node_builder.build_int_slider('time_s', [1000, 2000, 100])
         self.tail_slider = node_builder.build_int_slider('tail_min_us', [0, 1000, 100], 300)
-        # self.wire_signals()
-        
-    # def wire_signals(self):
-    #     self.time_s_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
-    #     self.tail_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
         
     def __calc_bg(self, d, time_s, tail_min_us):
         return d.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
@@ -185,10 +180,6 @@ class BurstSearchNodde(AbstractRecomputable):
         self.add_input('inport')
         self.add_output('outport')
         self.int_slider = node_builder.build_int_slider('min_rate_cps', [5000, 20000, 1000], 8000)
-        # self.wire_signals()
-        
-    # def wire_signals(self):
-    #     self.int_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
         
     def __burst_search(self, fbdata: str, min_rate_cps):
         return fbdata.burst_search(min_rate_cps)
@@ -209,10 +200,6 @@ class BurstSelectorNode(AbstractRecomputable):
         self.add_input('inport')
         self.add_output('outport')
         self.int_slider = node_builder.build_int_slider('th1', [0, 100, 10], 40)
-        # self.wire_signals()
-        
-    # def wire_signals(self):
-    #     self.int_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
         
     def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
         return fbdata.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
@@ -233,7 +220,6 @@ class BGPlotterNode(AbstractRecomputable):
         self.add_input('inport')
         self.add_output('outport')
         node_builder.build_plot_widget('plot_widget')
-        # node_builder.build_int_slider('time_s', [1000, 5000, 1000], 1000)
         
     def __update_plot(self, fretData):
         plot_widget = self.get_widget('plot_widget').plot_widget

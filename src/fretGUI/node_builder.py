@@ -42,11 +42,6 @@ class NodeBuilder():
     def build_plot_widget(self, widget_name):
         plot_widget = TemplatePlotWidgetWtapper(parent=self.node.view)
         plot_widget.set_name(widget_name)
-        # plot_widget.set_name(widget_name)
-        # self.node.add_custom_widget(plot_widget)
-        # plot_widget = TemplatePlotWidgetWtapper(parent=self.node.view)
-        # plot_widget.set_name(widget_name)
-        # plot_widget.set_label(widget_name)
         self.node.add_custom_widget(plot_widget, tab='custom')
     
 

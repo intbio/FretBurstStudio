@@ -1,8 +1,7 @@
-from Qt import QtWidgets, QtCore
 from Qt.QtCore import Signal
 from abc import abstractmethod
 from NodeGraphQt import NodeBaseWidget
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 
 class AbstractWidgetWrapper(NodeBaseWidget):
