@@ -1,100 +1,8 @@
 import custom_widgets.path_selector as path_selector
-from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
-
-from NodeGraphQt import BaseNode
-from abc import  abstractmethod, ABC
+from custom_nodes.abstract_nodes import AbstractRecomputable
 import fretbursts
 from node_builder import NodeBuilder
-        
-        
-class AbstractExecutable(BaseNode, ABC):
-    def __init__(self):
-        BaseNode.__init__(self)
-        self.__data = None
-
-    @property
-    def data(self):
-        return self.__data
-    
-    @data.setter
-    def data(self, new_data: dict):
-        self.__data = new_data
-        
-    @abstractmethod
-    def execute(self, *args, **kwargs) -> dict:
-        pass
-        
-    def is_root(self) -> bool:
-        return len(self.input_ports()) == 0
-        
-    def get_data(self) -> dict:
-        if self.data is None:
-            if self.is_root():
-                self.data = self.execute()
-            else:
-                combined_data = {}
-                for parent in self.iter_parent_nodes():
-                    parent_data = parent.get_data()
-                    combined_data.update(parent_data)
-                self.data = self.execute(**combined_data)
-        return self.data
-           
-    def iter_parent_nodes(self):
-        for port in self.input_ports():
-            connected_ports = port.connected_ports()
-            for connected_port in connected_ports:
-                connected_node = connected_port.node()
-                yield connected_node
                 
-    def iter_children_nodes(self):
-        for port in self.output_ports():
-            connected_ports = port.connected_ports()
-            for connected_port in connected_ports:
-                connected_node = connected_port.node()
-                yield connected_node
-        
-    def update_nodes(self):
-        if self.is_root():
-            print(f"{self} root executed")
-            self.data = self.execute()
-        else:
-            combined_data = {}
-            for parent in self.iter_parent_nodes():
-                parent_data = parent.get_data()
-                combined_data.update(parent_data)
-            self.data = self.execute(**combined_data)
-            print(f"{self} executed")
-        for next_node in self.iter_children_nodes():
-            next_node.update_nodes()
-            
-            
-class AbstractRecomputable(AbstractExecutable):
-    
-    def __init__(self):
-        super().__init__()
-        self.widget_wrappers = []
-    
-    def add_custom_widget(self, widget, *args, **kwargs):
-        if isinstance(widget, AbstractWidgetWrapper):
-            widget.widget_changed_signal.connect(self.update_nodes)
-            self.widget_wrappers.append(widget)
-            print(f"widget add {widget}")
-        super().add_custom_widget(widget, *args, **kwargs)
-        
-    def wire_wrappers(self):
-        print(f"{self} wired")
-        if len(self.widget_wrappers) == 0:
-            return None
-        for widget_wrapper in self.widget_wrappers:
-            widget_wrapper.widget_changed_signal.connect(self.update_nodes)
-            
-    def unwire_wrappers(self):
-        print(f"{self} unwired")
-        if len(self.widget_wrappers) == 0:
-            return None
-        for widget_wrapper in self.widget_wrappers:
-            widget_wrapper.widget_changed_signal.disconnect()
-        
              
 class FileNode(AbstractRecomputable):
 
@@ -103,15 +11,43 @@ class FileNode(AbstractRecomputable):
 
     def __init__(self):
         super().__init__() 
+        self.node_iterator = None
         
         self.add_output('out_file')
 
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
         self.add_custom_widget(self.file_widget, tab='Custom')  
 
-    def execute(self) -> dict:
-        res = {"filename": self.file_widget.get_value()}
-        return res
+    def execute(self, *args, **kwargs) -> dict:
+        if self.node_iterator is None:
+            self.reset_iterator()
+        next_res = next(self.node_iterator)
+        print(next_res)
+        return next_res
+    
+    def reset_iterator(self):
+        self.node_iterator = iter(FileNodeIterator(self))
+    
+    
+class FileNodeIterator:
+    def __init__(self, node: FileNode):
+        self.node = node
+        self.node_paths = None
+        
+    def __iter__(self):
+        self.i = 0
+        self.node_paths = iter(self.node.file_widget.get_value())
+        return self
+    
+    def __next__(self):
+        try:
+            res = {"filename": next(self.node_paths),
+                    'n': self.i}
+            self.i += 1
+            return res
+        except Exception: 
+            raise StopIteration
+        
     
 
 class PhotonNode(AbstractRecomputable):
@@ -126,7 +62,7 @@ class PhotonNode(AbstractRecomputable):
     def __open_hdf5(self, hdf5_path: str):
         return fretbursts.loader.photon_hdf5(hdf5_path)
     
-    def execute(self, filename: str) -> dict:
+    def execute(self, filename: str, *args, **kwargs) -> dict:
         return {'fbdata': self.__open_hdf5(filename)}
         
     
@@ -142,7 +78,7 @@ class AlexNode(AbstractRecomputable):
     def __alex_apply_period(self, fbdata: str):
         return fretbursts.loader.alex_apply_period(fbdata)
 
-    def execute(self, fbdata: str):
+    def execute(self, fbdata: str, *args, **kwargs):
         self.__alex_apply_period(fbdata)
         return {'fbdata': fbdata}
     
@@ -163,7 +99,7 @@ class CalcBGNode(AbstractRecomputable):
     def __calc_bg(self, d, time_s, tail_min_us):
         return d.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
         
-    def execute(self, fbdata: str):
+    def execute(self, fbdata: str, *args, **kwargs):
         self.__calc_bg(fbdata, self.time_s_slider.get_value(), self.tail_slider.get_value())
         return {'fbdata': fbdata}
     
@@ -183,7 +119,7 @@ class BurstSearchNodde(AbstractRecomputable):
     def __burst_search(self, fbdata: str, min_rate_cps):
         return fbdata.burst_search(min_rate_cps)
         
-    def execute(self, fbdata: str):
+    def execute(self, fbdata: str, *args, **kwargs):
         self.__burst_search(fbdata, self.int_slider.get_value())
         return {'fbdata': fbdata}
     
@@ -203,7 +139,7 @@ class BurstSelectorNode(AbstractRecomputable):
     def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
         return fbdata.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
     
-    def execute(self, fbdata: str):
+    def execute(self, fbdata: str, *args, **kwargs):
         ds = self.__select_bursts(fbdata, True, self.get_widget('th1').get_value())
         return {"fbdata": ds}
     
@@ -230,10 +166,8 @@ class BGPlotterNode(AbstractRecomputable):
         fretbursts.dplot(fretData, fretbursts.timetrace_bg, ax=ax2)
         plot_widget.canvas.draw()
         
-        
-    def execute(self, fbdata: str):
+    def execute(self, fbdata: str, *args, **kwargs):
         self.__update_plot(fbdata)
-        print(f"{self} execute called with {fbdata}")
         return {'fbdata': fbdata}
     
     

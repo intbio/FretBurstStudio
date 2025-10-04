@@ -1,4 +1,4 @@
-import custom_nodes
+import custom_nodes.custom_nodes as custom_nodes
 import graph_engene
 from custom_widgets.toogle_widget import IconToggleButton
 import sys
@@ -21,7 +21,14 @@ def on_run_btn_clicked(graph):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
     for root_node in roots:
-        root_node.update_nodes()
+        try:
+            while True:
+                root_node.update_nodes()
+        except StopIteration:
+            root_node.reset_iterator()
+            continue
+         
+        
                 
                 
 def on_toogle_clicked(graph, toggle_btn):
