@@ -1,6 +1,7 @@
 from NodeGraphQt import NodeBaseWidget  
 from Qt import QtWidgets, QtCore    
 from abc import abstractmethod 
+from abstract_widget_wrapper import AbstractWidgetWrapper
 
 
      
@@ -119,11 +120,10 @@ class FloatSliderWidget(AbstractSliderWidget):
         self.text_box.setText(self.format_float(clamped_val))  
     
         
-class SliderWidgetWrapper(NodeBaseWidget):
+class SliderWidgetWrapper(AbstractWidgetWrapper):
     def __init__(self, parent, slider_widget: AbstractSliderWidget):
-        super(SliderWidgetWrapper, self).__init__(parent)
-        
         self.slider_widget = slider_widget
+        super().__init__(parent)
         
         self.set_name('Slider')
         self.set_custom_widget(self.slider_widget)
@@ -138,4 +138,8 @@ class SliderWidgetWrapper(NodeBaseWidget):
         text_box.setText(str(value))
         slider = self.get_custom_widget().slider
         slider.setValue(value)
+        
+    def wire_signals(self):
+        self.slider_widget.slider.sliderReleased.connect(
+            self.widget_changed_signal.emit)
         

@@ -5,42 +5,10 @@ from abc import  abstractmethod, ABC
 import fretbursts
 from node_builder import NodeBuilder
 from qtpy.QtCore import Signal
-
-
-class AbstractExecutable:
-    def __init__(self):
-        self.__data = None
-        self.__iter = None
-        
-    @property
-    def data(self):
-        return self.__data
-    
-    @data.setter
-    def data(self, new_data):
-        self.__data = new_data
-        
-    @abstractmethod
-    def execute(self, *args, **kwargs):
-        pass
-    
-    def next_data(self, *args, **kwargs):
-        if self.__iter is None:
-            self.__iter = iter(self.execute(*args, **kwargs))
-        self.__data = next(self.__iter)
-        return self.__data
-        
-    def get_data(self, *args, **kwargs):
-        if self.__data is None:
-            self.next_data(*args, **kwargs)
-        return self.__data
-        
-    def reset_data(self):
-        self.__data = None
-        self.__iter = None
+from abstract_widget_wrapper import AbstractWidgetWrapper
         
         
-class AbstractNodeChainExecutable(BaseNode, ABC):
+class AbstractExecutable(BaseNode, ABC):
     def __init__(self):
         BaseNode.__init__(self)
         self.__data = None
@@ -64,11 +32,12 @@ class AbstractNodeChainExecutable(BaseNode, ABC):
         if self.data is None:
             if self.is_root():
                 self.data = self.execute()
-            combined_data = {}
-            for parent in self.iter_parent_nodes():
-                parent_data = parent.get_data()
-                combined_data.update(parent_data)
-            self.data = self.execute(**combined_data)
+            else:
+                combined_data = {}
+                for parent in self.iter_parent_nodes():
+                    parent_data = parent.get_data()
+                    combined_data.update(parent_data)
+                self.data = self.execute(**combined_data)
         return self.data
            
     def iter_parent_nodes(self):
@@ -98,40 +67,60 @@ class AbstractNodeChainExecutable(BaseNode, ABC):
             print(f"{self} executed")
         for next_node in self.iter_children_nodes():
             next_node.update_nodes()
-
-
-
+            
+            
+class AbstractRecomputable(AbstractExecutable):
     
+    def __init__(self):
+        super().__init__()
+        self.widget_wrappers = []
     
-class FileNode(AbstractNodeChainExecutable):
+    def add_custom_widget(self, widget, *args, **kwargs):
+        if isinstance(widget, AbstractWidgetWrapper):
+            widget.widget_changed_signal.connect(self.update_nodes)
+            self.widget_wrappers.append(widget)
+            print(f"widget add {widget}")
+        super().add_custom_widget(widget, *args, **kwargs)
+        
+    def wire_wrappers(self):
+        print(f"{self} wired")
+        if len(self.widget_wrappers) == 0:
+            return None
+        for widget_wrapper in self.widget_wrappers:
+            widget_wrapper.widget_changed_signal.connect(self.update_nodes)
+            
+    def unwire_wrappers(self):
+        print(f"{self} unwired")
+        if len(self.widget_wrappers) == 0:
+            return None
+        for widget_wrapper in self.widget_wrappers:
+            widget_wrapper.widget_changed_signal.disconnect()
+        
+             
+class FileNode(AbstractRecomputable):
 
     __identifier__ = 'nodes.custom'
     NODE_NAME  = 'FileSelector'
 
     def __init__(self):
-        AbstractNodeChainExecutable.__init__(self) 
+        super().__init__() 
         
         self.add_output('out_file')
 
-        self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)       
+        self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
         self.add_custom_widget(self.file_widget, tab='Custom')  
-        self.wire_signals()
-
-    def wire_signals(self):
-        self.file_widget.path_widget.open_button.clicked.connect(self.update_nodes)
-        # self.file_widget.path_widget.update_node_signal.connect(self.update_nodes)
 
     def execute(self) -> dict:
         res = {"filename": self.file_widget.get_value()}
         return res
+    
 
-
-class PhotonNode(AbstractNodeChainExecutable):
+class PhotonNode(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'PhotonNode'
     
     def __init__(self):
-        AbstractNodeChainExecutable.__init__(self) 
+        super().__init__() 
         self.add_input('inport')
         self.add_output('outport')
         
@@ -142,12 +131,12 @@ class PhotonNode(AbstractNodeChainExecutable):
         return {'fbdata': self.__open_hdf5(filename)}
         
     
-class AlexNode(AbstractNodeChainExecutable):
+class AlexNode(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'AlexNode'
     
     def __init__(self):
-        AbstractNodeChainExecutable.__init__(self)
+        super().__init__()
         self.add_input('inport')
         self.add_output('outport')
         
@@ -159,23 +148,23 @@ class AlexNode(AbstractNodeChainExecutable):
         return {'fbdata': fbdata}
     
     
-class CalcBGNode(AbstractNodeChainExecutable):
+class CalcBGNode(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'CalcBGNode'
     
     def __init__(self):
-        AbstractNodeChainExecutable.__init__(self)
+        super().__init__()
         node_builder = NodeBuilder(self)
         
         self.add_input('inport')
         self.add_output('outport')
         self.time_s_slider = node_builder.build_int_slider('time_s', [1000, 2000, 100])
         self.tail_slider = node_builder.build_int_slider('tail_min_us', [0, 1000, 100], 300)
-        self.wire_signals()
+        # self.wire_signals()
         
-    def wire_signals(self):
-        self.time_s_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
-        self.tail_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
+    # def wire_signals(self):
+    #     self.time_s_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
+    #     self.tail_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
         
     def __calc_bg(self, d, time_s, tail_min_us):
         return d.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
@@ -185,21 +174,21 @@ class CalcBGNode(AbstractNodeChainExecutable):
         return {'fbdata': fbdata}
     
     
-class BurstSearchNodde(AbstractNodeChainExecutable):
+class BurstSearchNodde(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'BurstSearchNodde'
     
     def __init__(self):
-        AbstractNodeChainExecutable.__init__(self)
+        super().__init__()
         node_builder = NodeBuilder(self)
         
         self.add_input('inport')
         self.add_output('outport')
         self.int_slider = node_builder.build_int_slider('min_rate_cps', [5000, 20000, 1000], 8000)
-        self.wire_signals()
+        # self.wire_signals()
         
-    def wire_signals(self):
-        self.int_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
+    # def wire_signals(self):
+    #     self.int_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
         
     def __burst_search(self, fbdata: str, min_rate_cps):
         return fbdata.burst_search(min_rate_cps)
@@ -209,21 +198,21 @@ class BurstSearchNodde(AbstractNodeChainExecutable):
         return {'fbdata': fbdata}
     
     
-class BurstSelectorNode(AbstractNodeChainExecutable):
+class BurstSelectorNode(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'BurstSelector'
     
     def __init__(self):
-        AbstractNodeChainExecutable.__init__(self) 
+        super().__init__() 
         node_builder = NodeBuilder(self)
         
         self.add_input('inport')
         self.add_output('outport')
         self.int_slider = node_builder.build_int_slider('th1', [0, 100, 10], 40)
-        self.wire_signals()
+        # self.wire_signals()
         
-    def wire_signals(self):
-        self.int_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
+    # def wire_signals(self):
+    #     self.int_slider.slider_widget.slider.sliderReleased.connect(self.update_nodes)
         
     def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
         return fbdata.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
@@ -233,12 +222,12 @@ class BurstSelectorNode(AbstractNodeChainExecutable):
         return {"fbdata": ds}
     
     
-class BGPlotterNode(AbstractNodeChainExecutable):
+class BGPlotterNode(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'BGPlotterNode'
     
     def __init__(self):
-        AbstractNodeChainExecutable.__init__(self)
+        super().__init__() 
         node_builder = NodeBuilder(self)
         
         self.add_input('inport')

@@ -14,25 +14,28 @@ from toogle_widget import IconToggleButton
 
 
 
-
 BASE_PATH = Path(__file__).parent.resolve()
 
 
 def on_run_btn_clicked(graph):
     engene = graph_engene.GraphEngene(graph)
-    topological_iterator = engene.iter_topologicaly()
-    for cur_node in topological_iterator:
-        input_ports = cur_node.input_ports()
-        for port in input_ports:
-            connected_ports = port.connected_ports()
-            for connected_port in connected_ports:
-                prev_node = connected_port.node()
-                prev_node_result = prev_node.get_data()
-                print(cur_node, prev_node_result)
-                cur_node.next_data(prev_node_result)
-                print(cur_node, cur_node.data)
+    roots = engene.find_root_nodes()
+    for root_node in roots:
+        root_node.update_nodes()
                 
-
+                
+def on_toogle_clicked(graph, toggle_btn):
+    engene = graph_engene.GraphEngene(graph)
+    toggle_state = toggle_btn.text()
+    if toggle_state == 'static':
+        print('static')
+        engene.make_nodes_static()
+    elif toggle_state == 'automatic':
+        print('auto')
+        engene.make_nodes_dinamic()
+    
+    
+                
            
 def main():
     # handle SIGINT to make the app terminate on CTRL+C
@@ -74,9 +77,14 @@ def main():
     
     run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
     run_button.setFixedSize(50, 50)    
-    
     run_button.clicked.connect(lambda: on_run_btn_clicked(graph))
+    
+    toggle_btn = IconToggleButton(parent=graph_widget)
+    toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))
+    
+    
     top_layout.addWidget(run_button)
+    top_layout.addWidget(toggle_btn)
     main_layout.addLayout(top_layout)
     run_button.show()
     

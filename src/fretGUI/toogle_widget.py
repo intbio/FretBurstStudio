@@ -1,11 +1,11 @@
-from PyQt5.QtWidgets import QPushButton
-from PyQt5.QtCore import QSize, pyqtSignal
+from Qt.QtWidgets import QPushButton
+from Qt.QtCore import QSize, Signal
 
 
 class IconToggleButton(QPushButton):
     """Переключатель с иконками"""
     
-    toggled = pyqtSignal(bool)
+    toggled = Signal(bool)
     
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -17,9 +17,9 @@ class IconToggleButton(QPushButton):
         
     def _update_appearance(self):
         """Обновляет внешний вид кнопки"""
-        if self.isChecked():
+        if not self.isChecked():
             # Можно установить реальные иконки вместо текста
-            self.setText("🔔 Вкл")
+            self.setText("automatic")
             self.setStyleSheet("""
                 QPushButton {
                     background-color: #e3f2fd;
@@ -34,7 +34,7 @@ class IconToggleButton(QPushButton):
                 }
             """)
         else:
-            self.setText("🔕 Выкл")
+            self.setText("static")
             self.setStyleSheet("""
                 QPushButton {
                     background-color: #f5f5f5;

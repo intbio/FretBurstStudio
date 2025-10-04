@@ -1,6 +1,7 @@
 from Qt import QtWidgets, QtCore
 from NodeGraphQt import NodeBaseWidget
 from qtpy.QtCore import Signal
+from abstract_widget_wrapper import AbstractWidgetWrapper
 
 
 class PathRowWidget(QtWidgets.QWidget):
@@ -37,10 +38,7 @@ class PathRowWidget(QtWidgets.QWidget):
         return self.text_field.text()
 
 
-class PathSelectorWidget(QtWidgets.QWidget):
-    
-    update_node_signal = Signal()
-    
+class PathSelectorWidget(QtWidgets.QWidget):    
     def __init__(self, parent=None):
         super(PathSelectorWidget, self).__init__()
         
@@ -106,12 +104,12 @@ class PathSelectorWidget(QtWidgets.QWidget):
                 
                
 
-class PathSelectorWidgetWrapper(NodeBaseWidget):
+class PathSelectorWidgetWrapper(AbstractWidgetWrapper):    
     def __init__(self, parent=None):
-        super(PathSelectorWidgetWrapper, self).__init__(parent)        
+        self.path_widget = PathSelectorWidget(parent=parent)
+        super().__init__(parent)       
         self.set_name('File Widget')
         self.set_label('File') 
-        self.path_widget = PathSelectorWidget(parent=parent)
         self.set_custom_widget(self.path_widget)  
             
     def get_value(self):
@@ -120,5 +118,9 @@ class PathSelectorWidgetWrapper(NodeBaseWidget):
 
     def set_value(self, value):
         pass
+    
+    def wire_signals(self):
+        self.path_widget.open_button.clicked.connect(
+            self.widget_changed_signal.emit)
     
     
