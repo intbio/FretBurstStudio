@@ -8,7 +8,7 @@ import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
-from NodeGraphQt import PropertiesBinWidget
+from NodeGraphQt import PropertiesBinWidget, NodesTreeWidget
 
 
 
@@ -65,8 +65,8 @@ def main():
     top_layout.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignTop)
     
     # set up context menu for the node graph.
-    # hotkey_path = Path(BASE_PATH, 'src/hotkeys', 'hotkeys.json')
-    # graph.set_context_menu_from_file(hotkey_path, 'graph')
+    hotkey_path = Path(BASE_PATH, 'hotkeys', 'hotkeys.json')
+    graph.set_context_menu_from_file(hotkey_path, 'graph')
     
     # registered example nodes.
     graph.register_nodes(
@@ -149,7 +149,7 @@ def main():
     # nodes_tree.set_category_label('nodes.widget', 'Widget Nodes')
     # nodes_tree.set_category_label('nodes.basic', 'Basic Nodes')
     # nodes_tree.set_category_label('nodes.group', 'Group Nodes')
-    # # nodes_tree.show()
+    # nodes_tree.show()
 
     
     
