@@ -21,11 +21,12 @@ def on_run_btn_clicked(graph):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
     for root_node in roots:
+        root_node.reset_iterator()
         try:
             while True:
                 root_node.update_nodes()
         except StopIteration:
-            root_node.reset_iterator()
+            print(root_node)
             continue
          
         
@@ -151,17 +152,25 @@ def main():
     # # nodes_tree.show()
 
     
+    
     nodes_palette = NodesPaletteWidget(node_graph=graph)
     nodes_palette.set_category_label('nodeGraphQt.nodes', 'Builtin Nodes')
     nodes_palette.set_category_label('nodes.custom.ports', 'Custom Port Nodes')
     nodes_palette.set_category_label('nodes.widget', 'Widget Nodes')
     nodes_palette.set_category_label('nodes.basic', 'Basic Nodes')
     nodes_palette.set_category_label('nodes.group', 'Group Nodes')
-    # sidebar_layout.addWidget(nodes_palette)
-    # main_layout.addLayout(sidebar_layout)
-    nodes_palette.show()
     
-    
+    sidebar_layout = QtWidgets.QVBoxLayout()
+    sidebar_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+    sidebar_layout.setSpacing(0)  # Remove spacing
+    sidebar_layout.addStretch()
+    sidebar_layout.addWidget(nodes_palette)
+    sidebar_widget = QtWidgets.QWidget()
+    sidebar_widget.setLayout(sidebar_layout)
+    sidebar_widget.setFixedSize(300, 200)
+    main_layout.addWidget(sidebar_widget)
+        
+        
     app.exec()
 
     

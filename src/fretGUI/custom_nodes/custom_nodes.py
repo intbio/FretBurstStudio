@@ -40,14 +40,10 @@ class FileNodeIterator:
         return self
     
     def __next__(self):
-        try:
-            res = {"filename": next(self.node_paths),
-                    'n': self.i}
-            self.i += 1
-            return res
-        except Exception: 
-            raise StopIteration
-        
+        res = {"filename": next(self.node_paths),
+                'n': self.i}
+        self.i += 1
+        return res
     
 
 class PhotonNode(AbstractRecomputable):
