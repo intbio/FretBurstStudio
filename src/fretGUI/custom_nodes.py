@@ -1,11 +1,10 @@
-import path_selector
+import custom_widgets.path_selector as path_selector
+from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+
 from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
-
 import fretbursts
 from node_builder import NodeBuilder
-from qtpy.QtCore import Signal
-from abstract_widget_wrapper import AbstractWidgetWrapper
         
         
 class AbstractExecutable(BaseNode, ABC):

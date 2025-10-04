@@ -1,5 +1,5 @@
-import sliders
-from plot_widget import TemplatePlotWidgetWtapper
+import custom_widgets.sliders as sliders
+from custom_widgets.plot_widget import TemplatePlotWidgetWtapper
 
     
     
