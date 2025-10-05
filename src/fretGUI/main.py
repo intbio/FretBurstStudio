@@ -1,4 +1,4 @@
-import custom_nodes
+import custom_nodes.custom_nodes as custom_nodes
 import graph_engene
 from custom_widgets.toogle_widget import IconToggleButton
 import sys
@@ -8,7 +8,7 @@ import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
-from NodeGraphQt import PropertiesBinWidget
+from NodeGraphQt import PropertiesBinWidget, NodesTreeWidget
 
 
 
@@ -21,7 +21,15 @@ def on_run_btn_clicked(graph):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
     for root_node in roots:
-        root_node.update_nodes()
+        root_node.reset_iterator()
+        try:
+            while True:
+                root_node.update_nodes()
+        except StopIteration:
+            print(root_node)
+            continue
+         
+        
                 
                 
 def on_toogle_clicked(graph, toggle_btn):
@@ -57,8 +65,8 @@ def main():
     top_layout.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignTop)
     
     # set up context menu for the node graph.
-    # hotkey_path = Path(BASE_PATH, 'src/hotkeys', 'hotkeys.json')
-    # graph.set_context_menu_from_file(hotkey_path, 'graph')
+    hotkey_path = Path(BASE_PATH, 'hotkeys', 'hotkeys.json')
+    graph.set_context_menu_from_file(hotkey_path, 'graph')
     
     # registered example nodes.
     graph.register_nodes(
@@ -141,8 +149,9 @@ def main():
     # nodes_tree.set_category_label('nodes.widget', 'Widget Nodes')
     # nodes_tree.set_category_label('nodes.basic', 'Basic Nodes')
     # nodes_tree.set_category_label('nodes.group', 'Group Nodes')
-    # # nodes_tree.show()
+    # nodes_tree.show()
 
+    
     
     nodes_palette = NodesPaletteWidget(node_graph=graph)
     nodes_palette.set_category_label('nodeGraphQt.nodes', 'Builtin Nodes')
@@ -150,11 +159,18 @@ def main():
     nodes_palette.set_category_label('nodes.widget', 'Widget Nodes')
     nodes_palette.set_category_label('nodes.basic', 'Basic Nodes')
     nodes_palette.set_category_label('nodes.group', 'Group Nodes')
-    # sidebar_layout.addWidget(nodes_palette)
-    # main_layout.addLayout(sidebar_layout)
-    nodes_palette.show()
     
-    
+    sidebar_layout = QtWidgets.QVBoxLayout()
+    sidebar_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+    sidebar_layout.setSpacing(0)  # Remove spacing
+    sidebar_layout.addStretch()
+    sidebar_layout.addWidget(nodes_palette)
+    sidebar_widget = QtWidgets.QWidget()
+    sidebar_widget.setLayout(sidebar_layout)
+    sidebar_widget.setFixedSize(300, 200)
+    main_layout.addWidget(sidebar_widget)
+        
+        
     app.exec()
 
     
