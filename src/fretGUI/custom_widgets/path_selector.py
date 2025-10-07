@@ -119,6 +119,7 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
         pass
     
     def wire_signals(self):
-        pass
+        self.path_widget.open_button.clicked.connect(
+            self.widget_changed_signal.emit)
     
     
