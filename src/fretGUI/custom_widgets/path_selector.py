@@ -1,6 +1,5 @@
 from Qt import QtWidgets, QtCore
-from NodeGraphQt import NodeBaseWidget
-from qtpy.QtCore import Signal
+from Qt.QtCore import Signal
 from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 
 

@@ -8,7 +8,7 @@ import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
-from NodeGraphQt import PropertiesBinWidget, NodesTreeWidget
+from NodeGraphQt import PropertiesBinWidget
 
 
 
@@ -137,6 +137,8 @@ def main():
     
     
     graph.auto_layout_nodes()
+    graph.clear_selection()
+    graph.fit_to_selection()
         
 
     properties_bin = PropertiesBinWidget(node_graph=graph, parent=graph_widget)
