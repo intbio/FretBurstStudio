@@ -1,7 +1,7 @@
 from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
-
 from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
+from signal_manager import SignalManager
         
         
 class AbstractExecutable(BaseNode, ABC):
@@ -61,28 +61,52 @@ class AbstractExecutable(BaseNode, ABC):
             self.data = self.execute(**combined_data)
         for next_node in self.iter_children_nodes():
             next_node.update_nodes()
-            
+                        
             
 class AbstractRecomputable(AbstractExecutable):
     
     def __init__(self):
         super().__init__()
-        self.widget_wrappers = []
+        self.widget_wrappers = []   
+    
+    def update_nodes_and_pbar(self):
+        following_nodes = self.__count_following_nodes()
+        SignalManager().calculation_begin.emit(following_nodes)
+        self.update_nodes()
+        SignalManager().calculation_finished.emit()
+        
+    def update_nodes(self):
+        SignalManager().calculation_processed.emit()
+        super().update_nodes()
+        
+    def __count_following_nodes(self) -> int:
+        visited = set()
+        self.__dfs(visited, self)
+        return len(visited)
+    
+    def __dfs(self, visited, node) -> int:
+        for child in node.iter_children_nodes():
+            if child not in visited:    
+                visited.add(child)
+                self.__dfs(visited, child)
     
     def add_custom_widget(self, widget, *args, **kwargs):
         if isinstance(widget, AbstractWidgetWrapper):
-            widget.widget_changed_signal.connect(self.update_nodes)
+                        
+            widget.widget_changed_signal.connect(self.update_nodes_and_pbar)
             self.widget_wrappers.append(widget)
+            
         super().add_custom_widget(widget, *args, **kwargs)
         
     def wire_wrappers(self):
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
-            widget_wrapper.widget_changed_signal.connect(self.update_nodes)
+            widget_wrapper.widget_changed_signal.connect(self.update_nodes_and_pbar)
             
     def unwire_wrappers(self):
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
             widget_wrapper.widget_changed_signal.disconnect()
+        
