@@ -24,8 +24,9 @@ def on_run_btn_clicked(graph):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
     for root_node in roots:
-        root_node.update_nodes_and_pbar()
-        SignalManager.calculation_finished.emit()
+        for n_iter in root_node:
+            n_iter.update_nodes_and_pbar()
+            SignalManager.calculation_finished.emit()
         
          
         
