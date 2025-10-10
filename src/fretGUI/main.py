@@ -10,6 +10,7 @@ from pathlib import Path
 from Qt import QtWidgets, QtCore
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
 from NodeGraphQt import PropertiesBinWidget
+import threading
 
 
 
@@ -23,13 +24,9 @@ def on_run_btn_clicked(graph):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
     for root_node in roots:
-        root_node.reset_iterator()
-        try:
-            while True:
-                root_node.update_nodes_and_pbar()
-        except StopIteration:
-            SignalManager().calculation_finished.emit()
-            continue
+        root_node.update_nodes_and_pbar()
+        SignalManager.calculation_finished.emit()
+        
          
         
                 

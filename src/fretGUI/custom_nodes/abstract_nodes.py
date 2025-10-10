@@ -2,6 +2,23 @@ from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
 from signal_manager import SignalManager
+from Qt.QtCore import QObject, Signal, QThread
+
+
+class NodeWorker(QObject):
+    started = Signal(int)
+    finished = Signal()
+    
+    def __init__(self, node):
+        super().__init__()
+        self.node = node
+        
+        
+    def run(self):
+        following_nodes = self.node._count_following_nodes()
+        self.started.emit(following_nodes)
+        self.node.update_nodes()
+        self.finished.emit()    
         
         
 class AbstractExecutable(BaseNode, ABC):
@@ -70,16 +87,24 @@ class AbstractRecomputable(AbstractExecutable):
         self.widget_wrappers = []   
     
     def update_nodes_and_pbar(self):
-        following_nodes = self.__count_following_nodes()
-        SignalManager().calculation_begin.emit(following_nodes)
-        self.update_nodes()
-        SignalManager().calculation_finished.emit()
+        self._update_thread = QThread()
+        self._node_worker = NodeWorker(self)
+        self._node_worker.moveToThread(self._update_thread)
+        
+        self._update_thread.started.connect(self._node_worker.run)
+        self._node_worker.finished.connect(self._update_thread.quit)
+        self._node_worker.finished.connect(self._node_worker.deleteLater)
+        self._update_thread.finished.connect(self._update_thread.deleteLater)
+        self._node_worker.started.connect(SignalManager().calculation_begin.emit)
+        self._node_worker.finished.connect(SignalManager().calculation_finished.emit)
+        
+        self._update_thread.start()
         
     def update_nodes(self):
         SignalManager().calculation_processed.emit()
         super().update_nodes()
         
-    def __count_following_nodes(self) -> int:
+    def _count_following_nodes(self) -> int:
         visited = set()
         self.__dfs(visited, self)
         return len(visited)
