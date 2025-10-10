@@ -26,7 +26,7 @@ def on_run_btn_clicked(graph):
     for root_node in roots:
         for n_iter in root_node:
             n_iter.update_nodes_and_pbar()
-            SignalManager.calculation_finished.emit()
+            # SignalManager().calculation_finished.emit()
         
          
         

@@ -15,6 +15,7 @@ class NodeWorker(QObject):
         
         
     def run(self):
+        print('RUN')
         following_nodes = self.node._count_following_nodes()
         self.started.emit(following_nodes)
         self.node.update_nodes()
@@ -78,6 +79,7 @@ class AbstractExecutable(BaseNode, ABC):
             self.data = self.execute(**combined_data)
         for next_node in self.iter_children_nodes():
             next_node.update_nodes()
+            print("UPDATED")
                         
             
 class AbstractRecomputable(AbstractExecutable):
@@ -111,6 +113,7 @@ class AbstractRecomputable(AbstractExecutable):
     
     def __dfs(self, visited, node) -> int:
         for child in node.iter_children_nodes():
+            print(child)
             if child not in visited:    
                 visited.add(child)
                 self.__dfs(visited, child)

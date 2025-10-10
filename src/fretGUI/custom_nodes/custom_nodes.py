@@ -23,39 +23,35 @@ class FileNode(AbstractRecomputable):
         selected_paths = self.file_widget.get_value()
         print(selected_paths)
         return {"filename": selected_paths[0]}
-        # if self.node_iterator is None:
-        #     self.reset_iterator()
-        # try:
-        #     next_res = next(self.node_iterator)
-        # except StopIteration as stop_exception:
-        #     self.reset_iterator()
-        #     print("STOP EXCEPTION TRIGERED")
-        #     raise stop_exception
-        # else:
-        #     return next_res
     
     def reset_iterator(self):
         self.node_iterator = iter(self.file_widget.get_value())
-    
-    
-# class FileNodeIterator(AbstractRecomputable):
-#     def __init__(self, node: FileNode):
-#         self.node = node
-#         self.node_paths = None
         
-#     def __iter__(self):
-#         self.node_paths = iter(self.node.file_widget.get_value())
-#         return self
+    def __iter__(self):
+        self.reset_iterator()
+        return self
     
-#     def __next__(self):
-#         self.res = {"filename": next(self.node_paths)}
-#         return self
+    def __next__(self):
+        try:
+            next_res = next(self.node_iterator)
+        except StopIteration as error:
+            raise error
+        else:
+            return FileNodeIterator(next_res, self)
+        
+        
+class FileNodeIterator(BaseNode):
+    def __init__(self, result, node):
+        super().__init__(None)
+        self.result = result
+        self.node = node
+        
+    def execute(self):
+        print("execute called")
+        return self.result
     
-#     def execute(self):
-#         return self.__next__()
-    
-#     def update_nodes_and_pbar(self):
-#         return super().update_nodes_and_pbar()
+    def __getattr__ (self, name):
+        return getattr(self.node, name)
 
     
 
