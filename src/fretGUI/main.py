@@ -23,9 +23,12 @@ BASE_PATH = Path(__file__).parent.resolve()
 def on_run_btn_clicked(graph):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
+    data_lock = threading.Lock()
     for root_node in roots:
         for n_iter in root_node:
+            data_lock.acquire()
             n_iter.update_nodes_and_pbar()
+            data_lock.release()
             # SignalManager().calculation_finished.emit()
         
          

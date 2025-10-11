@@ -15,11 +15,15 @@ class NodeWorker(QObject):
         
         
     def run(self):
-        print('RUN')
         following_nodes = self.node._count_following_nodes()
         self.started.emit(following_nodes)
-        self.node.update_nodes()
-        self.finished.emit()    
+        try:
+            self.node.update_nodes()
+        except Exception:
+            print("error in node worker")
+            self.finished.emit() 
+        else:
+            self.finished.emit()    
         
         
 class AbstractExecutable(BaseNode, ABC):
@@ -79,7 +83,6 @@ class AbstractExecutable(BaseNode, ABC):
             self.data = self.execute(**combined_data)
         for next_node in self.iter_children_nodes():
             next_node.update_nodes()
-            print("UPDATED")
                         
             
 class AbstractRecomputable(AbstractExecutable):

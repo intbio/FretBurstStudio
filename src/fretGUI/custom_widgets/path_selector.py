@@ -80,10 +80,10 @@ class PathSelectorWidget(QtWidgets.QWidget):
             self.update_display()
             
     def add_row_widgets(self, file_paths):
-        existing_pahts = set(self.get_paths())
+        # existing_pahts = set(self.get_paths())
         for path in file_paths:
-            if path in existing_pahts:
-                continue
+            # if path in existing_pahts:
+            #     continue
             new_row_widget = PathRowWidget(parent=self)
             new_row_widget.del_signal.connect(self.on_del_bttn_clicked)
             new_row_widget.set_text(path)
