@@ -2,13 +2,15 @@ import custom_nodes.custom_nodes as custom_nodes
 import graph_engene
 from custom_widgets.toogle_widget import IconToggleButton
 import sys
+from signal_manager import SignalManager
 
-
+from custom_widgets.progressbar_widget import ProgressBar
 import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
-from NodeGraphQt import PropertiesBinWidget, NodesTreeWidget
+from NodeGraphQt import PropertiesBinWidget
+
 
 
 
@@ -24,9 +26,9 @@ def on_run_btn_clicked(graph):
         root_node.reset_iterator()
         try:
             while True:
-                root_node.update_nodes()
+                root_node.update_nodes_and_pbar()
         except StopIteration:
-            print(root_node)
+            SignalManager().calculation_finished.emit()
             continue
          
         
@@ -90,17 +92,24 @@ def main():
     toggle_btn = IconToggleButton(parent=graph_widget)
     toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))
     
+    progress_bar = ProgressBar(parent=graph_widget)
+    SignalManager().calculation_begin.connect(progress_bar.on_calculation_begin)
+    SignalManager().calculation_finished.connect(progress_bar.on_calculation_finished)
+    SignalManager().calculation_processed.connect(progress_bar.on_calculation_processed)
+    progress_bar.show()
+
+    
     
     top_layout.addWidget(run_button)
     top_layout.addWidget(toggle_btn)
+    top_layout.addWidget(progress_bar)
     main_layout.addLayout(top_layout)
     run_button.show()
     
     
     graph_widget.resize(1100, 800)
     graph_widget.setWindowTitle("FretGUI")
-    graph_widget.show()
-    
+    graph_widget.show()  
     
     
     file_node = graph.create_node(
@@ -137,6 +146,8 @@ def main():
     
     
     graph.auto_layout_nodes()
+    graph.clear_selection()
+    graph.fit_to_selection()
         
 
     properties_bin = PropertiesBinWidget(node_graph=graph, parent=graph_widget)

@@ -13,8 +13,9 @@ class AbstractWidgetWrapper(NodeBaseWidget):
         self.wire_signals()
     
     @abstractmethod
-    def wire_signals(self, slot):
+    def wire_signals(self):
         pass
+    
     
     
 

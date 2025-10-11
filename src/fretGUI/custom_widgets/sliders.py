@@ -142,4 +142,6 @@ class SliderWidgetWrapper(AbstractWidgetWrapper):
     def wire_signals(self):
         self.slider_widget.slider.sliderReleased.connect(
             self.widget_changed_signal.emit)
+
+        
         

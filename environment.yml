@@ -1,0 +1,11 @@
+name: FBSTUDIO
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  # - python=3.11
+  - matplotlib
+  - fretbursts
+  - pip:
+    - NodeGraphQt
+    - pyside6==6.9.2

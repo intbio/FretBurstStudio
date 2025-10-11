@@ -1,6 +1,5 @@
 from Qt import QtWidgets, QtCore
-from NodeGraphQt import NodeBaseWidget
-from qtpy.QtCore import Signal
+from Qt.QtCore import Signal
 from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 
 
@@ -120,6 +119,7 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
         pass
     
     def wire_signals(self):
-        pass
+        self.path_widget.open_button.clicked.connect(
+            self.widget_changed_signal.emit)
     
     
