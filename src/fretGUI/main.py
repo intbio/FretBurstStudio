@@ -10,31 +10,25 @@ from pathlib import Path
 from Qt import QtWidgets, QtCore
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
 from NodeGraphQt import PropertiesBinWidget
-import threading
-
-
-
 
 
 
 BASE_PATH = Path(__file__).parent.resolve()
 
 
-def on_run_btn_clicked(graph):
+def on_run_btn_clicked(graph, btn):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
-    data_lock = threading.Lock()
     for root_node in roots:
         for n_iter in root_node:
-            data_lock.acquire()
-            n_iter.update_nodes_and_pbar()
-            data_lock.release()
-            # SignalManager().calculation_finished.emit()
+            try:
+                n_iter.update_nodes_and_pbar()
+            except Exception:
+                continue
+            finally:
+                SignalManager().calculation_finished.emit()
         
          
-        
-                
-                
 def on_toogle_clicked(graph, toggle_btn):
     engene = graph_engene.GraphEngene(graph)
     toggle_state = toggle_btn.text()
@@ -88,14 +82,16 @@ def main():
     
     run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
     run_button.setFixedSize(50, 50)    
-    run_button.clicked.connect(lambda: on_run_btn_clicked(graph))
+    run_button.clicked.connect(lambda: on_run_btn_clicked(graph, run_button))
     
     toggle_btn = IconToggleButton(parent=graph_widget)
     toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))
     
     progress_bar = ProgressBar(parent=graph_widget)
     SignalManager().calculation_begin.connect(progress_bar.on_calculation_begin)
+    SignalManager().calculation_begin.connect(lambda: run_button.setDisabled(True))
     SignalManager().calculation_finished.connect(progress_bar.on_calculation_finished)
+    SignalManager().calculation_finished.connect(lambda: run_button.setDisabled(False))
     SignalManager().calculation_processed.connect(progress_bar.on_calculation_processed)
     progress_bar.show()
 

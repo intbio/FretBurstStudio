@@ -13,17 +13,31 @@ class NodeWorker(QObject):
         super().__init__()
         self.node = node
         
-        
+    def __preprocess_following_nodes(self) -> int:
+        self.node.disable_all_node_widgets()
+        counter = 0
+        for next_node in self.node.dfs():
+            next_node.disable_all_node_widgets()
+            counter += 1
+        return counter
+    
+    def __enable_next_nodes_widgets(self):  
+          self.node.enable_all_node_widgets()
+          for next_node in self.node.dfs():
+              next_node.enable_all_node_widgets()
+         
     def run(self):
-        following_nodes = self.node._count_following_nodes()
-        self.started.emit(following_nodes)
+        n_next_nodes = self.__preprocess_following_nodes()
+        print(f"NODES ALL {n_next_nodes}")
+        self.started.emit(n_next_nodes)
         try:
             self.node.update_nodes()
         except Exception:
             print("error in node worker")
-            self.finished.emit() 
-        else:
-            self.finished.emit()    
+        finally:
+            self.__enable_next_nodes_widgets()
+            self.finished.emit()
+              
         
         
 class AbstractExecutable(BaseNode, ABC):
@@ -108,18 +122,17 @@ class AbstractRecomputable(AbstractExecutable):
     def update_nodes(self):
         SignalManager().calculation_processed.emit()
         super().update_nodes()
-        
-    def _count_following_nodes(self) -> int:
-        visited = set()
-        self.__dfs(visited, self)
-        return len(visited)
     
-    def __dfs(self, visited, node) -> int:
-        for child in node.iter_children_nodes():
-            print(child)
-            if child not in visited:    
-                visited.add(child)
-                self.__dfs(visited, child)
+    def dfs(self):
+        visited = set()
+        for next_node in self.__dfs(visited):
+            yield next_node
+            
+    def __dfs(self, visited):
+        for child in self.iter_children_nodes():  
+            visited.add(child)
+            yield child
+            yield from child.__dfs(visited)
     
     def add_custom_widget(self, widget, *args, **kwargs):
         if isinstance(widget, AbstractWidgetWrapper):
@@ -140,4 +153,12 @@ class AbstractRecomputable(AbstractExecutable):
             return None
         for widget_wrapper in self.widget_wrappers:
             widget_wrapper.widget_changed_signal.disconnect()
+            
+    def disable_all_node_widgets(self):
+        for widget_name, widget in self.widgets().items():
+            widget.setEnabled(False)
+
+    def enable_all_node_widgets(self):
+        for widget_name, widget in self.widgets().items():
+            widget.setEnabled(True)
         
