@@ -90,7 +90,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
             self.layout.insertWidget(0, new_row_widget)
             
     def on_del_bttn_clicked(self):
-        self.update_node_signal.emit()
+        print(self.get_paths())
             
     def update_display(self):
         self.adjustSize()

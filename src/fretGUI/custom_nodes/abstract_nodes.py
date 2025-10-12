@@ -2,6 +2,42 @@ from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
 from signal_manager import SignalManager
+from Qt.QtCore import QObject, Signal, QThread
+
+
+class NodeWorker(QObject):
+    started = Signal(int)
+    finished = Signal()
+    
+    def __init__(self, node):
+        super().__init__()
+        self.node = node
+        
+    def __preprocess_following_nodes(self) -> int:
+        self.node.disable_all_node_widgets()
+        counter = 0
+        for next_node in self.node.dfs():
+            next_node.disable_all_node_widgets()
+            counter += 1
+        return counter
+    
+    def __enable_next_nodes_widgets(self):  
+          self.node.enable_all_node_widgets()
+          for next_node in self.node.dfs():
+              next_node.enable_all_node_widgets()
+         
+    def run(self):
+        n_next_nodes = self.__preprocess_following_nodes()
+        print(f"NODES ALL {n_next_nodes}")
+        self.started.emit(n_next_nodes)
+        try:
+            self.node.update_nodes()
+        except Exception:
+            print("error in node worker")
+        finally:
+            self.__enable_next_nodes_widgets()
+            self.finished.emit()
+              
         
         
 class AbstractExecutable(BaseNode, ABC):
@@ -70,25 +106,33 @@ class AbstractRecomputable(AbstractExecutable):
         self.widget_wrappers = []   
     
     def update_nodes_and_pbar(self):
-        following_nodes = self.__count_following_nodes()
-        SignalManager().calculation_begin.emit(following_nodes)
-        self.update_nodes()
-        SignalManager().calculation_finished.emit()
+        self._update_thread = QThread()
+        self._node_worker = NodeWorker(self)
+        self._node_worker.moveToThread(self._update_thread)
+        
+        self._update_thread.started.connect(self._node_worker.run)
+        self._node_worker.finished.connect(self._update_thread.quit)
+        self._node_worker.finished.connect(self._node_worker.deleteLater)
+        self._update_thread.finished.connect(self._update_thread.deleteLater)
+        self._node_worker.started.connect(SignalManager().calculation_begin.emit)
+        self._node_worker.finished.connect(SignalManager().calculation_finished.emit)
+        
+        self._update_thread.start()
         
     def update_nodes(self):
         SignalManager().calculation_processed.emit()
         super().update_nodes()
-        
-    def __count_following_nodes(self) -> int:
-        visited = set()
-        self.__dfs(visited, self)
-        return len(visited)
     
-    def __dfs(self, visited, node) -> int:
-        for child in node.iter_children_nodes():
-            if child not in visited:    
-                visited.add(child)
-                self.__dfs(visited, child)
+    def dfs(self):
+        visited = set()
+        for next_node in self.__dfs(visited):
+            yield next_node
+            
+    def __dfs(self, visited):
+        for child in self.iter_children_nodes():  
+            visited.add(child)
+            yield child
+            yield from child.__dfs(visited)
     
     def add_custom_widget(self, widget, *args, **kwargs):
         if isinstance(widget, AbstractWidgetWrapper):
@@ -109,4 +153,12 @@ class AbstractRecomputable(AbstractExecutable):
             return None
         for widget_wrapper in self.widget_wrappers:
             widget_wrapper.widget_changed_signal.disconnect()
+            
+    def disable_all_node_widgets(self):
+        for widget_name, widget in self.widgets().items():
+            widget.setEnabled(False)
+
+    def enable_all_node_widgets(self):
+        for widget_name, widget in self.widgets().items():
+            widget.setEnabled(True)
         
