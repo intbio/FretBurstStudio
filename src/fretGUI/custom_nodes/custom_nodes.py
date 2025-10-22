@@ -3,6 +3,10 @@ from custom_nodes.abstract_nodes import AbstractRecomputable
 import fretbursts
 from node_builder import NodeBuilder
 from NodeGraphQt import BaseNode
+import uuid
+from fbs_data import FBSData
+from fretbursts.burstlib import Data
+from collections import Counter
                 
              
 class FileNode(AbstractRecomputable):
@@ -18,42 +22,37 @@ class FileNode(AbstractRecomputable):
 
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
         self.add_custom_widget(self.file_widget, tab='Custom')  
-
-    def execute(self, *args, **kwargs) -> dict:
+        
+    def execute(self, data: dict) -> dict:
+        print("AAA")
         selected_paths = self.file_widget.get_value()
-        print(selected_paths)
-        return {"filename": selected_paths[0]}
+        selected_counts = Counter(selected_paths)
+        used_counts = Counter(list(data.values()))
+        for selected_path, n in selected_counts.items():
+            if used_counts[selected_path] < n:
+                print("ADD")
+                self.__add_new_data(data, selected_path, n - used_counts[selected_path])
+            elif used_counts[selected_path] > n:
+                print("REMOVE")
+                self.__remove_data(data, selected_path, used_counts[selected_path] - n)
+        print("RES", data)
+        return data
+                
+    def __add_new_data(self, data: dict, path, repeats: int):
+        for _ in range(repeats):
+            new_uuid = uuid.uuid4()
+            new_fbsdata = FBSData()
+            new_fbsdata['path'] = path
+            data[new_uuid] = new_fbsdata
+        return data
     
-    def reset_iterator(self):
-        self.node_iterator = iter(self.file_widget.get_value())
-        
-    def __iter__(self):
-        self.reset_iterator()
-        return self
-    
-    def __next__(self):
-        try:
-            next_res = next(self.node_iterator)
-        except StopIteration as error:
-            raise error
-        else:
-            return FileNodeIterator(next_res, self)
-        
-        
-class FileNodeIterator(BaseNode):
-    def __init__(self, result, node):
-        super().__init__(None)
-        self.result = result
-        self.node = node
-        
-    def execute(self):
-        print("execute called")
-        return self.result
-    
-    def __getattr__ (self, name):
-        return getattr(self.node, name)
-
-    
+    def __remove_data(self, data, del_path, amount):
+        for uuid, path in data.items():
+            if path == del_path:
+                data.pop(uuid)
+                amount -= 1
+                if amount == 0:
+                    return 
 
 class PhotonNode(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
@@ -61,14 +60,15 @@ class PhotonNode(AbstractRecomputable):
     
     def __init__(self):
         super().__init__() 
-        self.add_input('inport')
-        self.add_output('outport')
-        
-    def __open_hdf5(self, hdf5_path: str):
-        return fretbursts.loader.photon_hdf5(hdf5_path)
+        self.add_input('inport', multi_input=True)
+        self.add_output('outport')      
     
-    def execute(self, filename: str, *args, **kwargs) -> dict:
-        return {'fbdata': self.__open_hdf5(filename)}
+    # @FBSData.execution_trace
+    def execute(self, data: FBSData) -> FBSData:
+        fb_data = fretbursts.loader.photon_hdf5(data['path'])
+        data.data = fb_data
+        return data
+
         
     
 class AlexNode(AbstractRecomputable):
@@ -78,14 +78,12 @@ class AlexNode(AbstractRecomputable):
     def __init__(self):
         super().__init__()
         self.add_input('inport')
-        self.add_output('outport')
-        
-    def __alex_apply_period(self, fbdata: str):
-        return fretbursts.loader.alex_apply_period(fbdata)
-
-    def execute(self, fbdata: str, *args, **kwargs):
-        self.__alex_apply_period(fbdata)
-        return {'fbdata': fbdata}
+        self.add_output('outport')        
+    
+    # @FBSData.execution_trace
+    def execute(self, fbdata: FBSData) -> dict:
+        fretbursts.loader.alex_apply_period(fbdata.data)
+        return fbdata
     
     
 class CalcBGNode(AbstractRecomputable):
@@ -102,11 +100,12 @@ class CalcBGNode(AbstractRecomputable):
         self.tail_slider = node_builder.build_int_slider('tail_min_us', [0, 1000, 100], 300)
         
     def __calc_bg(self, d, time_s, tail_min_us):
-        return d.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
-        
-    def execute(self, fbdata: str, *args, **kwargs):
-        self.__calc_bg(fbdata, self.time_s_slider.get_value(), self.tail_slider.get_value())
-        return {'fbdata': fbdata}
+        d.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
+    
+    # @FBSData.execution_trace
+    def execute(self, fbdata: FBSData):
+        self.__calc_bg(fbdata.data, self.time_s_slider.get_value(), self.tail_slider.get_value())
+        return fbdata
     
     
 class BurstSearchNodde(AbstractRecomputable):
@@ -123,10 +122,11 @@ class BurstSearchNodde(AbstractRecomputable):
         
     def __burst_search(self, fbdata: str, min_rate_cps):
         return fbdata.burst_search(min_rate_cps)
-        
-    def execute(self, fbdata: str, *args, **kwargs):
-        self.__burst_search(fbdata, self.int_slider.get_value())
-        return {'fbdata': fbdata}
+    
+    # @FBSData.execution_trace    
+    def execute(self, fbdata: FBSData):
+        self.__burst_search(fbdata.data, self.int_slider.get_value())
+        return fbdata
     
     
 class BurstSelectorNode(AbstractRecomputable):
@@ -144,9 +144,10 @@ class BurstSelectorNode(AbstractRecomputable):
     def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
         return fbdata.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
     
-    def execute(self, fbdata: str, *args, **kwargs):
-        ds = self.__select_bursts(fbdata, True, self.get_widget('th1').get_value())
-        return {"fbdata": ds}
+    # @FBSData.execution_trace
+    def execute(self, fbdata: FBSData):
+        ds = self.__select_bursts(fbdata.data, True, self.get_widget('th1').get_value())
+        return ds
     
     
 class BGPlotterNode(AbstractRecomputable):
@@ -170,10 +171,11 @@ class BGPlotterNode(AbstractRecomputable):
         fretbursts.dplot(fretData, fretbursts.hist_bg, show_fit=True, ax=ax1)   
         fretbursts.dplot(fretData, fretbursts.timetrace_bg, ax=ax2)
         plot_widget.canvas.draw()
-        
-    def execute(self, fbdata: str, *args, **kwargs):
-        self.__update_plot(fbdata)
-        return {'fbdata': fbdata}
+      
+    # @FBSData.execution_trace  
+    def execute(self, fbdata: FBSData):
+        self.__update_plot(fbdata.data)
+        return fbdata
     
     
         

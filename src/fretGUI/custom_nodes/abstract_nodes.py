@@ -3,6 +3,7 @@ from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
 from signal_manager import SignalManager
 from Qt.QtCore import QObject, Signal, QThread
+from fbs_data import FBSData
 
 
 class NodeWorker(QObject):
@@ -28,12 +29,11 @@ class NodeWorker(QObject):
          
     def run(self):
         n_next_nodes = self.__preprocess_following_nodes()
-        print(f"NODES ALL {n_next_nodes}")
         self.started.emit(n_next_nodes)
         try:
             self.node.update_nodes()
-        except Exception:
-            print("error in node worker")
+        except Exception as error:
+            print(error)
         finally:
             self.__enable_next_nodes_widgets()
             self.finished.emit()
@@ -43,7 +43,7 @@ class NodeWorker(QObject):
 class AbstractExecutable(BaseNode, ABC):
     def __init__(self):
         BaseNode.__init__(self)
-        self.__data = None
+        self.__data = dict()
 
     @property
     def data(self):
@@ -53,17 +53,34 @@ class AbstractExecutable(BaseNode, ABC):
     def data(self, new_data: dict):
         self.__data = new_data
         
-    @abstractmethod
-    def execute(self, *args, **kwargs) -> dict:
+    @abstractmethod    
+    def execute(self, data: FBSData) -> FBSData:
         pass
+    
+    def execute_many(self, data_container: dict) -> dict:
+        for uid, data in data_container.items():
+            data_container[uid] = self.execute(data)
+        return data_container
+            
+    def update_nodes(self):
+        if self.is_root():
+            self.data = self.execute(self.data)
+        else:
+            combined_data = dict()
+            for parent in self.iter_parent_nodes():
+                parent_data = parent.get_data()
+                combined_data.update(parent_data)
+            self.data = self.execute_many(combined_data)
+        for next_node in self.iter_children_nodes():
+            next_node.update_nodes()
         
     def is_root(self) -> bool:
         return len(self.input_ports()) == 0
         
-    def get_data(self) -> dict:
+    def get_data(self):
         if self.data is None:
             if self.is_root():
-                self.data = self.execute()
+                self.data = self.execute(self.data)
             else:
                 combined_data = {}
                 for parent in self.iter_parent_nodes():
@@ -85,18 +102,6 @@ class AbstractExecutable(BaseNode, ABC):
             for connected_port in connected_ports:
                 connected_node = connected_port.node()
                 yield connected_node
-        
-    def update_nodes(self):
-        if self.is_root():
-            self.data = self.execute()
-        else:
-            combined_data = {}
-            for parent in self.iter_parent_nodes():
-                parent_data = parent.get_data()
-                combined_data.update(parent_data)
-            self.data = self.execute(**combined_data)
-        for next_node in self.iter_children_nodes():
-            next_node.update_nodes()
                         
             
 class AbstractRecomputable(AbstractExecutable):
@@ -119,9 +124,9 @@ class AbstractRecomputable(AbstractExecutable):
         
         self._update_thread.start()
         
-    def update_nodes(self):
+    def update_nodes(self, *args, **kwargs):
         SignalManager().calculation_processed.emit()
-        super().update_nodes()
+        super().update_nodes(*args, **kwargs)
     
     def dfs(self):
         visited = set()
@@ -137,7 +142,7 @@ class AbstractRecomputable(AbstractExecutable):
     def add_custom_widget(self, widget, *args, **kwargs):
         if isinstance(widget, AbstractWidgetWrapper):
                         
-            widget.widget_changed_signal.connect(self.update_nodes_and_pbar)
+            widget.widget_changed_signal.connect(self.update_nodes)
             self.widget_wrappers.append(widget)
             
         super().add_custom_widget(widget, *args, **kwargs)

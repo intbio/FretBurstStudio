@@ -20,13 +20,8 @@ def on_run_btn_clicked(graph, btn):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
     for root_node in roots:
-        for n_iter in root_node:
-            try:
-                n_iter.update_nodes_and_pbar()
-            except Exception:
-                continue
-            finally:
-                SignalManager().calculation_finished.emit()
+            root_node.update_nodes_and_pbar()
+            SignalManager().calculation_finished.emit()
         
          
 def on_toogle_clicked(graph, toggle_btn):
