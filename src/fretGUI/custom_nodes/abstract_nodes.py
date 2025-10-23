@@ -142,7 +142,7 @@ class AbstractRecomputable(AbstractExecutable):
     def add_custom_widget(self, widget, *args, **kwargs):
         if isinstance(widget, AbstractWidgetWrapper):
                         
-            widget.widget_changed_signal.connect(self.update_nodes)
+            widget.widget_changed_signal.connect(self.update_nodes_and_pbar)
             self.widget_wrappers.append(widget)
             
         super().add_custom_widget(widget, *args, **kwargs)

@@ -19,8 +19,8 @@ class FBSData(dict):
         self.__data = data if data else Data()
         self.__call_counter = 0
         
-    def __hash__(self):
-        return FBSData.__hash_arguments(self)
+    # def __hash__(self):
+    #     return FBSData.__hash_arguments(self)
 
     @property
     def history(self):

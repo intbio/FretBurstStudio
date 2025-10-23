@@ -24,10 +24,10 @@ class FileNode(AbstractRecomputable):
         self.add_custom_widget(self.file_widget, tab='Custom')  
         
     def execute(self, data: dict) -> dict:
-        print("AAA")
+        print("AAA", data)
         selected_paths = self.file_widget.get_value()
         selected_counts = Counter(selected_paths)
-        used_counts = Counter(list(data.values()))
+        used_counts = Counter(list(map(lambda x: x['path'], list(data.values()))))
         for selected_path, n in selected_counts.items():
             if used_counts[selected_path] < n:
                 print("ADD")
@@ -44,15 +44,19 @@ class FileNode(AbstractRecomputable):
             new_fbsdata = FBSData()
             new_fbsdata['path'] = path
             data[new_uuid] = new_fbsdata
-        return data
     
     def __remove_data(self, data, del_path, amount):
-        for uuid, path in data.items():
+        keys_to_remove = []
+        for uuid, cur_fbdata in data.items():
+            path = cur_fbdata['path']
             if path == del_path:
-                data.pop(uuid)
+                keys_to_remove.append(uuid)
                 amount -= 1
                 if amount == 0:
-                    return 
+                    break
+        
+        for uuid in keys_to_remove:
+            data.pop(uuid)
 
 class PhotonNode(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
