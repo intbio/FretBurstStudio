@@ -24,18 +24,14 @@ class FileNode(AbstractRecomputable):
         self.add_custom_widget(self.file_widget, tab='Custom')  
         
     def execute(self, data: dict) -> dict:
-        print("AAA", data)
         selected_paths = self.file_widget.get_value()
         selected_counts = Counter(selected_paths)
         used_counts = Counter(list(map(lambda x: x['path'], list(data.values()))))
         for selected_path, n in selected_counts.items():
             if used_counts[selected_path] < n:
-                print("ADD")
                 self.__add_new_data(data, selected_path, n - used_counts[selected_path])
             elif used_counts[selected_path] > n:
-                print("REMOVE")
                 self.__remove_data(data, selected_path, used_counts[selected_path] - n)
-        print("RES", data)
         return data
                 
     def __add_new_data(self, data: dict, path, repeats: int):
@@ -67,7 +63,6 @@ class PhotonNode(AbstractRecomputable):
         self.add_input('inport', multi_input=True)
         self.add_output('outport')      
     
-    # @FBSData.execution_trace
     def execute(self, data: FBSData) -> FBSData:
         fb_data = fretbursts.loader.photon_hdf5(data['path'])
         data.data = fb_data
@@ -84,7 +79,6 @@ class AlexNode(AbstractRecomputable):
         self.add_input('inport')
         self.add_output('outport')        
     
-    # @FBSData.execution_trace
     def execute(self, fbdata: FBSData) -> dict:
         fretbursts.loader.alex_apply_period(fbdata.data)
         return fbdata
@@ -103,12 +97,11 @@ class CalcBGNode(AbstractRecomputable):
         self.time_s_slider = node_builder.build_int_slider('time_s', [1000, 2000, 100])
         self.tail_slider = node_builder.build_int_slider('tail_min_us', [0, 1000, 100], 300)
         
-    def __calc_bg(self, d, time_s, tail_min_us):
-        d.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
+    def __calc_bg(self, data, time_s, tail_min_us):
+        data.data.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
     
-    # @FBSData.execution_trace
     def execute(self, fbdata: FBSData):
-        self.__calc_bg(fbdata.data, self.time_s_slider.get_value(), self.tail_slider.get_value())
+        self.__calc_bg(fbdata, self.time_s_slider.get_value(), self.tail_slider.get_value())
         return fbdata
     
     
@@ -125,11 +118,10 @@ class BurstSearchNodde(AbstractRecomputable):
         self.int_slider = node_builder.build_int_slider('min_rate_cps', [5000, 20000, 1000], 8000)
         
     def __burst_search(self, fbdata: str, min_rate_cps):
-        return fbdata.burst_search(min_rate_cps)
-    
-    # @FBSData.execution_trace    
+        fbdata.data.burst_search(min_rate_cps)
+       
     def execute(self, fbdata: FBSData):
-        self.__burst_search(fbdata.data, self.int_slider.get_value())
+        self.__burst_search(fbdata, self.int_slider.get_value())
         return fbdata
     
     
@@ -146,12 +138,11 @@ class BurstSelectorNode(AbstractRecomputable):
         self.int_slider = node_builder.build_int_slider('th1', [0, 100, 10], 40)
         
     def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
-        return fbdata.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
+        fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
     
-    # @FBSData.execution_trace
     def execute(self, fbdata: FBSData):
-        ds = self.__select_bursts(fbdata.data, True, self.get_widget('th1').get_value())
-        return ds
+        self.__select_bursts(fbdata, True, self.get_widget('th1').get_value())
+        return fbdata
     
     
 class BGPlotterNode(AbstractRecomputable):
@@ -176,8 +167,8 @@ class BGPlotterNode(AbstractRecomputable):
         fretbursts.dplot(fretData, fretbursts.timetrace_bg, ax=ax2)
         plot_widget.canvas.draw()
       
-    # @FBSData.execution_trace  
     def execute(self, fbdata: FBSData):
+        print("PLOTTER EXECUTION")
         self.__update_plot(fbdata.data)
         return fbdata
     
