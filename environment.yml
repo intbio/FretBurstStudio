@@ -3,9 +3,11 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  # - python=3.11
+  # - python=3.12
   - matplotlib
   - fretbursts
+  - Qt.py >= 1.4.1
+  - PySide6 >= 6.0
+  - NumPy < 2.0.0
   - pip:
     - NodeGraphQt
-    - pyside6==6.9.2

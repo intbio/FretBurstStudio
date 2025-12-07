@@ -2,12 +2,16 @@ import custom_nodes.custom_nodes as custom_nodes
 import graph_engene
 from custom_widgets.toogle_widget import IconToggleButton
 import sys
-from signal_manager import SignalManager
+from signal_manager import ThreadSignalManager
 
 from custom_widgets.progressbar_widget import ProgressBar
+from custom_nodes.custom_nodes import FileNode
+from custom_nodes.abstract_nodes import NodeWorker
+
 import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore
+from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
 from NodeGraphQt import PropertiesBinWidget
 
@@ -19,9 +23,11 @@ BASE_PATH = Path(__file__).parent.resolve()
 def on_run_btn_clicked(graph, btn):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
+    pool = QThreadPool.globalInstance()
     for root_node in roots:
-            root_node.update_nodes_and_pbar()
-            SignalManager().calculation_finished.emit()
+        new_worker = NodeWorker(root_node)
+        pool.start(new_worker)
+            
         
          
 def on_toogle_clicked(graph, toggle_btn):
@@ -83,11 +89,11 @@ def main():
     toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))
     
     progress_bar = ProgressBar(parent=graph_widget)
-    SignalManager().calculation_begin.connect(progress_bar.on_calculation_begin)
-    SignalManager().calculation_begin.connect(lambda: run_button.setDisabled(True))
-    SignalManager().calculation_finished.connect(progress_bar.on_calculation_finished)
-    SignalManager().calculation_finished.connect(lambda: run_button.setDisabled(False))
-    SignalManager().calculation_processed.connect(progress_bar.on_calculation_processed)
+    ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
+    # SignalManager().calculation_begin.connect(lambda: run_button.setDisabled(True))
+    # SignalManager().calculation_finished.connect(progress_bar.on_calculation_finished)
+    # SignalManager().calculation_finished.connect(lambda: run_button.setDisabled(False))
+    # SignalManager().calculation_processed.connect(progress_bar.on_calculation_processed)
     progress_bar.show()
 
     

@@ -21,7 +21,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self.figure = plt.figure(facecolor=highlightColor)
         self.canvas = FigureCanvas(self.figure)
         
-        self.toolbar = NavigationToolbar(self.canvas, self)
+        self.toolbar = NavigationToolbar(self.canvas)
         self.mainLayout.addWidget(self.canvas)
         self.mainLayout.addWidget(self.toolbar)
     

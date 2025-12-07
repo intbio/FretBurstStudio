@@ -12,9 +12,14 @@ class SingletonMeta(type(QObject)):
         return cls._instances[cls]
     
     
-class SignalManager(QObject, metaclass=SingletonMeta):
+class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     _instance = None
-    calculation_begin = Signal(int)
-    calculation_finished = Signal()
-    calculation_processed = Signal()
+    thread_started = Signal(str)
+    thread_finished = Signal(str)
+    thread_progress = Signal(str)
+    thread_error = Signal(str)
+    
+
+
+    
     
