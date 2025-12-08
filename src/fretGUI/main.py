@@ -5,7 +5,7 @@ import sys
 from singletons import ThreadSignalManager
 
 from custom_widgets.progressbar_widget import ProgressBar
-from custom_nodes.custom_nodes import FileNode
+from custom_nodes.custom_nodes import PhHDF5Node
 from custom_nodes.abstract_nodes import NodeWorker
 
 import signal
@@ -71,7 +71,7 @@ def main():
     # registered example nodes.
     graph.register_nodes(
         [
-            custom_nodes.FileNode,    
+            custom_nodes.PhHDF5Node,    
             # custom_nodes.PhotonNode,     
             custom_nodes.AlexNode,
             custom_nodes.CalcBGNode,
@@ -115,7 +115,7 @@ def main():
     
     
     file_node = graph.create_node(
-        'nodes.custom.FileNode', text_color='#feab20')
+        'nodes.custom.PhHDF5Node', text_color='#feab20')
     file_node.set_disabled(False)
     
     # photon_node = graph.create_node(

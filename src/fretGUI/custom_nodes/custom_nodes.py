@@ -9,10 +9,10 @@ from collections import Counter
 from singletons import FBSDataCash
 
              
-class FileNode(AbstractRecomputable):
+class PhHDF5Node(AbstractRecomputable):
 
     __identifier__ = 'nodes.custom'
-    NODE_NAME  = 'FileSelector'
+    NODE_NAME  = 'PhHDF5Node'
 
     def __init__(self):
         super().__init__() 
@@ -55,19 +55,19 @@ class FileNode(AbstractRecomputable):
     #     for uuid in keys_to_remove:
     #         data.pop(uuid)
 
-class PhotonNode(AbstractRecomputable):
-    __identifier__ = 'nodes.custom'
-    NODE_NAME = 'PhotonNode'
+# class PhotonNode(AbstractRecomputable):
+#     __identifier__ = 'nodes.custom'
+#     NODE_NAME = 'PhotonNode'
     
-    def __init__(self):
-        super().__init__() 
-        self.add_input('inport', multi_input=True)
-        self.add_output('outport')      
+#     def __init__(self):
+#         super().__init__() 
+#         self.add_input('inport', multi_input=True)
+#         self.add_output('outport')      
     
-    def execute(self, fbsdata: FBSData) -> FBSData:
-        fb_data = fretbursts.loader.photon_hdf5(fbsdata.path)
-        fbsdata.data = fb_data
-        return [fbsdata]
+#     def execute(self, fbsdata: FBSData) -> FBSData:
+#         fb_data = fretbursts.loader.photon_hdf5(fbsdata.path)
+#         fbsdata.data = fb_data
+#         return [fbsdata]
     
         
     
