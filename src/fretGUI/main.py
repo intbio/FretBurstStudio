@@ -5,7 +5,7 @@ import sys
 from singletons import ThreadSignalManager
 
 from custom_widgets.progressbar_widget import ProgressBar
-from custom_nodes.custom_nodes import FileNode
+from custom_nodes.custom_nodes import PhHDF5Node
 from custom_nodes.abstract_nodes import NodeWorker
 
 import signal
@@ -26,6 +26,8 @@ def on_run_btn_clicked(graph, btn):
     pool = QThreadPool.globalInstance()
     for root_node in roots:
         new_worker = NodeWorker(root_node)
+        # new_worker.started.connect(ThreadSignalManager().thread_started.emit)
+        # new_worker.finished.connect(ThreadSignalManager().thread_finished.emit)
         pool.start(new_worker)
             
         
@@ -69,8 +71,8 @@ def main():
     # registered example nodes.
     graph.register_nodes(
         [
-            custom_nodes.FileNode,    
-            custom_nodes.PhotonNode,     
+            custom_nodes.PhHDF5Node,    
+            # custom_nodes.PhotonNode,     
             custom_nodes.AlexNode,
             custom_nodes.CalcBGNode,
             custom_nodes.BurstSearchNodde,
@@ -90,10 +92,12 @@ def main():
     
     progress_bar = ProgressBar(parent=graph_widget)
     ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
-    # SignalManager().calculation_begin.connect(lambda: run_button.setDisabled(True))
-    # SignalManager().calculation_finished.connect(progress_bar.on_calculation_finished)
-    # SignalManager().calculation_finished.connect(lambda: run_button.setDisabled(False))
-    # SignalManager().calculation_processed.connect(progress_bar.on_calculation_processed)
+    ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
+    ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
+    # ThreadSignalManager().calculation_begin.connect(lambda: run_button.setDisabled(True))
+    # ThreadSignalManager().calculation_finished.connect(progress_bar.on_calculation_finished)
+    # ThreadSignalManager().calculation_finished.connect(lambda: run_button.setDisabled(False))
+    # ThreadSignalManager().calculation_processed.connect(progress_bar.on_calculation_processed)
     progress_bar.show()
 
     
@@ -111,12 +115,12 @@ def main():
     
     
     file_node = graph.create_node(
-        'nodes.custom.FileNode', text_color='#feab20')
+        'nodes.custom.PhHDF5Node', text_color='#feab20')
     file_node.set_disabled(False)
     
-    photon_node = graph.create_node(
-        'nodes.custom.PhotonNode', text_color='#feab20')
-    photon_node.set_disabled(False)
+    # photon_node = graph.create_node(
+    #     'nodes.custom.PhotonNode', text_color='#feab20')
+    # photon_node.set_disabled(False)
     
     alex_node = graph.create_node(
         'nodes.custom.AlexNode', text_color='#feab20')
@@ -136,8 +140,8 @@ def main():
     
 
     
-    file_node.set_output(0, photon_node.input(0))
-    photon_node.set_output(0, alex_node.input(0))
+    file_node.set_output(0, alex_node.input(0))
+    # photon_node.set_output(0, alex_node.input(0))
     alex_node.set_output(0, calc_bgnode.input(0))
     calc_bgnode.set_output(0, search_node.input(0))
     search_node.set_output(0, plot_node.input(0))

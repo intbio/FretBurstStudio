@@ -19,17 +19,14 @@ class SingletonMeta(type(QObject)):
     
     
 class ThreadSignalManager(QObject, metaclass=SingletonMeta):
-    _instance = None
-    thread_started = Signal(str)
+    thread_started = Signal((str, int))
     thread_finished = Signal(str)
     thread_progress = Signal(str)
     thread_error = Signal(str)
     
     
 class FBSDataCash(metaclass=SingletonMeta):
-    _instance = None
-    
-    def __init__(self, max_size=5):
+    def __init__(self, max_size=30):
         self.__max_size = max_size
         self.__table = dict()
         self.__time_q = queue.PriorityQueue()
@@ -42,7 +39,6 @@ class FBSDataCash(metaclass=SingletonMeta):
     def fbscash(self, foo):
         def wrapper(node, fbsdata, *args, **kwargs):
             with QMutexLocker(self.mutex):
-                print(self.size, self.__table)
                 hash = self.__make_hash(node, fbsdata)
                 if hash in self.__table:
                     new_fbsdata = self.get_datacopy(hash, node, fbsdata)
