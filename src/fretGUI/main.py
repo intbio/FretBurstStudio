@@ -72,7 +72,7 @@ def main():
     graph.register_nodes(
         [
             custom_nodes.FileNode,    
-            custom_nodes.PhotonNode,     
+            # custom_nodes.PhotonNode,     
             custom_nodes.AlexNode,
             custom_nodes.CalcBGNode,
             custom_nodes.BurstSearchNodde,
@@ -118,9 +118,9 @@ def main():
         'nodes.custom.FileNode', text_color='#feab20')
     file_node.set_disabled(False)
     
-    photon_node = graph.create_node(
-        'nodes.custom.PhotonNode', text_color='#feab20')
-    photon_node.set_disabled(False)
+    # photon_node = graph.create_node(
+    #     'nodes.custom.PhotonNode', text_color='#feab20')
+    # photon_node.set_disabled(False)
     
     alex_node = graph.create_node(
         'nodes.custom.AlexNode', text_color='#feab20')
@@ -140,8 +140,8 @@ def main():
     
 
     
-    file_node.set_output(0, photon_node.input(0))
-    photon_node.set_output(0, alex_node.input(0))
+    file_node.set_output(0, alex_node.input(0))
+    # photon_node.set_output(0, alex_node.input(0))
     alex_node.set_output(0, calc_bgnode.input(0))
     calc_bgnode.set_output(0, search_node.input(0))
     search_node.set_output(0, plot_node.input(0))

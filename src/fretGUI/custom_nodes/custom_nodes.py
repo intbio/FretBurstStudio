@@ -25,28 +25,35 @@ class FileNode(AbstractRecomputable):
         
     def execute(self, data=None) -> FBSData:
         selected_paths = self.file_widget.get_value()
-        data_list = [FBSData(path=cur_path) for cur_path in selected_paths]
+        data_list = [self.__load_photon_hdf5(
+            FBSData(path=cur_path))
+                     for cur_path in selected_paths]
         return data_list
-                
-    def __add_new_data(self, data: dict, path, repeats: int):
-        for _ in range(repeats):
-            new_uuid = uuid.uuid4()
-            new_fbsdata = FBSData()
-            new_fbsdata['path'] = path
-            data[new_uuid] = new_fbsdata
     
-    def __remove_data(self, data, del_path, amount):
-        keys_to_remove = []
-        for uuid, cur_fbdata in data.items():
-            path = cur_fbdata['path']
-            if path == del_path:
-                keys_to_remove.append(uuid)
-                amount -= 1
-                if amount == 0:
-                    break
+    def __load_photon_hdf5(self, fbsdata: FBSData):
+        data = fretbursts.loader.photon_hdf5(fbsdata.path)
+        fbsdata.data = data
+        return fbsdata
+                
+    # def __add_new_data(self, data: dict, path, repeats: int):
+    #     for _ in range(repeats):
+    #         new_uuid = uuid.uuid4()
+    #         new_fbsdata = FBSData()
+    #         new_fbsdata['path'] = path
+    #         data[new_uuid] = new_fbsdata
+    
+    # def __remove_data(self, data, del_path, amount):
+    #     keys_to_remove = []
+    #     for uuid, cur_fbdata in data.items():
+    #         path = cur_fbdata['path']
+    #         if path == del_path:
+    #             keys_to_remove.append(uuid)
+    #             amount -= 1
+    #             if amount == 0:
+    #                 break
         
-        for uuid in keys_to_remove:
-            data.pop(uuid)
+    #     for uuid in keys_to_remove:
+    #         data.pop(uuid)
 
 class PhotonNode(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
@@ -61,6 +68,7 @@ class PhotonNode(AbstractRecomputable):
         fb_data = fretbursts.loader.photon_hdf5(fbsdata.path)
         fbsdata.data = fb_data
         return [fbsdata]
+    
         
     
 class AlexNode(AbstractRecomputable):
