@@ -27,17 +27,6 @@ class FileNode(AbstractRecomputable):
         selected_paths = self.file_widget.get_value()
         data_list = [FBSData(path=cur_path) for cur_path in selected_paths]
         return data_list
-        
-        
-        # selected_paths = self.file_widget.get_value()
-        # selected_counts = Counter(selected_paths)
-        # used_counts = Counter(list(map(lambda x: x['path'], list(data.values()))))
-        # for selected_path, n in selected_counts.items():
-        #     if used_counts[selected_path] < n:
-        #         self.__add_new_data(data, selected_path, n - used_counts[selected_path])
-        #     elif used_counts[selected_path] > n:
-        #         self.__remove_data(data, selected_path, used_counts[selected_path] - n)
-        # return data
                 
     def __add_new_data(self, data: dict, path, repeats: int):
         for _ in range(repeats):
