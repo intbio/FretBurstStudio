@@ -23,7 +23,7 @@ class PhHDF5Node(AbstractRecomputable):
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
         self.add_custom_widget(self.file_widget, tab='Custom')  
         
-    def execute(self, data=None) -> FBSData:
+    def execute(self, data=None) -> list[FBSData]:
         selected_paths = self.file_widget.get_value()
         data_list = [self.__load_photon_hdf5(
             FBSData(path=cur_path))
@@ -33,42 +33,7 @@ class PhHDF5Node(AbstractRecomputable):
     def __load_photon_hdf5(self, fbsdata: FBSData):
         data = fretbursts.loader.photon_hdf5(fbsdata.path)
         fbsdata.data = data
-        return fbsdata
-                
-    # def __add_new_data(self, data: dict, path, repeats: int):
-    #     for _ in range(repeats):
-    #         new_uuid = uuid.uuid4()
-    #         new_fbsdata = FBSData()
-    #         new_fbsdata['path'] = path
-    #         data[new_uuid] = new_fbsdata
-    
-    # def __remove_data(self, data, del_path, amount):
-    #     keys_to_remove = []
-    #     for uuid, cur_fbdata in data.items():
-    #         path = cur_fbdata['path']
-    #         if path == del_path:
-    #             keys_to_remove.append(uuid)
-    #             amount -= 1
-    #             if amount == 0:
-    #                 break
-        
-    #     for uuid in keys_to_remove:
-    #         data.pop(uuid)
-
-# class PhotonNode(AbstractRecomputable):
-#     __identifier__ = 'nodes.custom'
-#     NODE_NAME = 'PhotonNode'
-    
-#     def __init__(self):
-#         super().__init__() 
-#         self.add_input('inport', multi_input=True)
-#         self.add_output('outport')      
-    
-#     def execute(self, fbsdata: FBSData) -> FBSData:
-#         fb_data = fretbursts.loader.photon_hdf5(fbsdata.path)
-#         fbsdata.data = fb_data
-#         return [fbsdata]
-    
+        return fbsdata   
         
     
 class AlexNode(AbstractRecomputable):
@@ -81,7 +46,7 @@ class AlexNode(AbstractRecomputable):
         self.add_output('outport')        
     
     @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
+    def execute(self, fbsdata: FBSData) -> list[FBSData]:
         fretbursts.loader.alex_apply_period(fbsdata.data, False)
         return [fbsdata]
     
@@ -103,7 +68,7 @@ class CalcBGNode(AbstractRecomputable):
         data.data.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
     
     @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
+    def execute(self, fbsdata: FBSData) -> list[FBSData]:
         self.__calc_bg(fbsdata, self.time_s_slider.get_value(), self.tail_slider.get_value())
         return [fbsdata]
     

@@ -12,13 +12,6 @@ import hashlib
 from copy import deepcopy
 
 
-class WorkerSignals(QObject):
-    started = Signal(str)
-    finished = Signal(str)
-    progress = Signal(str)
-    error = Signal(str)
-
-
 class NodeWorker(QRunnable):    
     def __init__(self, node, data=None):
         QRunnable.__init__(self)

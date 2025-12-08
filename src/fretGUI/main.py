@@ -26,8 +26,6 @@ def on_run_btn_clicked(graph, btn):
     pool = QThreadPool.globalInstance()
     for root_node in roots:
         new_worker = NodeWorker(root_node)
-        # new_worker.started.connect(ThreadSignalManager().thread_started.emit)
-        # new_worker.finished.connect(ThreadSignalManager().thread_finished.emit)
         pool.start(new_worker)
             
         
@@ -94,7 +92,9 @@ def main():
     ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
     ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
     ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
-    # ThreadSignalManager().calculation_begin.connect(lambda: run_button.setDisabled(True))
+    progress_bar.block_ui.connect(lambda: run_button.setDisabled(True))
+    progress_bar.release_ui.connect(lambda: run_button.setDisabled(False))
+    # ThreadSignalManager().calculation_begin.connect()
     # ThreadSignalManager().calculation_finished.connect(progress_bar.on_calculation_finished)
     # ThreadSignalManager().calculation_finished.connect(lambda: run_button.setDisabled(False))
     # ThreadSignalManager().calculation_processed.connect(progress_bar.on_calculation_processed)
