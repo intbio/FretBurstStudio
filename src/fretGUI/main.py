@@ -2,7 +2,7 @@ import custom_nodes.custom_nodes as custom_nodes
 import graph_engene
 from custom_widgets.toogle_widget import IconToggleButton
 import sys
-from signal_manager import ThreadSignalManager
+from singletons import ThreadSignalManager
 
 from custom_widgets.progressbar_widget import ProgressBar
 from custom_nodes.custom_nodes import FileNode

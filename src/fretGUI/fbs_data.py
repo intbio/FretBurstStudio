@@ -1,4 +1,5 @@
 from fretbursts.burstlib import Data
+from copy import deepcopy
 
 
 
@@ -6,6 +7,7 @@ class FBSData():
     def __init__(self, data=None, path=None):
         self.__data = data
         self.__path = path
+        self.history = []
        
     @property 
     def path(self):
@@ -22,6 +24,13 @@ class FBSData():
     @data.setter
     def data(self, new_data):
         self.__data = new_data
+        
+    def copy(self):
+        new_obj = FBSData(deepcopy(self.__data), self.__path)
+        return new_obj
+    
+    def __repr__(self):
+        return f"fbs_data at {id(self)}, inner at {id(self.__data)}"
         
     
 

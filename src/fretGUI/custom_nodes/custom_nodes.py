@@ -6,6 +6,7 @@ from NodeGraphQt import BaseNode
 import uuid
 from fbs_data import FBSData
 from collections import Counter
+from singletons import FBSDataCash
 
              
 class FileNode(AbstractRecomputable):
@@ -82,8 +83,9 @@ class AlexNode(AbstractRecomputable):
         self.add_input('inport')
         self.add_output('outport')        
     
-    def execute(self, fbsdata: FBSData) -> dict:
-        fretbursts.loader.alex_apply_period(fbsdata.data)
+    @FBSDataCash().fbscash
+    def execute(self, fbsdata: FBSData):
+        fretbursts.loader.alex_apply_period(fbsdata.data, False)
         return [fbsdata]
     
     
@@ -103,6 +105,7 @@ class CalcBGNode(AbstractRecomputable):
     def __calc_bg(self, data, time_s, tail_min_us):
         data.data.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
     
+    @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
         self.__calc_bg(fbsdata, self.time_s_slider.get_value(), self.tail_slider.get_value())
         return [fbsdata]
@@ -123,6 +126,7 @@ class BurstSearchNodde(AbstractRecomputable):
     def __burst_search(self, fbdata: str, min_rate_cps):
         fbdata.data.burst_search(min_rate_cps)
        
+    @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
         self.__burst_search(fbsdata, self.int_slider.get_value())
         return [fbsdata]
@@ -143,6 +147,7 @@ class BurstSelectorNode(AbstractRecomputable):
     def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
         fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
     
+    @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
         self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())
         return [fbsdata]
