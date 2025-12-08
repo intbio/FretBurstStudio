@@ -12,35 +12,36 @@ import hashlib
 from copy import deepcopy
 
 
-class NodeWorker(QRunnable, QObject):
+class WorkerSignals(QObject):
     started = Signal(str)
     finished = Signal(str)
     progress = Signal(str)
     error = Signal(str)
-    
+
+
+class NodeWorker(QRunnable):    
     def __init__(self, node, data=None):
         QRunnable.__init__(self)
-        QObject.__init__(self)
-        
-        # self.started.connect(ThreadSignalManager().thread_started.emit)
         
         self.node = node
         self.data = data
-        self.uid = str(uuid.uuid4())
+        self.uid = str(uuid.uuid4())         
        
     def run(self):
-        print("RUN")
-        self.started.emit(self.uid)
+        nodes_to_calculate = self.__cont_computing_nodes()
+        ThreadSignalManager().thread_started.emit(self.uid, nodes_to_calculate)
         self.__run(self.node)
+        ThreadSignalManager().thread_finished.emit(self.uid)
                     
     def __run(self, node):
         try:
             data_container = node.execute(self.data)
         except Exception as error:
             print(f"_______________________________ERROR: node: {node}, {error}")
-            self.error.emit(id(self))
+            ThreadSignalManager().thread_error.emit(self.uid)
             raise error
         else:
+            ThreadSignalManager().thread_progress.emit(self.uid)
             for i, (child_node, cur_data) in enumerate(it.product(
                 node.iter_children_nodes(), data_container)):
                 if i > 0:
@@ -51,9 +52,21 @@ class NodeWorker(QRunnable, QObject):
                 
     def __run_in_new_thread(self, node, data):
         new_worker = NodeWorker(node, data.copy())
-        # new_worker.started.connect(ThreadSignalManager().thread_started.emit)
         pool = QThreadPool.globalInstance()
         pool.start(new_worker)
+        
+    def __cont_computing_nodes(self):
+        visited = set()
+        visited = self.__dfs_first_child(self.node, visited)
+        return len(visited)
+            
+    def __dfs_first_child(self, node, visited):
+        for child in node.iter_children_nodes():  
+            visited.add(child)
+            return self.__dfs_first_child(child, visited)
+        return visited
+            
+            
             
             
 class AbstractExecutable(BaseNode, ABC):
