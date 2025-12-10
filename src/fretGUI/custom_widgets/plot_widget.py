@@ -8,22 +8,39 @@ from NodeGraphQt import NodeBaseWidget
 
 
 class TemplatePlotWidget(QtWidgets.QWidget):
-    '''
+    """
     Simplest widget with a matplotlib plot area and toolbar
-    '''
+    """
     def __init__(self, parent=None):
         super().__init__()
-        
-        highlightColor = str('white')
-        self.setFixedSize(2000, 2000)
-        self.mainLayout = QtWidgets.QVBoxLayout(self)   
-        self.mainLayout.setSpacing(10)
-        self.figure = plt.figure(facecolor=highlightColor)
+
+        highlightColor = 'white'
+
+        # Let layouts handle sizing
+        self.mainLayout = QtWidgets.QVBoxLayout(self)
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainLayout.setSpacing(0)
+
+        self.figure = plt.figure(facecolor=highlightColor,dpi=300)
         self.canvas = FigureCanvas(self.figure)
-        
         self.toolbar = NavigationToolbar(self.canvas)
+
+        # make them expand with the parent
+        self.canvas.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding
+        )
+        self.toolbar.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed
+        )
+
         self.mainLayout.addWidget(self.canvas)
         self.mainLayout.addWidget(self.toolbar)
+
+
+    # optional: if you want to debug sizing
+
     
         
 class TemplatePlotWidgetWtapper(NodeBaseWidget):
@@ -32,6 +49,7 @@ class TemplatePlotWidgetWtapper(NodeBaseWidget):
     '''
     def __init__(self, parent=None, fretData=None):
         super().__init__(parent)
+        self.set_label('')
         self.plot_widget = TemplatePlotWidget(parent=parent)
         self.set_custom_widget(self.plot_widget)
         self.fretData=fretData

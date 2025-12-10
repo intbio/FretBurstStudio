@@ -75,7 +75,8 @@ def main():
             custom_nodes.CalcBGNode,
             custom_nodes.BurstSearchNodde,
             custom_nodes.BurstSelectorNode, 
-            custom_nodes.BGPlotterNode
+            custom_nodes.BGPlotterNode,
+            custom_nodes.EHistPlotterNode
         ]
     )
        
