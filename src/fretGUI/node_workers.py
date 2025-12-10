@@ -42,7 +42,7 @@ class AbstractNodeWorker(QRunnable):
         try:
             self._run()
         except Exception as error:
-            print(f"__________ERROR_____________: {error}")
+            print(f"__________ERROR_____________: node: {error}")
             ThreadSignalManager().thread_error.emit(self.uid)
             raise error
         finally:
