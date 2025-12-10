@@ -1,71 +1,9 @@
 from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
-from Qt.QtCore import QObject, Signal, QRunnable, QThreadPool
 from fbs_data import FBSData
-from copy import deepcopy
-import itertools as it
-import uuid
-from singletons import ThreadSignalManager
-import pickle
-import hashlib
-from copy import deepcopy
-
-
-class WorkerSignals(QObject):
-    started = Signal(str)
-    finished = Signal(str)
-    progress = Signal(str)
-    error = Signal(str)
-
-
-class NodeWorker(QRunnable):    
-    def __init__(self, node, data=None):
-        QRunnable.__init__(self)
-        
-        self.node = node
-        self.data = data
-        self.uid = str(uuid.uuid4())         
-       
-    def run(self):
-        nodes_to_calculate = self.__cont_computing_nodes()
-        ThreadSignalManager().thread_started.emit(self.uid, nodes_to_calculate)
-        self.__run(self.node)
-        ThreadSignalManager().thread_finished.emit(self.uid)
-                    
-    def __run(self, node):
-        try:
-            data_container = node.execute(self.data)
-        except Exception as error:
-            print(f"_______________________________ERROR: node: {node}, {error}")
-            ThreadSignalManager().thread_error.emit(self.uid)
-            raise error
-        else:
-            ThreadSignalManager().thread_progress.emit(self.uid)
-            for i, (child_node, cur_data) in enumerate(it.product(
-                node.iter_children_nodes(), data_container)):
-                if i > 0:
-                    self.__run_in_new_thread(child_node, cur_data)
-                else:
-                    self.data = cur_data
-                    self.__run(child_node)
-                
-    def __run_in_new_thread(self, node, data):
-        new_worker = NodeWorker(node, data.copy())
-        pool = QThreadPool.globalInstance()
-        pool.start(new_worker)
-        
-    def __cont_computing_nodes(self):
-        visited = set()
-        visited = self.__dfs_first_child(self.node, visited)
-        return len(visited)
-            
-    def __dfs_first_child(self, node, visited):
-        for child in node.iter_children_nodes():  
-            visited.add(child)
-            return self.__dfs_first_child(child, visited)
-        return visited
-            
+from node_workers import UpdateWidgetNodeWorker   
+from Qt.QtCore import QThreadPool   
             
             
             
@@ -74,7 +12,7 @@ class AbstractExecutable(BaseNode, ABC):
         BaseNode.__init__(self)
         
     @abstractmethod    
-    def execute(self, data: FBSData=None) -> FBSData:
+    def execute(self, data: FBSData=None) -> list[FBSData]:
         pass
         
     def is_root(self) -> bool:
@@ -126,7 +64,7 @@ class AbstractRecomputable(AbstractExecutable):
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
-            widget_wrapper.widget_changed_signal.connect(self.update_nodes_and_pbar)
+            widget_wrapper.widget_changed_signal.connect(self.on_widget_triggered)
             
     def unwire_wrappers(self):
         if len(self.widget_wrappers) == 0:
@@ -141,4 +79,9 @@ class AbstractRecomputable(AbstractExecutable):
     def enable_all_node_widgets(self):
         for widget_name, widget in self.widgets().items():
             widget.setEnabled(True)
-        
+            
+    def on_widget_triggered(self):
+        print("widget trigiered")
+        worker = UpdateWidgetNodeWorker(self)
+        pool = QThreadPool.globalInstance()
+        pool.start(worker)

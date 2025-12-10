@@ -26,8 +26,8 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     
     
 class FBSDataCash(metaclass=SingletonMeta):
-    def __init__(self, max_size=30):
-        self.__max_size = max_size
+    def __init__(self):
+        self.__max_size = 30
         self.__table = dict()
         self.__time_q = queue.PriorityQueue()
         self.mutex = QMutex()
@@ -38,17 +38,18 @@ class FBSDataCash(metaclass=SingletonMeta):
     
     def fbscash(self, foo):
         def wrapper(node, fbsdata, *args, **kwargs):
+            hash = self.__make_hash(node, fbsdata)
             with QMutexLocker(self.mutex):
-                hash = self.__make_hash(node, fbsdata)
                 if hash in self.__table:
                     new_fbsdata = self.get_datacopy(hash, node, fbsdata)
                     return [new_fbsdata]
+          
+            res = foo(node, fbsdata, *args, **kwargs)
+            with QMutexLocker(self.mutex):
                 if self.size >= self.__max_size:
                     self.remove_oldest()
-                res = foo(node, fbsdata, *args, **kwargs)
-                print(f"...computing... node: {node}")
                 self.put_data(hash, node, res[0])
-                return res
+            return res
         return wrapper
         
     def get_datacopy(self, hash, node, data):

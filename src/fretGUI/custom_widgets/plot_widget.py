@@ -15,7 +15,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         super().__init__()
         
         highlightColor = str('white')
-        self.setFixedSize(600, 400)
+        self.setFixedSize(2000, 2000)
         self.mainLayout = QtWidgets.QVBoxLayout(self)   
         self.mainLayout.setSpacing(10)
         self.figure = plt.figure(facecolor=highlightColor)
