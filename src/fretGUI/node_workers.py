@@ -14,7 +14,7 @@ class AbstractNodeWorker(QRunnable):
         super().__init__()
         self.start_node = start_node
         self.data = data
-        self.node_seq = deque()
+        self.node_seq = node_seq if node_seq else deque()
         self.uid = uuid.uuid4().hex
         
     @abstractmethod
@@ -24,9 +24,13 @@ class AbstractNodeWorker(QRunnable):
     @abstractmethod
     def _run(self):
         pass
+    
+    @abstractmethod
+    def need_fill(self) -> bool:
+        pass
 
     def run(self):
-        if len(self.node_seq) == 0:
+        if self.need_fill():
             self.fill_nodeseq()
         ThreadSignalManager().thread_started.emit(self.uid, len(self.node_seq) - 1)
         try:
@@ -46,14 +50,20 @@ class AbstractNodeWorker(QRunnable):
 class NodeWorker(AbstractNodeWorker):    
     def __init__(self, start_node, data=None, node_seq=None):
         super().__init__(start_node, data, node_seq)   
+        self.__need_fill = True
         
     def __copy__(self):
         new_worker = NodeWorker(self.start_node, 
                                 self.data.copy(), 
                                 self.node_seq.copy())
         return new_worker
+    
+    def need_fill(self):
+        return self.__need_fill
         
     def _run(self):
+        if self.start_node == self.node_seq[-1]:
+            self.fill_nodeseq()
         while len(self.node_seq) != 0:
             ThreadSignalManager().thread_progress.emit(self.uid)
             cur_node = self.node_seq.popleft()
@@ -64,26 +74,45 @@ class NodeWorker(AbstractNodeWorker):
                     self.run_in_new_thread(q_copy[0], cur_data.copy(), q_copy)
                 else:
                     self.data = cur_data
-        
-        
-        
+                    
     def fill_nodeseq(self):
         self.node_seq.append(self.start_node)
         self.__fill_nodeseq(self.start_node)
-        print(self.node_seq)
+        self.need_fill = False
     
     def __fill_nodeseq(self, node):
         for i, next_node in enumerate(node.iter_children_nodes()):
+            self.node_seq.append(next_node)
             if i == 0:
-                self.node_seq.append(next_node)
                 self.__fill_nodeseq(next_node) 
             else:
-                self.__run_in_new_thread(next_node, self.data)
+                self.run_in_new_thread(next_node, self.data, self.node_seq.copy())
         
         
-class BackwardNodeWorker(NodeWorker):
+class UpdateWidgetNodeWorker(NodeWorker):
     def __init__(self, start_node, data=None, node_seq=None):
         super().__init__(start_node, data, node_seq)
+        self.__need_backwards = True
+        
+    def fill_nodeseq(self):
+        super().fill_nodeseq()
+        self.fill_nodeseq_backwards()
+        self.__need_backwards = False
+        print(self.node_seq)
+    
+    def fill_nodeseq_backwards(self):
+        self.__fill_nodeseq_backwards(self.start_node)
+        
+    def __fill_nodeseq_backwards(self, node):
+        for i, next_node in enumerate(node.iter_parent_nodes()):
+            self.node_seq.appendleft(next_node)
+            if i == 0:
+                self.__fill_nodeseq_backwards(next_node) 
+            else:
+                self.run_in_new_thread(next_node, self.data, self.node_seq.copy())
+
+    def need_fill(self) -> bool:
+        return super().need_fill() or self.__need_backwards
           
     
                     

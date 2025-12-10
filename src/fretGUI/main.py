@@ -6,7 +6,7 @@ from singletons import ThreadSignalManager
 
 from custom_widgets.progressbar_widget import ProgressBar
 from custom_nodes.custom_nodes import PhHDF5Node
-from custom_nodes.abstract_nodes import NodeWorker
+from node_workers import NodeWorker
 
 import signal
 from pathlib import Path
