@@ -106,6 +106,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
 class PathSelectorWidgetWrapper(AbstractWidgetWrapper):    
     def __init__(self, parent=None):
         self.path_widget = PathSelectorWidget(parent=parent)
+
         super().__init__(parent)       
         self.set_name('File Widget')
         self.set_label('File') 

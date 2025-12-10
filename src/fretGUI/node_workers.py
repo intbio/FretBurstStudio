@@ -4,7 +4,6 @@ import itertools as it
 import uuid
 from singletons import ThreadSignalManager
 from abc import abstractmethod
-from singletons import FBSDataCash
 from collections import deque
 
 
@@ -113,38 +112,3 @@ class UpdateWidgetNodeWorker(NodeWorker):
 
     def need_fill(self) -> bool:
         return super().need_fill() or self.__need_backwards
-          
-    
-                    
-    # def __run(self, node):
-    #     try:
-    #         data_container = node.execute(self.data)
-    #     except Exception as error:
-    #         print(f"_______________________________ERROR: node: {node}, {error}")
-    #         ThreadSignalManager().thread_error.emit(self.uid)
-    #         raise error
-    #     else:
-    #         ThreadSignalManager().thread_progress.emit(self.uid)
-    #         for i, (child_node, cur_data) in enumerate(it.product(
-    #             node.iter_children_nodes(), data_container)):
-    #             if i > 0:
-    #                 self.__run_in_new_thread(child_node, cur_data)
-    #             else:
-    #                 self.data = cur_data
-    #                 self.__run(child_node)
-                
-    # def __run_in_new_thread(self, node, data):
-    #     new_worker = NodeWorker(node, data.copy())
-    #     pool = QThreadPool.globalInstance()
-    #     pool.start(new_worker)
-        
-    # def __cont_computing_nodes(self):
-    #     visited = set()
-    #     visited = self.__dfs_first_child(self.node, visited)
-    #     return len(visited)
-            
-    # def __dfs_first_child(self, node, visited):
-    #     for child in node.iter_children_nodes():  
-    #         visited.add(child)
-    #         return self.__dfs_first_child(child, visited)
-    #     return visited
