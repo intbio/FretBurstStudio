@@ -27,6 +27,13 @@ class AbstractNodeWorker(QRunnable):
     @abstractmethod
     def need_fill(self) -> bool:
         pass
+    
+    def __copy__(self, node=None, data=None, q=None):
+        node = node if node else self.start_node
+        data = data if data else self.data
+        q = q if q else self.node_seq
+        new_worker = type(self)(node, data.copy(), q.copy())
+        return new_worker
 
     def run(self):
         if self.need_fill():
@@ -37,11 +44,12 @@ class AbstractNodeWorker(QRunnable):
         except Exception as error:
             print(f"__________ERROR_____________: {error}")
             ThreadSignalManager().thread_error.emit(self.uid)
+            raise error
         finally:
             ThreadSignalManager().thread_finished.emit(self.uid)
             
     def run_in_new_thread(self, node, data, q):
-        new_worker = type(self)(node, data, q)
+        new_worker = self.__copy__(node, data, q)
         pool = QThreadPool.globalInstance()
         pool.start(new_worker)
 
@@ -51,10 +59,9 @@ class NodeWorker(AbstractNodeWorker):
         super().__init__(start_node, data, node_seq)   
         self.__need_fill = True
         
-    def __copy__(self):
-        new_worker = NodeWorker(self.start_node, 
-                                self.data.copy(), 
-                                self.node_seq.copy())
+    def __copy__(self, *args, **kwargs):
+        new_worker = super().__copy__(*args, **kwargs)
+        new_worker.__need_fill = self.__need_fill
         return new_worker
     
     def need_fill(self):
@@ -77,7 +84,7 @@ class NodeWorker(AbstractNodeWorker):
     def fill_nodeseq(self):
         self.node_seq.append(self.start_node)
         self.__fill_nodeseq(self.start_node)
-        self.need_fill = False
+        self.__need_fill = False
     
     def __fill_nodeseq(self, node):
         for i, next_node in enumerate(node.iter_children_nodes()):
@@ -93,9 +100,19 @@ class UpdateWidgetNodeWorker(NodeWorker):
         super().__init__(start_node, data, node_seq)
         self.__need_backwards = True
         
+    def __copy__(self, *args, **kwargs):
+        new_worker = super().__copy__(*args, **kwargs)
+        new_worker.__need_backwards = self.__need_backwards
+        return new_worker
+        
+    def run_(self):
+        pass
+        
     def fill_nodeseq(self):
-        super().fill_nodeseq()
-        self.fill_nodeseq_backwards()
+        if super().need_fill():
+            super().fill_nodeseq()
+        if self.need_fill():
+            self.fill_nodeseq_backwards()
         self.__need_backwards = False
         print(self.node_seq)
     
