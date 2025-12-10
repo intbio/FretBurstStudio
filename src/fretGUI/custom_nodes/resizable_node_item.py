@@ -3,7 +3,7 @@ from NodeGraphQt.qgraphics.node_base import NodeItem
 
 
 class ResizablePlotNodeItem(NodeItem):
-    HANDLE_SIZE = 10
+    HANDLE_SIZE = 30
     MIN_W = 200
     MIN_H = 150
 
@@ -44,15 +44,6 @@ class ResizablePlotNodeItem(NodeItem):
             r.bottom() - self.HANDLE_SIZE,
             self.HANDLE_SIZE,
             self.HANDLE_SIZE,
-        )
-
-    def boundingRect(self):
-        base = super().boundingRect()
-        return QtCore.QRectF(
-            base.x(),
-            base.y(),
-            max(base.width(), self._width),
-            max(base.height(), self._height),
         )
 
     def paint(self, painter, option, widget):
