@@ -5,6 +5,7 @@ import uuid
 from singletons import ThreadSignalManager
 from abc import abstractmethod
 from collections import deque
+import copy
 
 
 
@@ -30,9 +31,8 @@ class AbstractNodeWorker(QRunnable):
     
     def __copy__(self, node=None, data=None, q=None):
         node = node if node else self.start_node
-        data = data if data else self.data
         q = q if q else self.node_seq
-        new_worker = type(self)(node, data.copy(), q.copy())
+        new_worker = type(self)(node, copy.copy(data), q.copy())
         return new_worker
 
     def run(self):
@@ -42,7 +42,7 @@ class AbstractNodeWorker(QRunnable):
         try:
             self._run()
         except Exception as error:
-            print(f"__________ERROR_____________: {error}")
+            print(f"__________ERROR_____________: node: {error}")
             ThreadSignalManager().thread_error.emit(self.uid)
             raise error
         finally:

@@ -8,8 +8,8 @@ from Qt.QtCore import QThreadPool
             
             
 class AbstractExecutable(BaseNode, ABC):
-    def __init__(self):
-        BaseNode.__init__(self)
+    def __init__(self, *args, **kwargs):
+        BaseNode.__init__(self, *args, **kwargs)
         
     @abstractmethod    
     def execute(self, data: FBSData=None) -> list[FBSData]:
@@ -34,8 +34,8 @@ class AbstractExecutable(BaseNode, ABC):
                 
                                   
 class AbstractRecomputable(AbstractExecutable):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.widget_wrappers = []  
         
     def on_widget_changed(self):

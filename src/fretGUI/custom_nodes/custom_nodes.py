@@ -2,7 +2,8 @@ import custom_widgets.path_selector as path_selector
 from custom_nodes.abstract_nodes import AbstractRecomputable
 import fretbursts
 from node_builder import NodeBuilder
-from NodeGraphQt import BaseNode
+from NodeGraphQt import BaseNode, NodeBaseWidget
+from .resizable_node_item import ResizablePlotNodeItem
 import uuid
 from fbs_data import FBSData
 from collections import Counter
@@ -113,35 +114,110 @@ class BurstSelectorNode(AbstractRecomputable):
     def execute(self, fbsdata: FBSData):
         self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())
         return [fbsdata]
+        
+        
+class ResizableContentNode(AbstractRecomputable):
+    """
+    Base class for nodes that have a single main widget
+    that should follow the node's size.
+    """
+    # default margins, override in subclasses if you want
+    LEFT_RIGHT_MARGIN = 100
+    TOP_MARGIN = 35
+    BOTTOM_MARGIN = 20
+
+    def __init__(self, widget_name, qgraphics_item=None):
+        # if you always use ResizablePlotNodeItem, you can default it here
+        super().__init__(qgraphics_item=qgraphics_item or ResizablePlotNodeItem)
+
+        self._content_widget_name = widget_name
+
+        # hook up resize callback
+        view = self.view            # this is your ResizablePlotNodeItem
+        view.add_resize_callback(self._on_view_resized)
+
+        # initial sync
+        self._on_view_resized(view._width, view._height)
+
+    def _on_view_resized(self, w, h):
+        wrapper = self.get_widget(self._content_widget_name)
+        if wrapper is None:
+            return
+
+        inner_w = max(
+            1,
+            w - 2 * self.LEFT_RIGHT_MARGIN
+        )
+        inner_h = max(
+            1,
+            h - self.TOP_MARGIN - self.BOTTOM_MARGIN
+        )
+
+        wrapper.setMinimumSize(inner_w, inner_h)
+        wrapper.setMaximumSize(inner_w, inner_h)
     
     
-class BGPlotterNode(AbstractRecomputable):
+class BGPlotterNode(ResizableContentNode):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'BGPlotterNode'
-    
+
+    # if you want different margins just for this node:
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 35
+    BOTTOM_MARGIN = 20
+
     def __init__(self):
-        super().__init__() 
+        # tell the base which widget name to resize
+        super().__init__(widget_name='plot_widget')
+
         node_builder = NodeBuilder(self)
-        
+
         self.add_input('inport')
-        self.add_output('outport')
         node_builder.build_plot_widget('plot_widget')
-        
+
     def __update_plot(self, fretData):
         plot_widget = self.get_widget('plot_widget').plot_widget
         ax1 = plot_widget.figure.add_subplot(211)
         ax2 = plot_widget.figure.add_subplot(212)
-        ax1.cla() 
+        ax1.cla()
         ax2.cla()
-        fretbursts.dplot(fretData, fretbursts.hist_bg, show_fit=True, ax=ax1)   
+        fretbursts.dplot(fretData, fretbursts.hist_bg, show_fit=True, ax=ax1)
         fretbursts.dplot(fretData, fretbursts.timetrace_bg, ax=ax2)
         plot_widget.canvas.draw()
-        
+
     def execute(self, fbsdata: FBSData):
         self.__update_plot(fbsdata.data)
         return [fbsdata]
     
-        
+class EHistPlotterNode(ResizableContentNode):
+    __identifier__ = 'nodes.custom'
+    NODE_NAME = 'EHistPlotterNode'
+
+    # if you want different margins just for this node:
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 35
+    BOTTOM_MARGIN = 20
+
+    def __init__(self):
+        # tell the base which widget name to resize
+        super().__init__(widget_name='plot_widget')
+
+        node_builder = NodeBuilder(self)
+
+        self.add_input('inport')
+        node_builder.build_plot_widget('plot_widget')
+
+    def __update_plot(self, fretData):
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        ax1 = plot_widget.figure.add_subplot()
+        ax1.cla()
+        fretbursts.dplot(fretData, fretbursts.hist_fret, ax=ax1)
+        plot_widget.canvas.draw()
+
+    def execute(self, fbsdata: FBSData):
+        self.__update_plot(fbsdata.data)
+        return [fbsdata]
+    
         
         
         
