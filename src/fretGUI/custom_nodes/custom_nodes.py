@@ -2,14 +2,14 @@ import custom_widgets.path_selector as path_selector
 from custom_nodes.abstract_nodes import AbstractRecomputable
 import fretbursts
 from node_builder import NodeBuilder
-from NodeGraphQt import BaseNode, NodeBaseWidget
-from custom_nodes.resizable_node_item import ResizablePlotNodeItem
-from misc.fcsfiles import ConfoCor3Raw,  ConfoCor2Raw
-import uuid
+from .resizable_node_item import ResizablePlotNodeItem
 from fbs_data import FBSData
-from collections import Counter
 from singletons import FBSDataCash
-import numpy as np
+from Qt.QtCore import Signal
+from singletons import ThreadSignalManager
+from abc import abstractmethod
+from NodeGraphQt import BaseNode
+
              
 class PhHDF5Node(AbstractRecomputable):
 
@@ -220,41 +220,61 @@ class ResizableContentNode(AbstractRecomputable):
 
         wrapper.setMinimumSize(inner_w, inner_h)
         wrapper.setMaximumSize(inner_w, inner_h)
+        
+        
+        
+class AbstractContentNode(ResizableContentNode):
+    def __init__(self, widget_name, qgraphics_item=None):
+        super().__init__(widget_name, qgraphics_item)
+        self.data_to_plot = []
+        ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
+        ThreadSignalManager().run_btn_clicked.connect(self.on_plot_data_clear)
+        
+    @abstractmethod
+    def on_refresh_canvas(self):
+        pass
+    
+    def on_plot_data_clear(self):
+        self.data_to_plot = []
+    
+    @FBSDataCash().fbscash
+    def execute(self, fbsdata: FBSData):
+        self.data_to_plot.append(fbsdata)
+        return [fbsdata]
     
     
-class BGPlotterNode(ResizableContentNode):
+class BGPlotterNode(AbstractContentNode):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'BGPlotterNode'
+   
 
     # if you want different margins just for this node:
     LEFT_RIGHT_MARGIN = 67
     TOP_MARGIN = 35
     BOTTOM_MARGIN = 20
 
-    def __init__(self):
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize
-        super().__init__(widget_name='plot_widget')
+        super().__init__(widget_name, qgraphics_item)
 
         node_builder = NodeBuilder(self)
 
         self.add_input('inport')
-        node_builder.build_plot_widget('plot_widget')
-
-    def __update_plot(self, fretData):
+        node_builder.build_plot_widget('plot_widget')                       
+        
+    def on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget
-        plot_widget.figure.clf()
-        ax1 = plot_widget.figure.add_subplot(211)
-        ax2 = plot_widget.figure.add_subplot(212)
-
-        fretbursts.dplot(fretData, fretbursts.hist_bg, show_fit=True, ax=ax1)
-        fretbursts.dplot(fretData, fretbursts.timetrace_bg, ax=ax2)
+        fig = plot_widget.figure
+        fig.clear()
+        ax1 = fig.add_subplot(2, 1, 1)
+        ax2 = fig.add_subplot(2, 1, 2)
+        for cur_data in self.data_to_plot:
+            fretbursts.dplot(cur_data.data, fretbursts.hist_bg, show_fit=True, ax=ax1)
+            fretbursts.dplot(cur_data.data, fretbursts.timetrace_bg, ax=ax2)
         plot_widget.canvas.draw()
-
-    def execute(self, fbsdata: FBSData):
-        self.__update_plot(fbsdata.data)
-        return [fbsdata]
+        
     
-class EHistPlotterNode(ResizableContentNode):
+class EHistPlotterNode(AbstractContentNode):
     __identifier__ = 'nodes.custom'
     NODE_NAME = 'EHistPlotterNode'
 
@@ -263,25 +283,24 @@ class EHistPlotterNode(ResizableContentNode):
     TOP_MARGIN = 35
     BOTTOM_MARGIN = 20
 
-    def __init__(self):
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize
-        super().__init__(widget_name='plot_widget')
+        super().__init__(widget_name, qgraphics_item)
 
         node_builder = NodeBuilder(self)
 
         self.add_input('inport')
         node_builder.build_plot_widget('plot_widget')
 
-    def __update_plot(self, fretData):
+    def on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget
         plot_widget.figure.clf()
         ax1 = plot_widget.figure.add_subplot()
-        fretbursts.dplot(fretData, fretbursts.hist_fret, ax=ax1)
+        ax1.cla()
+        for cur_data in self.data_to_plot:
+            fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1)
         plot_widget.canvas.draw()
 
-    def execute(self, fbsdata: FBSData):
-        self.__update_plot(fbsdata.data)
-        return [fbsdata]
     
         
         

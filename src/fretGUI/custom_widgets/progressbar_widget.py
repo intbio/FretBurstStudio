@@ -2,6 +2,7 @@ from Qt import QtWidgets
 from Qt.QtWidgets import QVBoxLayout, QProgressBar
 from Qt.QtCore import QTimer, Signal
 import Qt
+from singletons import ThreadSignalManager
 
 
 class ProgressBar(QtWidgets.QWidget):
@@ -16,6 +17,8 @@ class ProgressBar(QtWidgets.QWidget):
         
         self.layout = QVBoxLayout(self)
         self.layout.setSpacing(5)
+        
+        self.release_ui.connect(ThreadSignalManager().all_thread_finished.emit)
     
     def on_thread_started(self, uid: str, max_values: int):
         if len(self.bars) == 0:
@@ -28,7 +31,10 @@ class ProgressBar(QtWidgets.QWidget):
         
     def on_thread_finished(self, uid: str):
         print("worker finished", uid)
-        QTimer.singleShot(3000, lambda: self.__del_pbar(uid))
+        pbar = self.bars.pop(uid)
+        if len(self.bars) == 0:
+            self.release_ui.emit()
+        QTimer.singleShot(2000, lambda: self.__del_pbar(pbar))
 
     def on_thread_processed(self, uid: str):
         print("worker progress", uid)
@@ -39,10 +45,7 @@ class ProgressBar(QtWidgets.QWidget):
     def on_thread_error(self, uid: str):
         print("worker error", uid)
         
-    def __del_pbar(self, uid):
-        pbar = self.bars.pop(uid)
-        if len(self.bars) == 0:
-            self.release_ui.emit()
+    def __del_pbar(self, pbar):
         self.layout.removeWidget(pbar)
         pbar.deleteLater()
 

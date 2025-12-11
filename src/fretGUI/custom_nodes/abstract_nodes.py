@@ -85,3 +85,4 @@ class AbstractRecomputable(AbstractExecutable):
         worker = UpdateWidgetNodeWorker(self)
         pool = QThreadPool.globalInstance()
         pool.start(worker)
+

@@ -57,11 +57,11 @@ class TemplatePlotWidgetWtapper(NodeBaseWidget):
         self.set_custom_widget(self.plot_widget)
         self.fretData=fretData
     
-        self.plot_widget.figure.clf()
+        # self.plot_widget.figure.clf()
 
         
     def get_value(self):
-        return self.fretData
+        return None
     
     def set_value(self, fretData):
-        self.fretData = fretData
+        return None

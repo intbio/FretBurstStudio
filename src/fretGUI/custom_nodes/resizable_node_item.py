@@ -1,4 +1,4 @@
-from Qt import QtCore, QtGui, QtWidgets
+from Qt import QtCore
 from NodeGraphQt.qgraphics.node_base import NodeItem
 
 

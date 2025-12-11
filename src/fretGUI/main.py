@@ -88,6 +88,7 @@ def main():
     run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
     run_button.setFixedSize(50, 50)    
     run_button.clicked.connect(lambda: on_run_btn_clicked(graph, run_button))
+    run_button.clicked.connect(ThreadSignalManager().run_btn_clicked.emit)
     
     toggle_btn = IconToggleButton(parent=graph_widget)
     toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))

@@ -74,6 +74,7 @@ class NodeWorker(AbstractNodeWorker):
             ThreadSignalManager().thread_progress.emit(self.uid)
             cur_node = self.node_seq.popleft()
             data_container = cur_node.execute(self.data)
+            print(cur_node)
             for i, cur_data in enumerate(data_container):
                 if i >= 1:
                     q_copy = self.node_seq.copy()

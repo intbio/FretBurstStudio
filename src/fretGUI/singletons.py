@@ -23,6 +23,8 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     thread_finished = Signal(str)
     thread_progress = Signal(str)
     thread_error = Signal(str)
+    all_thread_finished = Signal()
+    run_btn_clicked = Signal()
     
     
 class FBSDataCash(metaclass=SingletonMeta):
