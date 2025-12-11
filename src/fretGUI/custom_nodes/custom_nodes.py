@@ -3,12 +3,13 @@ from custom_nodes.abstract_nodes import AbstractRecomputable
 import fretbursts
 from node_builder import NodeBuilder
 from NodeGraphQt import BaseNode, NodeBaseWidget
-from .resizable_node_item import ResizablePlotNodeItem
+from custom_nodes.resizable_node_item import ResizablePlotNodeItem
+from misc.fcsfiles import ConfoCor3Raw,  ConfoCor2Raw
 import uuid
 from fbs_data import FBSData
 from collections import Counter
 from singletons import FBSDataCash
-
+import numpy as np
              
 class PhHDF5Node(AbstractRecomputable):
 
@@ -34,6 +35,46 @@ class PhHDF5Node(AbstractRecomputable):
     def __load_photon_hdf5(self, fbsdata: FBSData):
         data = fretbursts.loader.photon_hdf5(fbsdata.path)
         fbsdata.data = data
+        return fbsdata   
+        
+class LSM510Node(AbstractRecomputable):
+
+    __identifier__ = 'nodes.custom'
+    NODE_NAME  = 'LSM510Node'
+
+    def __init__(self):
+        super().__init__() 
+        self.node_iterator = None
+        
+        self.add_output('out_file')
+
+        self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
+        self.add_custom_widget(self.file_widget, tab='Custom')  
+        
+    def execute(self, data=None) -> list[FBSData]:
+        selected_paths = self.file_widget.get_value()
+        data_list = [self.__load_confocor2(
+            FBSData(path=cur_path))
+                     for cur_path in selected_paths]
+        return data_list
+    
+    def __load_confocor2(self, fbsdata: FBSData):
+        fcs=ConfoCor2Raw(fbsdata.path)
+        times_acceptor, times_donor = fcs.asarray()
+        fcs.frequency
+
+        df = np.hstack([np.vstack( [   times_donor, np.zeros(   times_donor.size)] ),
+                        np.vstack( [times_acceptor,  np.ones(times_acceptor.size)] )]).T
+
+        df_sorted = df[np.argsort(df[:,0])].T
+        timestamps=df_sorted[0].astype('int64')
+        timestamps_unit = 1.0/fcs.frequency
+
+        detectors=df_sorted[1].astype('bool')
+        
+        fbsdata.data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
+                                     clk_p=timestamps_unit, alternated=False,nch=1,
+                                     fname='file_name',meas_type='smFRET')  
         return fbsdata   
         
     
@@ -74,9 +115,9 @@ class CalcBGNode(AbstractRecomputable):
         return [fbsdata]
     
     
-class BurstSearchNodde(AbstractRecomputable):
+class BurstSearchNodeRate(AbstractRecomputable):
     __identifier__ = 'nodes.custom'
-    NODE_NAME = 'BurstSearchNodde'
+    NODE_NAME = 'BurstSearchRate'
     
     def __init__(self):
         super().__init__()
@@ -92,6 +133,30 @@ class BurstSearchNodde(AbstractRecomputable):
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
         self.__burst_search(fbsdata, self.int_slider.get_value())
+        return [fbsdata]
+        
+class BurstSearchNodeFromBG(AbstractRecomputable):
+    __identifier__ = 'nodes.custom'
+    NODE_NAME = 'BurstSearchFromBG'
+    
+    def __init__(self):
+        super().__init__()
+        node_builder = NodeBuilder(self)
+        
+        self.add_input('inport')
+        self.add_output('outport')
+        self.m_slider = node_builder.build_int_slider('m', [3, 100, 1], 10)
+        self.L_slider = node_builder.build_int_slider('L', [3, 100, 1], 10)
+        self.F_slider = node_builder.build_int_slider('F', [1, 20, 1], 6)
+        
+    def __burst_search(self, fbdata: str, m: int,L: int,F: int):
+        fbdata.data.burst_search(m=m,L=L,F=F)
+       
+    @FBSDataCash().fbscash
+    def execute(self, fbsdata: FBSData):
+        self.__burst_search(fbsdata,m=self.m_slider.get_value(),
+                                    L=self.L_slider.get_value(),
+                                    F=self.F_slider.get_value())
         return [fbsdata]
     
     

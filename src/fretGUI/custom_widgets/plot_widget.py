@@ -3,6 +3,9 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 import matplotlib.pyplot as plt
 from NodeGraphQt import NodeBaseWidget
+import matplotlib
+matplotlib.rcParams['figure.dpi'] = 96
+matplotlib.rcParams['savefig.dpi'] = 96
 
 
 
@@ -21,7 +24,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.mainLayout.setSpacing(0)
 
-        self.figure = plt.figure(facecolor=highlightColor,dpi=300)
+        self.figure = plt.figure(facecolor=highlightColor)
         self.canvas = FigureCanvas(self.figure)
         self.toolbar = NavigationToolbar(self.canvas)
 

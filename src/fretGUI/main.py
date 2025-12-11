@@ -1,7 +1,7 @@
 import custom_nodes.custom_nodes as custom_nodes
 import graph_engene
 from custom_widgets.toogle_widget import IconToggleButton
-import sys
+import sys,os
 from singletons import ThreadSignalManager
 
 from custom_widgets.progressbar_widget import ProgressBar
@@ -15,7 +15,7 @@ from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, NodesPaletteWidget
 from NodeGraphQt import PropertiesBinWidget
 
-
+os.environ["QT_ENABLE_HIGHDPI_SCALING"]= "0"
 
 BASE_PATH = Path(__file__).parent.resolve()
 
@@ -53,6 +53,8 @@ def main():
 
     # create graph controller.
     graph = NodeGraph()  
+    
+    
     graph_widget = graph.widget 
     
     main_layout = QtWidgets.QVBoxLayout(graph_widget)
@@ -70,10 +72,11 @@ def main():
     graph.register_nodes(
         [
             custom_nodes.PhHDF5Node,    
-            # custom_nodes.PhotonNode,     
+            custom_nodes.LSM510Node,     
             custom_nodes.AlexNode,
             custom_nodes.CalcBGNode,
-            custom_nodes.BurstSearchNodde,
+            custom_nodes.BurstSearchNodeRate,
+            custom_nodes.BurstSearchNodeFromBG,
             custom_nodes.BurstSelectorNode, 
             custom_nodes.BGPlotterNode,
             custom_nodes.EHistPlotterNode
@@ -132,7 +135,7 @@ def main():
     calc_bgnode.set_disabled(False)
     
     search_node = graph.create_node(
-        'nodes.custom.BurstSearchNodde', text_color='#feab20')
+        'nodes.custom.BurstSearchNodeFromBG', text_color='#feab20')
     search_node.set_disabled(False)
     
     plot_node = graph.create_node(
