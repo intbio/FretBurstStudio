@@ -242,10 +242,10 @@ class BGPlotterNode(ResizableContentNode):
 
     def __update_plot(self, fretData):
         plot_widget = self.get_widget('plot_widget').plot_widget
+        plot_widget.figure.clf()
         ax1 = plot_widget.figure.add_subplot(211)
         ax2 = plot_widget.figure.add_subplot(212)
-        ax1.cla()
-        ax2.cla()
+
         fretbursts.dplot(fretData, fretbursts.hist_bg, show_fit=True, ax=ax1)
         fretbursts.dplot(fretData, fretbursts.timetrace_bg, ax=ax2)
         plot_widget.canvas.draw()
@@ -274,8 +274,8 @@ class EHistPlotterNode(ResizableContentNode):
 
     def __update_plot(self, fretData):
         plot_widget = self.get_widget('plot_widget').plot_widget
+        plot_widget.figure.clf()
         ax1 = plot_widget.figure.add_subplot()
-        ax1.cla()
         fretbursts.dplot(fretData, fretbursts.hist_fret, ax=ax1)
         plot_widget.canvas.draw()
 
