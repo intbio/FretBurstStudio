@@ -3,12 +3,14 @@ from custom_nodes.abstract_nodes import AbstractRecomputable
 import fretbursts
 from node_builder import NodeBuilder
 from .resizable_node_item import ResizablePlotNodeItem
+
 from fbs_data import FBSData
 from singletons import FBSDataCash
 from Qt.QtCore import Signal
 from singletons import ThreadSignalManager
 from abc import abstractmethod
 from NodeGraphQt import BaseNode
+import numpy as np
 
              
 class PhHDF5Node(AbstractRecomputable):
@@ -38,7 +40,7 @@ class PhHDF5Node(AbstractRecomputable):
         return fbsdata   
         
 class LSM510Node(AbstractRecomputable):
-
+    from misc.fcsfiles import ConfoCor2Raw
     __identifier__ = 'nodes.custom'
     NODE_NAME  = 'LSM510Node'
 
@@ -59,7 +61,7 @@ class LSM510Node(AbstractRecomputable):
         return data_list
     
     def __load_confocor2(self, fbsdata: FBSData):
-        fcs=ConfoCor2Raw(fbsdata.path)
+        fcs=self.ConfoCor2Raw(fbsdata.path)
         times_acceptor, times_donor = fcs.asarray()
         fcs.frequency
 
