@@ -14,6 +14,7 @@ from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, NodesPaletteWidget,constants
 from NodeGraphQt import PropertiesBinWidget
+from custom_widgets.themed_nodes_palette import ThemedNodesPalette
 
 
 
@@ -55,47 +56,6 @@ def main():
     # create graph controller.
     graph = NodeGraph()  
     
-    
-    #styling
-    graph.set_background_color(240, 240, 240)
-    graph.set_grid_color(210, 210, 210)
-    
-    
-    def theme_nodes(node):
-        node.set_color(150, 150, 150)
-        node.set_property('text_color',(30,30,30))
-        # node.widgets() -> {prop_name: NodeBaseWidget}
-        for w in node.widgets().values():
-            box = w.widget()  # this is _NodeGroupBox (a QGroupBox)
-
-            # Replace the stylesheet completely with your own.
-            box.setStyleSheet("""
-            QGroupBox {
-                background-color: transparent;
-                border: 0px;
-                margin-top: 1px;
-                padding: 14px 1px 2px 1px;
-                font-size: 8pt;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                color: rgb(30, 30, 30);      /* your label color here */
-                padding: 0px;
-                margin-left: 4px;
-            }
-            """)
-
-#    for n in graph.all_nodes():
-#        theme_nodes(n)
-
-    def on_node_created(n):
-        theme_nodes(n)
-
-    graph.node_created.connect(on_node_created)
-    
-    
-    
     graph_widget = graph.widget 
     
     main_layout = QtWidgets.QVBoxLayout(graph_widget)
@@ -129,7 +89,20 @@ def main():
     
     
     run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
-    run_button.setFixedSize(50, 50)    
+    # run_button.setFixedSize(50, 50)    
+    run_button.setStyleSheet("""
+        QPushButton {
+                    background-color: #e3f2fd;
+                    color: #1565c0;
+                    border: 2px solid #90caf9;
+                    border-radius: 20px;
+                    font-weight: bold;
+                    padding: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #bbdefb;
+                }
+            """)
     run_button.clicked.connect(lambda: on_run_btn_clicked(graph, run_button))
     run_button.clicked.connect(ThreadSignalManager().run_btn_clicked.emit)
     
@@ -221,8 +194,9 @@ def main():
     nodes_palette.set_category_label('nodes.basic', 'Basic Nodes')
     nodes_palette.set_category_label('nodes.group', 'Group Nodes')
     
-        #moving builtin to the last
+    #moving builtin to the last
     tabs = nodes_palette.tab_widget()
+
     w = tabs.widget(0)
     icon = tabs.tabIcon(0)
     text = tabs.tabText(0)
@@ -235,16 +209,135 @@ def main():
     sidebar_layout.addStretch()
     sidebar_layout.addWidget(nodes_palette)
     sidebar_widget = QtWidgets.QWidget()
+    # Keep the sidebar chrome light/transparent so no dark strip shows
+    sidebar_widget.setStyleSheet("background: transparent;")
     sidebar_widget.setLayout(sidebar_layout)
     sidebar_widget.setFixedSize(500, 200)
     main_layout.addWidget(sidebar_widget)
-    app.setStyleSheet("""
-        QLabel {
-            color: rgb(30, 30, 30);
+
+
+#styling
+    def apply_theme(kind='light'):
+        color_dict = {
+            'light': {
+                'background': (240, 240, 240),
+                'grid': (210, 210, 210),
+                'node': (150, 150, 150),
+                'text': (30, 30, 30)
+            },
+            'dark': {
+                'background': (30, 30, 30),
+                'grid': (50, 50, 50),
+                'node': (150, 150, 150),
+                'text': (240, 240, 240)
+            }
         }
-    """)
+        
+        graph.set_background_color(*color_dict[kind]['background'])
+        graph.set_grid_color(*color_dict[kind]['grid'])
+        # Also tint the top-level widget so the app background matches the theme
+        bg = color_dict[kind]['background']
+        graph_widget.setStyleSheet(
+            f"""
+            background-color: rgb{bg};
+            color: rgb{color_dict[kind]['text']};
+            border: 1px solid rgb{color_dict[kind]['grid']};
+            """
+        )
+            
+                
+        def theme_node(node):
+            node.set_color( *color_dict[kind]['node'])
+            node.set_property('text_color',color_dict[kind]['text'])
+            for w in node.widgets().values():
+                box = w.widget()  # this is _NodeGroupBox (a QGroupBox)
+                # Replace the stylesheet completely with your own.
+                box.setStyleSheet(f"""
+                QGroupBox {{
+                    background-color: transparent;
+                    border: 0px;
+                    margin-top: 1px;
+                    padding: 14px 1px 2px 1px;
+                    font-size: 8pt;
+                }}
+                QGroupBox::title {{
+                    subcontrol-origin: margin;
+                    subcontrol-position: top left;
+                    color: rgb(*color_dict[{kind}]['text']);      /* your label color here */
+                    padding: 0px;
+                    margin-left: 4px;
+                }}
+                """)
+
+        for n in graph.all_nodes():
+            theme_node(n)
+
+        # Disconnect any previous theme_node connections to avoid duplicates
+        try:
+            graph.node_created.disconnect()
+        except TypeError:
+            # No connections exist, which is fine
+            pass
+        graph.node_created.connect(theme_node)
+        
+        nodes_palette.setStyleSheet(f"""
+            background-color: rgb{color_dict[kind]['background']};
+            color: rgb{color_dict[kind]['text']};
+        """)
+
+        # Style tab headers separately from the palette background
+        tabs.setStyleSheet(f"""
+            QTabBar::tab    {{
+                background: rgb{color_dict[kind]['background']};
+                color: rgb{color_dict[kind]['text']};
+                padding: 6px 10px;
+                border: 1px solid rgb{color_dict[kind]['grid']};
+                border-bottom: 0px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                margin-right: 2px;
+            }}
+            QTabBar::tab:selected {{
+                background: rgb{color_dict[kind]['node']};
+                border-color: rgb{color_dict[kind]['grid']};
+            }}   
+            QTabWidget::pane {{
+                background: rgb{color_dict[kind]['background']}; /* match palette body instead of black */
+                border: 1px solid rgb{color_dict[kind]['grid']};
+                top: -1px;
+            }}
+        """)
        
-  
+    # ----- menu bar -----
+    def open_file():
+        QtWidgets.QFileDialog.getOpenFileName(graph_widget, "Open File")
+
+    def save_file():
+        QtWidgets.QFileDialog.getSaveFileName(graph_widget, "Save File")
+
+    def close_app():
+        app.quit()
+
+    def show_about():
+        QtWidgets.QMessageBox.information(graph_widget, "About", "FretBurstStudio")
+
+    menu_bar = QtWidgets.QMenuBar(graph_widget)
+    file_menu = menu_bar.addMenu("File")
+    file_menu.addAction("Open").triggered.connect(open_file)
+    file_menu.addAction("Save").triggered.connect(save_file)
+    file_menu.addSeparator()
+    file_menu.addAction("Close").triggered.connect(close_app)
+
+    theme_menu = menu_bar.addMenu("Theme")
+    theme_menu.addAction("Light").triggered.connect(lambda: apply_theme('light'))
+    theme_menu.addAction("Dark").triggered.connect(lambda: apply_theme('dark'))
+
+    about_menu = menu_bar.addMenu("About")
+    about_menu.addAction("About").triggered.connect(show_about)
+
+    main_layout.setMenuBar(menu_bar)
+
+    apply_theme('light')
     app.exec()
 
     
