@@ -24,6 +24,7 @@ class AbstractSliderWidget(QtWidgets.QWidget):
         
     def wire_signals(self):
         self.slider.valueChanged.connect(self.on_slider_moved)
+        self.slider.valueChanged.connect(self.on_editing_finished)
         self.text_box.editingFinished.connect(self.on_editing_finished)        
         
     @abstractmethod
