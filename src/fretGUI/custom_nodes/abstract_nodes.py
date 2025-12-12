@@ -9,9 +9,14 @@ from singletons import ThreadSignalManager
             
             
 class AbstractExecutable(BaseNode, ABC):
+    TEXT_COLOR = (0,0,0)
     def __init__(self, *args, **kwargs):
         BaseNode.__init__(self, *args, **kwargs)
+        self.set_color(150, 150, 150)
         
+        self.set_property('text_color',(0,0,0))
+
+
     @abstractmethod    
     def execute(self, data: FBSData=None) -> list[FBSData]:
         pass

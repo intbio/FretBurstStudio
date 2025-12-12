@@ -304,6 +304,7 @@ class EHistPlotterNode(AbstractContentNode):
         plot_widget.figure.clf()
         ax1 = plot_widget.figure.add_subplot()
         ax1.cla()
+        print(len(self.data_to_plot))
         for cur_data in self.data_to_plot:
             fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1,
             hist_style = 'bar' if len(self.data_to_plot)==1 else 'line')

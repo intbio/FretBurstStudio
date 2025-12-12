@@ -10,12 +10,13 @@ from node_workers import NodeWorker
 
 import signal
 from pathlib import Path
-from Qt import QtWidgets, QtCore
+from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import QThreadPool
-from NodeGraphQt import NodeGraph, NodesPaletteWidget
+from NodeGraphQt import NodeGraph, NodesPaletteWidget,constants
 from NodeGraphQt import PropertiesBinWidget
 
-os.environ["QT_ENABLE_HIGHDPI_SCALING"]= "0"
+
+
 
 BASE_PATH = Path(__file__).parent.resolve()
 
@@ -53,6 +54,8 @@ def main():
 
     # create graph controller.
     graph = NodeGraph()  
+    graph.set_background_color(240, 240, 240)
+    graph.set_grid_color(210, 210, 210)
     
     
     graph_widget = graph.widget 
@@ -67,6 +70,15 @@ def main():
     # set up context menu for the node graph.
     hotkey_path = Path(BASE_PATH, 'hotkeys', 'hotkeys.json')
     graph.set_context_menu_from_file(hotkey_path, 'graph')
+    
+    ### styling
+    # change the background color of the viewport
+    #viewer = graph.viewer()
+    #viewer.set_background_color(240, 240, 240)   # light grey
+
+    ## change grid color and spacing if you want
+    #viewer.set_grid_color(200, 200, 200)
+    #viewer.set_grid_size(25)
     
     # registered example nodes.
     graph.register_nodes(
@@ -115,12 +127,12 @@ def main():
     
     
     graph_widget.resize(1100, 800)
-    graph_widget.setWindowTitle("FretGUI")
+    graph_widget.setWindowTitle("FretBurstsStudio")
     graph_widget.show()  
     
     
     file_node = graph.create_node(
-        'Loaders.PhHDF5Node', text_color='#feab20')
+        'Loaders.PhHDF5Node')
     file_node.set_disabled(False)
     
     # photon_node = graph.create_node(
@@ -128,19 +140,19 @@ def main():
     # photon_node.set_disabled(False)
     
     alex_node = graph.create_node(
-        'Analysis.AlexNode', text_color='#feab20')
+        'Analysis.AlexNode')
     alex_node.set_disabled(False)
     
     calc_bgnode = graph.create_node(
-        'Analysis.CalcBGNode', text_color='#feab20')
+        'Analysis.CalcBGNode')
     calc_bgnode.set_disabled(False)
     
     search_node = graph.create_node(
-        'Analysis.BurstSearchNodeFromBG', text_color='#feab20')
+        'Analysis.BurstSearchNodeFromBG')
     search_node.set_disabled(False)
     
     plot_node = graph.create_node(
-        'Plot.BGPlotterNode', text_color='#feab20')
+        'Plot.BGPlotterNode')
     plot_node.set_disabled(False)
     
 
@@ -195,6 +207,20 @@ def main():
     sidebar_widget.setLayout(sidebar_layout)
     sidebar_widget.setFixedSize(500, 200)
     main_layout.addWidget(sidebar_widget)
+    
+    app.setStyleSheet("""
+        QWidget {
+            font-family: 'Segoe UI';
+            font-size: 10pt;
+        }
+        QTabWidget::pane {
+            border: 0px;
+        }
+        QScrollBar:vertical {
+            width: 8px;
+            margin: 0;
+        }
+    """)
         
         
     app.exec()
