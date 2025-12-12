@@ -149,7 +149,7 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
         self.add_input('inport')
         self.add_output('outport')
         self.m_slider = node_builder.build_int_slider('m', [3, 100, 1], 10)
-        self.L_slider = node_builder.build_int_slider('L', [3, 100, 1], 10)
+        self.L_slider = node_builder.build_int_slider('L', [3, 100, 1], 20)
         self.F_slider = node_builder.build_int_slider('F', [1, 20, 1], 6)
         
     def __burst_search(self, fbdata: str, m: int,L: int,F: int):
@@ -305,7 +305,8 @@ class EHistPlotterNode(AbstractContentNode):
         ax1 = plot_widget.figure.add_subplot()
         ax1.cla()
         for cur_data in self.data_to_plot:
-            fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1)
+            fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1,
+            hist_style = 'bar' if len(self.data_to_plot)==1 else 'line')
         plot_widget.canvas.draw()
 
     
