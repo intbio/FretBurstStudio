@@ -5,6 +5,7 @@ from fbs_data import FBSData
 from node_workers import UpdateWidgetNodeWorker   
 from Qt.QtCore import QThreadPool   
 from singletons import ThreadSignalManager
+from collections import deque
             
             
             
@@ -33,6 +34,17 @@ class AbstractExecutable(BaseNode, ABC):
             for connected_port in connected_ports:
                 connected_node = connected_port.node()
                 yield connected_node
+                
+    def bfs(self):
+        visited = set([self])
+        q = deque([self])
+        while len(q) != 0:
+            cur_node = q.popleft()
+            for nextnode in cur_node.iter_children_nodes():
+                if nextnode in visited:
+                    continue
+                visited.add(nextnode)
+                yield nextnode
                 
                                   
 class AbstractRecomputable(AbstractExecutable):
@@ -83,7 +95,6 @@ class AbstractRecomputable(AbstractExecutable):
             widget.setEnabled(True)
             
     def on_widget_triggered(self):
-        ThreadSignalManager().run_btn_clicked.emit()
         print("widget trigiered")
         worker = UpdateWidgetNodeWorker(self)
         pool = QThreadPool.globalInstance()
