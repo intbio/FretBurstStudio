@@ -101,9 +101,6 @@ class UpdateWidgetNodeWorker(NodeWorker):
         super().__init__(start_node, data, node_seq, need_fill)
         self.__need_fill = need_fill
         
-    def run_(self):
-        pass
-        
     def fill_nodeseq(self):
         forward_paths = []
         super()._fill_nodeseq(self.start_node, self.node_seq, forward_paths)
@@ -118,7 +115,7 @@ class UpdateWidgetNodeWorker(NodeWorker):
             product(forward_paths, backwards_path)
             ):
             new_backward_q = backward_q.copy()
-            # new_backward_q.popleft()
+            new_backward_q.pop()
             new_backward_q.extend(forward_q.copy())
             print("PATH", new_backward_q)
             if i == 0:

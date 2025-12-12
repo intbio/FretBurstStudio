@@ -94,7 +94,6 @@ class AbstractRecomputable(AbstractExecutable):
             widget.setEnabled(True)
             
     def on_widget_triggered(self):
-        ThreadSignalManager().run_btn_clicked.emit()
         print("widget trigiered")
         worker = UpdateWidgetNodeWorker(self)
         pool = QThreadPool.globalInstance()

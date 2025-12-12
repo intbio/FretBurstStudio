@@ -232,18 +232,25 @@ class AbstractContentNode(ResizableContentNode):
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
         ThreadSignalManager().run_btn_clicked.connect(self.on_plot_data_clear)
+        self.was_executed = False
+        
+    def on_refresh_canvas(self):
+        if self.was_executed:
+            self._on_refresh_canvas()
         
     @abstractmethod
-    def on_refresh_canvas(self):
+    def _on_refresh_canvas(self):
         pass
     
     def on_plot_data_clear(self):
         print("___________CLEAR_______________")
         self.data_to_plot = []
+        self.was_executed = False
     
     # @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
         print("___________execute__________")
+        self.was_executed = True
         self.data_to_plot.append(fbsdata)
         return [fbsdata]        
     
@@ -267,7 +274,7 @@ class BGPlotterNode(AbstractContentNode):
         self.add_input('inport')
         node_builder.build_plot_widget('plot_widget')                       
         
-    def on_refresh_canvas(self):
+    def _on_refresh_canvas(self):
         print(f"__________{len(self.data_to_plot)}________________")
         plot_widget = self.get_widget('plot_widget').plot_widget
         fig = plot_widget.figure
@@ -278,6 +285,7 @@ class BGPlotterNode(AbstractContentNode):
             fretbursts.dplot(cur_data.data, fretbursts.hist_bg, show_fit=True, ax=ax1)
             fretbursts.dplot(cur_data.data, fretbursts.timetrace_bg, ax=ax2)
         plot_widget.canvas.draw()
+        self.on_plot_data_clear()
         
     
 class EHistPlotterNode(AbstractContentNode):
@@ -298,7 +306,7 @@ class EHistPlotterNode(AbstractContentNode):
         self.add_input('inport')
         node_builder.build_plot_widget('plot_widget')
 
-    def on_refresh_canvas(self):
+    def _on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget
         plot_widget.figure.clf()
         ax1 = plot_widget.figure.add_subplot()
@@ -307,6 +315,7 @@ class EHistPlotterNode(AbstractContentNode):
             fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1,
             hist_style = 'bar' if len(self.data_to_plot)==1 else 'line')
         plot_widget.canvas.draw()
+        self.on_plot_data_clear()
 
     
         
