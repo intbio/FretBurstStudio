@@ -148,9 +148,9 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
         
         self.add_input('inport')
         self.add_output('outport')
-        self.m_slider = node_builder.build_int_slider('m', [3, 100, 1], 10)
-        self.L_slider = node_builder.build_int_slider('L', [3, 100, 1], 20)
-        self.F_slider = node_builder.build_int_slider('F', [1, 20, 1], 6)
+        self.m_slider = node_builder.build_int_slider('m, Photon search window', [3, 100, 1], 10)
+        self.L_slider = node_builder.build_int_slider('L, Minimal Burst size', [3, 100, 1], 20)
+        self.F_slider = node_builder.build_int_slider('F, Min. Burst rate to bg. ratio', [1, 20, 1], 6)
         
     def __burst_search(self, fbdata: str, m: int,L: int,F: int):
         fbdata.data.burst_search(m=m,L=L,F=F)
@@ -223,6 +223,12 @@ class ResizableContentNode(AbstractRecomputable):
 
         wrapper.setMinimumSize(inner_w, inner_h)
         wrapper.setMaximumSize(inner_w, inner_h)
+        wrapper.setGeometry(
+            self.LEFT_RIGHT_MARGIN,
+            self.TOP_MARGIN,
+            inner_w,
+            inner_h
+        )
         
         
         
@@ -273,7 +279,8 @@ class BGPlotterNode(AbstractContentNode):
         node_builder = NodeBuilder(self)
 
         self.add_input('inport')
-        node_builder.build_plot_widget('plot_widget')                       
+        node_builder.build_plot_widget('plot_widget')      
+                         
         
     def _on_refresh_canvas(self):
         print(f"__________{len(self.data_to_plot)}________________")

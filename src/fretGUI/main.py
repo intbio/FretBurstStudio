@@ -45,6 +45,7 @@ def on_toogle_clicked(graph, toggle_btn):
                 
            
 def main():
+    THEME = 'light'
     # handle SIGINT to make the app terminate on CTRL+C
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     
@@ -129,47 +130,50 @@ def main():
     run_button.show()
     
     
-    graph_widget.resize(1100, 800)
+    graph_widget.resize(1280, 800)
     graph_widget.setWindowTitle("FretBurstsStudio")
     graph_widget.show()  
     
     
-    file_node = graph.create_node(
-        'Loaders.PhHDF5Node')
-    file_node.set_disabled(False)
+    # file_node = graph.create_node(
+    #     'Loaders.PhHDF5Node')
+    # file_node.set_disabled(False)
     
-    # photon_node = graph.create_node(
-    #     'nodes.custom.PhotonNode', text_color='#feab20')
-    # photon_node.set_disabled(False)
+    # # photon_node = graph.create_node(
+    # #     'nodes.custom.PhotonNode', text_color='#feab20')
+    # # photon_node.set_disabled(False)
     
-    alex_node = graph.create_node(
-        'Analysis.AlexNode')
-    alex_node.set_disabled(False)
+    # alex_node = graph.create_node(
+    #     'Analysis.AlexNode')
+    # alex_node.set_disabled(False)
     
-    calc_bgnode = graph.create_node(
-        'Analysis.CalcBGNode')
-    calc_bgnode.set_disabled(False)
+    # calc_bgnode = graph.create_node(
+    #     'Analysis.CalcBGNode')
+    # calc_bgnode.set_disabled(False)
     
-    search_node = graph.create_node(
-        'Analysis.BurstSearchNodeFromBG')
-    search_node.set_disabled(False)
+    # search_node = graph.create_node(
+    #     'Analysis.BurstSearchNodeFromBG')
+    # search_node.set_disabled(False)
     
-    plot_node = graph.create_node(
-        'Plot.BGPlotterNode')
-    plot_node.set_disabled(False)
+    # plot_node = graph.create_node(
+    #     'Plot.BGPlotterNode')
+    # plot_node.set_disabled(False)
     
 
     
-    file_node.set_output(0, alex_node.input(0))
-    # photon_node.set_output(0, alex_node.input(0))
-    alex_node.set_output(0, calc_bgnode.input(0))
-    calc_bgnode.set_output(0, search_node.input(0))
-    search_node.set_output(0, plot_node.input(0))
+    # file_node.set_output(0, alex_node.input(0))
+    # # photon_node.set_output(0, alex_node.input(0))
+    # alex_node.set_output(0, calc_bgnode.input(0))
+    # calc_bgnode.set_output(0, search_node.input(0))
+    # search_node.set_output(0, plot_node.input(0))
     
     
-    graph.auto_layout_nodes()
-    graph.clear_selection()
-    graph.fit_to_selection()
+    # graph.auto_layout_nodes()
+    # graph.clear_selection()
+    # graph.fit_to_selection()
+    # graph.reset_zoom()
+
+    graph.set_zoom(zoom=-0.9)
         
 
     properties_bin = PropertiesBinWidget(node_graph=graph, parent=graph_widget)
@@ -184,7 +188,7 @@ def main():
     # nodes_tree.set_category_label('nodes.group', 'Group Nodes')
     # nodes_tree.show()
 
-    
+
     
     nodes_palette = NodesPaletteWidget(node_graph=graph)
     nodes_palette.set_category_label('nodeGraphQt.nodes', 'Builtin Nodes')
@@ -216,7 +220,12 @@ def main():
 
 
 #styling
-    def apply_theme(kind='light'):
+    def apply_theme(kind=None):
+        global THEME
+        if kind is None:
+            kind = THEME
+        else:
+            THEME = kind
         color_dict = {
             'light': {
                 'background': (240, 240, 240),
@@ -310,16 +319,27 @@ def main():
        
     # ----- menu bar -----
     def open_file():
-        QtWidgets.QFileDialog.getOpenFileName(graph_widget, "Open File")
+        path = QtWidgets.QFileDialog.getOpenFileName(graph_widget, "Open File",filter="*.json")
+        if path:
+            graph.load_session(path[0])
+            apply_theme()
 
     def save_file():
-        QtWidgets.QFileDialog.getSaveFileName(graph_widget, "Save File")
+        path = QtWidgets.QFileDialog.getSaveFileName(graph_widget, "Save File",filter="*.json")
+        if path[0]:
+            graph.save_session(path[0])
 
     def close_app():
         app.quit()
 
     def show_about():
         QtWidgets.QMessageBox.information(graph_widget, "About", "FretBurstStudio based on FretBursts library<br><br>Version 0.0.1 <br><br>Developed by: Dmitry Ryabov and Grigory Armeev")
+
+    def load_template(template_path):
+        """Load a template session from the configs folder."""
+        if template_path and Path(template_path).exists():
+            graph.load_session(template_path)
+            apply_theme()
 
     menu_bar = QtWidgets.QMenuBar(graph_widget)
     file_menu = menu_bar.addMenu("File")
@@ -331,6 +351,22 @@ def main():
     theme_menu = menu_bar.addMenu("Theme")
     theme_menu.addAction("Light").triggered.connect(lambda: apply_theme('light'))
     theme_menu.addAction("Dark").triggered.connect(lambda: apply_theme('dark'))
+
+    templates_menu = menu_bar.addMenu("Templates")
+    configs_folder = BASE_PATH / 'configs'
+    if configs_folder.exists():
+        json_files = sorted(configs_folder.glob('*.json'))
+        if json_files:
+            for json_file in json_files:
+                template_name = json_file.stem  # filename without extension
+                action = templates_menu.addAction(template_name)
+                action.triggered.connect(lambda checked, path=str(json_file): load_template(path))
+        else:
+            no_templates_action = templates_menu.addAction("No templates available")
+            no_templates_action.setEnabled(False)
+    else:
+        no_templates_action = templates_menu.addAction("Configs folder not found")
+        no_templates_action.setEnabled(False)
 
     about_menu = menu_bar.addMenu("About")
     about_menu.addAction("About").triggered.connect(show_about)
