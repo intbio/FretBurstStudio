@@ -123,8 +123,6 @@ class UpdateWidgetNodeWorker(NodeWorker):
             else:
                 self.run_in_new_thread(self.start_node, self.data, backward_q.copy(), False)
   
-
-        
     def _fill_nodeseq_backwards(self, node, visited, paths=[]):
         visited = visited if visited else deque()
         visited.appendleft(node)
