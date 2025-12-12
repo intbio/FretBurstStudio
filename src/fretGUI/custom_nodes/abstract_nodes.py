@@ -4,6 +4,7 @@ from abc import  abstractmethod, ABC
 from fbs_data import FBSData
 from node_workers import UpdateWidgetNodeWorker   
 from Qt.QtCore import QThreadPool   
+from singletons import ThreadSignalManager
             
             
             
@@ -81,6 +82,7 @@ class AbstractRecomputable(AbstractExecutable):
             widget.setEnabled(True)
             
     def on_widget_triggered(self):
+        ThreadSignalManager().run_btn_clicked.emit()
         print("widget trigiered")
         worker = UpdateWidgetNodeWorker(self)
         pool = QThreadPool.globalInstance()

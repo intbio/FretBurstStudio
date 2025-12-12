@@ -226,7 +226,7 @@ class ResizableContentNode(AbstractRecomputable):
 class AbstractContentNode(ResizableContentNode):
     def __init__(self, widget_name, qgraphics_item=None):
         super().__init__(widget_name, qgraphics_item)
-        self.data_to_plot = []
+        self.data_to_plot = dict
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
         ThreadSignalManager().run_btn_clicked.connect(self.on_plot_data_clear)
         
@@ -235,12 +235,16 @@ class AbstractContentNode(ResizableContentNode):
         pass
     
     def on_plot_data_clear(self):
+        print("CLEAR")
         self.data_to_plot = []
     
-    @FBSDataCash().fbscash
+    # @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
         self.data_to_plot.append(fbsdata)
         return [fbsdata]
+    
+    # def execute(self, fbsdata: FBSData):
+        
     
     
 class BGPlotterNode(AbstractContentNode):

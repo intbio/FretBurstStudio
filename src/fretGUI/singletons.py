@@ -40,7 +40,7 @@ class FBSDataCash(metaclass=SingletonMeta):
     
     def fbscash(self, foo):
         def wrapper(node, fbsdata, *args, **kwargs):
-            hash = self.__make_hash(node, fbsdata)
+            hash = FBSDataCash.make_hash(node, fbsdata)
             with QMutexLocker(self.mutex):
                 if hash in self.__table:
                     new_fbsdata = self.get_datacopy(hash, node, fbsdata)
@@ -72,8 +72,8 @@ class FBSDataCash(metaclass=SingletonMeta):
             if hash in self.__table:
                 self.__table.pop(hash)
                 break
-            
-    def __make_hash(self, node, data):
+    @staticmethod        
+    def make_hash(node, data):
         values = [widget.get_value() for name, widget in node.widgets().items()]
         values.append(id(node))
         values.append(data.data)
