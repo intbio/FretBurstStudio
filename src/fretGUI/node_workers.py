@@ -36,7 +36,6 @@ class AbstractNodeWorker(QRunnable):
             self.fill_nodeseq()
         ThreadSignalManager().thread_started.emit(self.uid, len(self.node_seq) - 1)
         try:
-            print(f"_________{self.uid}, {self.node_seq}")
             self._run()
         except Exception as error:
             print(f"__________ERROR_____________: node: {error}")
@@ -108,20 +107,24 @@ class UpdateWidgetNodeWorker(NodeWorker):
     def fill_nodeseq(self):
         forward_paths = []
         super()._fill_nodeseq(self.start_node, self.node_seq, forward_paths)
+        print("FORWARD", forward_paths)
             
         backwards_path = []
         self._fill_nodeseq_backwards(self.start_node, None, backwards_path)
+        print("BACKWARD", backwards_path)
         self.__need_fill = False
         
         for i, (forward_q, backward_q) in enumerate(
             product(forward_paths, backwards_path)
             ):
-            forward_q.popleft()
-            backward_q.extend(forward_q)
+            new_backward_q = backward_q.copy()
+            # new_backward_q.popleft()
+            new_backward_q.extend(forward_q.copy())
+            print("PATH", new_backward_q)
             if i == 0:
-                self.node_seq = backward_q
+                self.node_seq = new_backward_q
             else:
-                self.run_in_new_thread(self.start_node, self.data, backward_q.copy(), False)
+                self.run_in_new_thread(self.start_node, self.data, new_backward_q, False)
   
     def _fill_nodeseq_backwards(self, node, visited, paths=[]):
         visited = visited if visited else deque()
