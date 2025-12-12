@@ -54,8 +54,46 @@ def main():
 
     # create graph controller.
     graph = NodeGraph()  
+    
+    
+    #styling
     graph.set_background_color(240, 240, 240)
     graph.set_grid_color(210, 210, 210)
+    
+    
+    def theme_nodes(node):
+        node.set_color(150, 150, 150)
+        node.set_property('text_color',(30,30,30))
+        # node.widgets() -> {prop_name: NodeBaseWidget}
+        for w in node.widgets().values():
+            box = w.widget()  # this is _NodeGroupBox (a QGroupBox)
+
+            # Replace the stylesheet completely with your own.
+            box.setStyleSheet("""
+            QGroupBox {
+                background-color: transparent;
+                border: 0px;
+                margin-top: 1px;
+                padding: 14px 1px 2px 1px;
+                font-size: 8pt;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                color: rgb(30, 30, 30);      /* your label color here */
+                padding: 0px;
+                margin-left: 4px;
+            }
+            """)
+
+#    for n in graph.all_nodes():
+#        theme_nodes(n)
+
+    def on_node_created(n):
+        theme_nodes(n)
+
+    graph.node_created.connect(on_node_created)
+    
     
     
     graph_widget = graph.widget 
@@ -71,14 +109,7 @@ def main():
     hotkey_path = Path(BASE_PATH, 'hotkeys', 'hotkeys.json')
     graph.set_context_menu_from_file(hotkey_path, 'graph')
     
-    ### styling
-    # change the background color of the viewport
-    #viewer = graph.viewer()
-    #viewer.set_background_color(240, 240, 240)   # light grey
-
-    ## change grid color and spacing if you want
-    #viewer.set_grid_color(200, 200, 200)
-    #viewer.set_grid_size(25)
+    
     
     # registered example nodes.
     graph.register_nodes(
@@ -207,22 +238,13 @@ def main():
     sidebar_widget.setLayout(sidebar_layout)
     sidebar_widget.setFixedSize(500, 200)
     main_layout.addWidget(sidebar_widget)
-    
     app.setStyleSheet("""
-        QWidget {
-            font-family: 'Segoe UI';
-            font-size: 10pt;
-        }
-        QTabWidget::pane {
-            border: 0px;
-        }
-        QScrollBar:vertical {
-            width: 8px;
-            margin: 0;
+        QLabel {
+            color: rgb(30, 30, 30);
         }
     """)
-        
-        
+       
+  
     app.exec()
 
     
