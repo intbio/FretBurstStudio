@@ -56,10 +56,11 @@ class LSM510Node(AbstractRecomputable):
     def execute(self, data=None) -> list[FBSData]:
         selected_paths = self.file_widget.get_value()
         data_list = [self.__load_confocor2(
-            FBSData(path=cur_path))
+            FBSData(path=cur_path))[0]
                      for cur_path in selected_paths]
         return data_list
     
+    @FBSDataCash().fbscash
     def __load_confocor2(self, fbsdata: FBSData):
         fcs=self.ConfoCor2Raw(fbsdata.path)
         times_acceptor, times_donor = fcs.asarray()
@@ -77,7 +78,7 @@ class LSM510Node(AbstractRecomputable):
         fbsdata.data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
                                      clk_p=timestamps_unit, alternated=False,nch=1,
                                      fname='file_name',meas_type='smFRET')  
-        return fbsdata   
+        return [fbsdata]   
         
     
 class AlexNode(AbstractRecomputable):

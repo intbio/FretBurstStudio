@@ -77,8 +77,7 @@ class NodeWorker(AbstractNodeWorker):
             print(cur_node)
             for i, cur_data in enumerate(data_container):
                 if i >= 1:
-                    q_copy = self.node_seq.copy()
-                    self.run_in_new_thread(q_copy[0], cur_data.copy(), q_copy)
+                    self.run_in_new_thread(self.node_seq[0], cur_data, self.node_seq)
                 else:
                     self.data = cur_data
                     
@@ -93,7 +92,7 @@ class NodeWorker(AbstractNodeWorker):
             if i == 0:
                 self.__fill_nodeseq(next_node) 
             else:
-                self.run_in_new_thread(next_node, self.data, self.node_seq.copy())
+                self.run_in_new_thread(next_node, self.data, self.node_seq)
         
         
 class UpdateWidgetNodeWorker(NodeWorker):
