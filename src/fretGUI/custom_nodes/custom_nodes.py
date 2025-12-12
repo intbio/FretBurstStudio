@@ -15,7 +15,7 @@ import numpy as np
              
 class PhHDF5Node(AbstractRecomputable):
 
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Loaders'
     NODE_NAME  = 'PhHDF5Node'
 
     def __init__(self):
@@ -41,7 +41,7 @@ class PhHDF5Node(AbstractRecomputable):
         
 class LSM510Node(AbstractRecomputable):
     from misc.fcsfiles import ConfoCor2Raw
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Loaders'
     NODE_NAME  = 'LSM510Node'
 
     def __init__(self):
@@ -82,7 +82,7 @@ class LSM510Node(AbstractRecomputable):
         
     
 class AlexNode(AbstractRecomputable):
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Analysis'
     NODE_NAME = 'AlexNode'
     
     def __init__(self):
@@ -97,7 +97,7 @@ class AlexNode(AbstractRecomputable):
     
     
 class CalcBGNode(AbstractRecomputable):
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Analysis'
     NODE_NAME = 'CalcBGNode'
     
     def __init__(self):
@@ -119,7 +119,7 @@ class CalcBGNode(AbstractRecomputable):
     
     
 class BurstSearchNodeRate(AbstractRecomputable):
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Analysis'
     NODE_NAME = 'BurstSearchRate'
     
     def __init__(self):
@@ -139,7 +139,7 @@ class BurstSearchNodeRate(AbstractRecomputable):
         return [fbsdata]
         
 class BurstSearchNodeFromBG(AbstractRecomputable):
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Analysis'
     NODE_NAME = 'BurstSearchFromBG'
     
     def __init__(self):
@@ -164,7 +164,7 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
     
     
 class BurstSelectorNode(AbstractRecomputable):
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Selectors'
     NODE_NAME = 'BurstSelector'
     
     def __init__(self):
@@ -251,7 +251,7 @@ class AbstractContentNode(ResizableContentNode):
     
     
 class BGPlotterNode(AbstractContentNode):
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Plot'
     NODE_NAME = 'BGPlotterNode'
    
 
@@ -282,7 +282,7 @@ class BGPlotterNode(AbstractContentNode):
         
     
 class EHistPlotterNode(AbstractContentNode):
-    __identifier__ = 'nodes.custom'
+    __identifier__ = 'Plot'
     NODE_NAME = 'EHistPlotterNode'
 
     # if you want different margins just for this node:

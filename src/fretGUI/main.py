@@ -120,7 +120,7 @@ def main():
     
     
     file_node = graph.create_node(
-        'nodes.custom.PhHDF5Node', text_color='#feab20')
+        'Loaders.PhHDF5Node', text_color='#feab20')
     file_node.set_disabled(False)
     
     # photon_node = graph.create_node(
@@ -128,19 +128,19 @@ def main():
     # photon_node.set_disabled(False)
     
     alex_node = graph.create_node(
-        'nodes.custom.AlexNode', text_color='#feab20')
+        'Analysis.AlexNode', text_color='#feab20')
     alex_node.set_disabled(False)
     
     calc_bgnode = graph.create_node(
-        'nodes.custom.CalcBGNode', text_color='#feab20')
+        'Analysis.CalcBGNode', text_color='#feab20')
     calc_bgnode.set_disabled(False)
     
     search_node = graph.create_node(
-        'nodes.custom.BurstSearchNodeFromBG', text_color='#feab20')
+        'Analysis.BurstSearchNodeFromBG', text_color='#feab20')
     search_node.set_disabled(False)
     
     plot_node = graph.create_node(
-        'nodes.custom.BGPlotterNode', text_color='#feab20')
+        'Plot.BGPlotterNode', text_color='#feab20')
     plot_node.set_disabled(False)
     
 
@@ -178,6 +178,14 @@ def main():
     nodes_palette.set_category_label('nodes.basic', 'Basic Nodes')
     nodes_palette.set_category_label('nodes.group', 'Group Nodes')
     
+        #moving builtin to the last
+    tabs = nodes_palette.tab_widget()
+    w = tabs.widget(0)
+    icon = tabs.tabIcon(0)
+    text = tabs.tabText(0)
+    tabs.removeTab(0)
+    tabs.addTab(w, icon, text)
+    
     sidebar_layout = QtWidgets.QVBoxLayout()
     sidebar_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
     sidebar_layout.setSpacing(0)  # Remove spacing
@@ -185,7 +193,7 @@ def main():
     sidebar_layout.addWidget(nodes_palette)
     sidebar_widget = QtWidgets.QWidget()
     sidebar_widget.setLayout(sidebar_layout)
-    sidebar_widget.setFixedSize(300, 200)
+    sidebar_widget.setFixedSize(500, 200)
     main_layout.addWidget(sidebar_widget)
         
         
