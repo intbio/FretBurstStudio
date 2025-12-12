@@ -259,6 +259,7 @@ class BGPlotterNode(AbstractContentNode):
     LEFT_RIGHT_MARGIN = 67
     TOP_MARGIN = 35
     BOTTOM_MARGIN = 20
+    PLOT_NODE = True
 
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize
@@ -289,6 +290,8 @@ class EHistPlotterNode(AbstractContentNode):
     LEFT_RIGHT_MARGIN = 67
     TOP_MARGIN = 35
     BOTTOM_MARGIN = 20
+    PLOT_NODE = True
+
 
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize

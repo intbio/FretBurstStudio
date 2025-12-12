@@ -1,4 +1,4 @@
-from Qt import QtCore
+from Qt import QtCore, QtGui
 from NodeGraphQt.qgraphics.node_base import NodeItem
 
 
@@ -15,6 +15,7 @@ class ResizablePlotNodeItem(NodeItem):
         self._resizing = False
         self._start_pos = None
         self._start_size = None
+        self._handle_color = QtGui.QColor(100, 100, 100)
 
         # simple python callbacks instead of Qt Signal
         self._resize_callbacks = []
@@ -50,10 +51,41 @@ class ResizablePlotNodeItem(NodeItem):
         # draw normal node
         super().paint(painter, option, widget)
 
-        # draw resize handle
+        # draw resize handle (simple triangular corner grip)
         painter.save()
-        painter.drawRect(self._handle_rect())
+        
+        margin = 1.0
+        handle_rect = self._handle_rect()
+        rect = QtCore.QRectF(
+            handle_rect.left() + margin,
+            handle_rect.top() + margin,
+            handle_rect.width() - (margin * 2),
+            handle_rect.height() - (margin * 2),
+        )
+        
+        color = self._handle_color
+        
+        # Create triangular path: topRight -> bottomRight -> bottomLeft
+        path = QtGui.QPainterPath()
+        path.moveTo(rect.topRight())
+        path.lineTo(rect.bottomRight())
+        path.lineTo(rect.bottomLeft())
+        
+        painter.setBrush(color)
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.fillPath(path, painter.brush())
+        
         painter.restore()
+
+    def set_handle_color(self, color):
+        """Set grip color (accepts QColor or iterable of ints)."""
+        try:
+            self._handle_color = QtGui.QColor(color)
+        except Exception:
+            try:
+                self._handle_color = QtGui.QColor(*color)
+            except Exception:
+                self._handle_color = QtGui.QColor(100, 100, 100)
 
     # ---- mouse interaction --------------------------------------------
 

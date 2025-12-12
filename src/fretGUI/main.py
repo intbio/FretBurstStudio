@@ -14,7 +14,6 @@ from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, NodesPaletteWidget,constants
 from NodeGraphQt import PropertiesBinWidget
-from custom_widgets.themed_nodes_palette import ThemedNodesPalette
 
 
 
@@ -226,9 +225,9 @@ def main():
                 'text': (30, 30, 30)
             },
             'dark': {
-                'background': (30, 30, 30),
-                'grid': (50, 50, 50),
-                'node': (150, 150, 150),
+                'background': (50, 50, 50),
+                'grid': (80, 80, 80),
+                'node': (100, 100, 100),
                 'text': (240, 240, 240)
             }
         }
@@ -241,14 +240,22 @@ def main():
             f"""
             background-color: rgb{bg};
             color: rgb{color_dict[kind]['text']};
-            border: 1px solid rgb{color_dict[kind]['grid']};
+            /* border: 1px solid rgb{color_dict[kind]['grid']}; */
             """
         )
             
                 
         def theme_node(node):
-            node.set_color( *color_dict[kind]['node'])
+            
             node.set_property('text_color',color_dict[kind]['text'])
+            # update resize handle color if the view supports it
+            if hasattr(node, 'view') and hasattr(node.view, 'set_handle_color'):
+                node.view.set_handle_color(color_dict[kind]['grid'])
+            if hasattr(node, 'PLOT_NODE') and node.PLOT_NODE:
+                node.set_color( 255,255,255)
+            else:
+                node.set_color( *color_dict[kind]['node'])
+
             for w in node.widgets().values():
                 box = w.widget()  # this is _NodeGroupBox (a QGroupBox)
                 # Replace the stylesheet completely with your own.
@@ -263,7 +270,7 @@ def main():
                 QGroupBox::title {{
                     subcontrol-origin: margin;
                     subcontrol-position: top left;
-                    color: rgb(*color_dict[{kind}]['text']);      /* your label color here */
+                    color: rgb(*color_dict[{kind}]['text']); 
                     padding: 0px;
                     margin-left: 4px;
                 }}
@@ -271,13 +278,6 @@ def main():
 
         for n in graph.all_nodes():
             theme_node(n)
-
-        # Disconnect any previous theme_node connections to avoid duplicates
-        try:
-            graph.node_created.disconnect()
-        except TypeError:
-            # No connections exist, which is fine
-            pass
         graph.node_created.connect(theme_node)
         
         nodes_palette.setStyleSheet(f"""
@@ -319,7 +319,7 @@ def main():
         app.quit()
 
     def show_about():
-        QtWidgets.QMessageBox.information(graph_widget, "About", "FretBurstStudio")
+        QtWidgets.QMessageBox.information(graph_widget, "About", "FretBurstStudio based on FretBursts library<br><br>Version 0.0.1 <br><br>Developed by: Dmitry Ryabov and Grigory Armeev")
 
     menu_bar = QtWidgets.QMenuBar(graph_widget)
     file_menu = menu_bar.addMenu("File")
