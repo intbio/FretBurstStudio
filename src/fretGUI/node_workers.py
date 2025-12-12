@@ -5,7 +5,8 @@ import uuid
 from singletons import ThreadSignalManager
 from abc import abstractmethod
 from collections import deque
-import copy
+from copy import deepcopy
+from itertools import product
 
 
 
@@ -29,17 +30,13 @@ class AbstractNodeWorker(QRunnable):
     def need_fill(self) -> bool:
         pass
     
-    def __copy__(self, node=None, data=None, q=None):
-        node = node if node else self.start_node
-        q = q if q else self.node_seq
-        new_worker = type(self)(node, copy.copy(data), q.copy())
-        return new_worker
 
     def run(self):
         if self.need_fill():
             self.fill_nodeseq()
         ThreadSignalManager().thread_started.emit(self.uid, len(self.node_seq) - 1)
         try:
+            print(f"_________{self.uid}, {self.node_seq}")
             self._run()
         except Exception as error:
             print(f"__________ERROR_____________: node: {error}")
@@ -48,28 +45,21 @@ class AbstractNodeWorker(QRunnable):
         finally:
             ThreadSignalManager().thread_finished.emit(self.uid)
             
-    def run_in_new_thread(self, node, data, q):
-        new_worker = self.__copy__(node, data, q)
+    def run_in_new_thread(self, node, data, q, *args, **kwargs):
+        new_worker = type(self)(node, deepcopy(data), q, *args, **kwargs)
         pool = QThreadPool.globalInstance()
         pool.start(new_worker)
 
 
 class NodeWorker(AbstractNodeWorker):    
-    def __init__(self, start_node, data=None, node_seq=None):
+    def __init__(self, start_node, data=None, node_seq=None, need_fill=True):
         super().__init__(start_node, data, node_seq)   
-        self.__need_fill = True
-        
-    def __copy__(self, *args, **kwargs):
-        new_worker = super().__copy__(*args, **kwargs)
-        new_worker.__need_fill = self.__need_fill
-        return new_worker
+        self.__need_fill = need_fill
     
     def need_fill(self):
         return self.__need_fill
         
     def _run(self):
-        if self.start_node == self.node_seq[-1]:
-            self.fill_nodeseq()
         while len(self.node_seq) != 0:
             ThreadSignalManager().thread_progress.emit(self.uid)
             cur_node = self.node_seq.popleft()
@@ -77,55 +67,76 @@ class NodeWorker(AbstractNodeWorker):
             print(cur_node)
             for i, cur_data in enumerate(data_container):
                 if i >= 1:
-                    self.run_in_new_thread(self.node_seq[0], cur_data, self.node_seq)
+                    self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
                 else:
                     self.data = cur_data
                     
     def fill_nodeseq(self):
-        self.node_seq.append(self.start_node)
-        self.__fill_nodeseq(self.start_node)
-        self.__need_fill = False
-    
-    def __fill_nodeseq(self, node):
-        for i, next_node in enumerate(node.iter_children_nodes()):
-            self.node_seq.append(next_node)
+        paths = []
+        self._fill_nodeseq(self.start_node, self.node_seq, paths)
+        print(len(paths))
+        for i, cur_pathq in enumerate(paths):
             if i == 0:
-                self.__fill_nodeseq(next_node) 
+                self.node_seq = cur_pathq
+                self.need_fill = False
             else:
-                self.run_in_new_thread(next_node, self.data, self.node_seq)
+                self.run_in_new_thread(self.start_node, self.data, cur_pathq, False)
+    
+    def _fill_nodeseq(self, node, visited, paths=[]):
+        visited.append(node)
+        children = list(node.iter_children_nodes())
+        if len(children) == 0:
+            paths.append(visited.copy())
+        elif len(children) == 1:
+            next_node = children[0]
+            self._fill_nodeseq(next_node, visited, paths)
+        else:
+            for next_node in children:
+                self._fill_nodeseq(next_node, visited.copy(), paths)
         
+
+
         
 class UpdateWidgetNodeWorker(NodeWorker):
-    def __init__(self, start_node, data=None, node_seq=None):
-        super().__init__(start_node, data, node_seq)
-        self.__need_backwards = True
-        
-    def __copy__(self, *args, **kwargs):
-        new_worker = super().__copy__(*args, **kwargs)
-        new_worker.__need_backwards = self.__need_backwards
-        return new_worker
+    def __init__(self, start_node, data=None, node_seq=None, need_fill=True):
+        super().__init__(start_node, data, node_seq, need_fill)
+        self.__need_fill = need_fill
         
     def run_(self):
         pass
         
     def fill_nodeseq(self):
-        if super().need_fill():
-            super().fill_nodeseq()
-        if self.need_fill():
-            self.fill_nodeseq_backwards()
-        self.__need_backwards = False
-        print(self.node_seq)
-    
-    def fill_nodeseq_backwards(self):
-        self.__fill_nodeseq_backwards(self.start_node)
+        forward_paths = []
+        super()._fill_nodeseq(self.start_node, self.node_seq, forward_paths)
+            
+        backwards_path = []
+        self._fill_nodeseq_backwards(self.start_node, None, backwards_path)
+        self.__need_fill = False
         
-    def __fill_nodeseq_backwards(self, node):
-        for i, next_node in enumerate(node.iter_parent_nodes()):
-            self.node_seq.appendleft(next_node)
+        for i, (forward_q, backward_q) in enumerate(
+            product(forward_paths, backwards_path)
+            ):
+            forward_q.popleft()
+            backward_q.extend(forward_q)
             if i == 0:
-                self.__fill_nodeseq_backwards(next_node) 
+                self.node_seq = backward_q
             else:
-                self.run_in_new_thread(next_node, self.data, self.node_seq.copy())
+                self.run_in_new_thread(self.start_node, self.data, backward_q.copy(), False)
+  
+
+        
+    def _fill_nodeseq_backwards(self, node, visited, paths=[]):
+        visited = visited if visited else deque()
+        visited.appendleft(node)
+        parents = list(node.iter_parent_nodes())
+        if len(parents) == 0:
+            paths.append(visited.copy())
+        elif len(parents) == 1:
+            next_node = parents[0]
+            self._fill_nodeseq_backwards(next_node, visited, paths)
+        else:
+            for next_node in parents:
+                self._fill_nodeseq_backwards(next_node, visited.copy(), paths)
 
     def need_fill(self) -> bool:
-        return super().need_fill() or self.__need_backwards
+        return self.__need_fill
