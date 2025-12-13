@@ -58,6 +58,7 @@ class IntSliderWidget(AbstractSliderWidget):
             new_val = upper_val
         self.slider.setValue(new_val)
         self.text_box.setText(str(new_val))
+        self.slider.sliderReleased.emit()
     
     def on_editing_finished(self):
         textbox_val = int(self.text_box.text())
