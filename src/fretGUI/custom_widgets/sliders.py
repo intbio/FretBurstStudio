@@ -63,6 +63,16 @@ class IntSliderWidget(AbstractSliderWidget):
     def on_editing_finished(self):
         textbox_val = int(self.text_box.text())
         self.slider.setValue(textbox_val)
+    
+    def value(self):
+        """Возвращает текущее int значение"""
+        return self.slider.value()
+    
+    def setValue(self, int_value):
+        """Устанавливает int значение"""
+        clamped_val = max(self.start, min(int(int_value), self.stop))
+        self.slider.setValue(clamped_val)
+        self.text_box.setText(str(clamped_val))
         
 
 class FloatSliderWidget(AbstractSliderWidget):
@@ -76,6 +86,9 @@ class FloatSliderWidget(AbstractSliderWidget):
         super().__init__(parent)
 
         num_steps = int((self.stop - self.start) / self.step)
+        # Set slider range to 0 to num_steps (slider represents step indices)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(num_steps)
         self.text_box.setText(self.format_float(self.start))
     
     def format_float(self, value):
@@ -131,15 +144,12 @@ class SliderWidgetWrapper(AbstractWidgetWrapper):
         self.set_custom_widget(self.slider_widget)
         
     def get_value(self):
-        slider = self.get_custom_widget().slider
-        slider_val = slider.value()
-        return slider_val
+        # Return the converted float value, not the raw slider integer
+        return self.get_custom_widget().value()
     
     def set_value(self, value):
-        text_box = self.get_custom_widget().text_box
-        text_box.setText(str(value))
-        slider = self.get_custom_widget().slider
-        slider.setValue(value)
+        # Use the widget's setValue method which handles conversion properly
+        self.get_custom_widget().setValue(value)
         
     def wire_signals(self):
         self.slider_widget.slider.sliderReleased.connect(
