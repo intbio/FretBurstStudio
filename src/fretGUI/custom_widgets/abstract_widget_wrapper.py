@@ -14,7 +14,6 @@ class AbstractWidgetWrapper(NodeBaseWidget):
         
     def setEnabled(self, bool_value: bool):
         widget = self.get_custom_widget()
-        print(f'SET {bool_value}')
         widget.setEnabled(bool_value)
     
     @abstractmethod

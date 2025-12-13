@@ -40,11 +40,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
 
         self.mainLayout.addWidget(self.canvas)
         self.mainLayout.addWidget(self.toolbar)
-
-
-    # optional: if you want to debug sizing
-
-    
+   
         
 class TemplatePlotWidgetWtapper(NodeBaseWidget):
     '''
@@ -56,9 +52,6 @@ class TemplatePlotWidgetWtapper(NodeBaseWidget):
         self.plot_widget = TemplatePlotWidget(parent=parent)
         self.set_custom_widget(self.plot_widget)
         self.fretData=fretData
-    
-        # self.plot_widget.figure.clf()
-
         
     def get_value(self):
         return None

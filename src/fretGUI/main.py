@@ -41,6 +41,14 @@ def on_toogle_clicked(graph, toggle_btn):
     elif toggle_state == 'automatic':
         print('auto')
         engene.make_nodes_dinamic()
+        
+def on_block_ui(graph):
+    for node in graph.all_nodes():
+        node.disable_all_node_widgets()
+        
+def on_release_ui(graph):
+    for node in graph.all_nodes():
+        node.enable_all_node_widgets()
     
     
                 
@@ -131,11 +139,9 @@ def main():
     ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
     ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
     progress_bar.block_ui.connect(lambda: run_button.setDisabled(True))
+    progress_bar.block_ui.connect(lambda: on_block_ui(graph))
     progress_bar.release_ui.connect(lambda: run_button.setDisabled(False))
-    # ThreadSignalManager().calculation_begin.connect()
-    # ThreadSignalManager().calculation_finished.connect(progress_bar.on_calculation_finished)
-    # ThreadSignalManager().calculation_finished.connect(lambda: run_button.setDisabled(False))
-    # ThreadSignalManager().calculation_processed.connect(progress_bar.on_calculation_processed)
+    progress_bar.release_ui.connect(lambda: on_release_ui(graph))
     progress_bar.show()
 
     

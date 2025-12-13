@@ -55,7 +55,6 @@ class FBSDataCash(metaclass=SingletonMeta):
         return wrapper
         
     def get_datacopy(self, hash, node, data):
-        print(f"___________from cash______________ {node}")
         cur_time = time.perf_counter()
         self.__time_q.put_nowait((cur_time, hash))
         return self.__table[hash].copy()
@@ -66,7 +65,6 @@ class FBSDataCash(metaclass=SingletonMeta):
         self.__time_q.put_nowait((cur_time, hash))
             
     def remove_oldest(self):
-        print("remove oldest")
         while self.__time_q.not_empty:
             time, hash = self.__time_q.get_nowait()
             if hash in self.__table:

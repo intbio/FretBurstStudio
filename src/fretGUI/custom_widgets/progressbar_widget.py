@@ -37,7 +37,6 @@ class ProgressBar(QtWidgets.QWidget):
         QTimer.singleShot(2000, lambda: self.__del_pbar(pbar))
 
     def on_thread_processed(self, uid: str):
-        print("worker progress", uid)
         pbar = self.bars[uid]
         cur_value = pbar.value()
         pbar.setValue(cur_value + 1)

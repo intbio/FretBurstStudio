@@ -11,58 +11,76 @@ from singletons import ThreadSignalManager
 from abc import abstractmethod
 from NodeGraphQt import BaseNode
 import numpy as np
+from fretbursts.burstlib import Data
+from collections import Counter
+
+
+class AbstractLoader(AbstractRecomputable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.add_output('out_file')
+
+        self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
+        self.add_custom_widget(self.file_widget, tab='Custom')  
+        
+        self.opened_paths = dict()
+        
+    @abstractmethod
+    def load(self, path: str) -> FBSData:
+        pass
+    
+    def execute(self, fbsdata: FBSData=None):
+        selected_paths = self.file_widget.get_value()
+        self.__delete_closed_files(selected_paths)
+        
+        data_list = []
+        for cur_path in selected_paths:
+            path_hash = hash(cur_path)
+            if path_hash in self.opened_paths:
+                data_list.append(self.opened_paths[path_hash].copy())
+            else:
+                loaded_fbsdata = self.load(cur_path)
+                self.opened_paths[path_hash] = loaded_fbsdata.copy()
+                data_list.append(loaded_fbsdata)
+        return data_list
+    
+    def __delete_closed_files(self, selected_paths: list):
+        selected_hashes = set([hash(path) for path in selected_paths])
+        saved = set(self.opened_paths.keys())
+        for_kill = saved - selected_hashes
+        if len(for_kill) > 0:
+            for item in for_kill:
+                self.opened_paths.pop(item)
+        
+        
+    
 
              
-class PhHDF5Node(AbstractRecomputable):
+class PhHDF5Node(AbstractLoader):
 
     __identifier__ = 'Loaders'
     NODE_NAME  = 'PhHDF5Node'
 
     def __init__(self):
         super().__init__() 
-        self.node_iterator = None
-        
-        self.add_output('out_file')
-
-        self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
-        self.add_custom_widget(self.file_widget, tab='Custom')  
-        
-    def execute(self, data=None) -> list[FBSData]:
-        selected_paths = self.file_widget.get_value()
-        data_list = [self.__load_photon_hdf5(
-            FBSData(path=cur_path))
-                     for cur_path in selected_paths]
-        return data_list
     
-    def __load_photon_hdf5(self, fbsdata: FBSData):
-        data = fretbursts.loader.photon_hdf5(fbsdata.path)
-        fbsdata.data = data
+    def laod(self, path):
+        data = fretbursts.loader.photon_hdf5(path)
+        fbsdata = FBSData(data, path)
         return fbsdata   
         
-class LSM510Node(AbstractRecomputable):
+        
+class LSM510Node(AbstractLoader):
     from misc.fcsfiles import ConfoCor2Raw
     __identifier__ = 'Loaders'
     NODE_NAME  = 'LSM510Node'
 
     def __init__(self):
         super().__init__() 
-        self.node_iterator = None
-        
-        self.add_output('out_file')
-
-        self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
-        self.add_custom_widget(self.file_widget, tab='Custom')  
-        
-    def execute(self, data=None) -> list[FBSData]:
-        selected_paths = self.file_widget.get_value()
-        data_list = [self.__load_confocor2(
-            FBSData(path=cur_path))[0]
-                     for cur_path in selected_paths]
-        return data_list
     
-    @FBSDataCash().fbscash
-    def __load_confocor2(self, fbsdata: FBSData):
-        fcs=self.ConfoCor2Raw(fbsdata.path)
+    def load(self, path: str):
+        fcs=self.ConfoCor2Raw(path)
         times_acceptor, times_donor = fcs.asarray()
         fcs.frequency
 
@@ -75,10 +93,11 @@ class LSM510Node(AbstractRecomputable):
 
         detectors=df_sorted[1].astype('bool')
         
-        fbsdata.data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
+        data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
                                      clk_p=timestamps_unit, alternated=False,nch=1,
                                      fname='file_name',meas_type='smFRET')  
-        return [fbsdata]   
+        fbsdata = FBSData(data, path)
+        return fbsdata   
         
     
 class AlexNode(AbstractRecomputable):
@@ -162,6 +181,16 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
                                     F=self.F_slider.get_value())
         return [fbsdata]
         
+    def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
+        return fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
+    
+    @FBSDataCash().fbscash
+    def execute(self, fbsdata: FBSData):
+        # fbsdata = FBSData(path=fbsdata.path)
+        fbsdata.data = self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())
+        print(fbsdata.data is None)
+        return [fbsdata]
+
         
         
      
@@ -184,13 +213,11 @@ class AbstractContentNode(ResizableContentNode):
         pass
     
     def on_plot_data_clear(self):
-        print("___________CLEAR_______________")
-        self.data_to_plot = []
+        self.data_to_plot.clear()
         self.was_executed = False
     
-    # @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
-        print("___________execute__________")
+        print('execute plot', self)
         self.was_executed = True
         self.data_to_plot.append(fbsdata)
         return [fbsdata]        
@@ -221,7 +248,6 @@ class BGPlotterNode(AbstractContentNode):
                          
         
     def _on_refresh_canvas(self):
-        print(f"__________{len(self.data_to_plot)}________________")
         plot_widget = self.get_widget('plot_widget').plot_widget
         fig = plot_widget.figure
         fig.clear()
@@ -266,6 +292,7 @@ class EHistPlotterNode(AbstractContentNode):
             fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1, binwidth=self.BinWidth_slider.get_value(),
             hist_style = 'bar' if len(self.data_to_plot)==1 else 'line')
         plot_widget.canvas.draw()
+        print("plot", self)
         self.on_plot_data_clear()
 
     

@@ -38,7 +38,6 @@ class AbstractNodeWorker(QRunnable):
         try:
             self._run()
         except Exception as error:
-            print(f"__________ERROR_____________: node: {error}")
             ThreadSignalManager().thread_error.emit(self.uid)
             raise error
         finally:
@@ -63,7 +62,6 @@ class NodeWorker(AbstractNodeWorker):
             ThreadSignalManager().thread_progress.emit(self.uid)
             cur_node = self.node_seq.popleft()
             data_container = cur_node.execute(self.data)
-            print(cur_node)
             for i, cur_data in enumerate(data_container):
                 if i >= 1:
                     self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
@@ -73,7 +71,6 @@ class NodeWorker(AbstractNodeWorker):
     def fill_nodeseq(self):
         paths = []
         self._fill_nodeseq(self.start_node, self.node_seq, paths)
-        print(len(paths))
         for i, cur_pathq in enumerate(paths):
             if i == 0:
                 self.node_seq = cur_pathq
@@ -104,11 +101,9 @@ class UpdateWidgetNodeWorker(NodeWorker):
     def fill_nodeseq(self):
         forward_paths = []
         super()._fill_nodeseq(self.start_node, self.node_seq, forward_paths)
-        print("FORWARD", forward_paths)
             
         backwards_path = []
         self._fill_nodeseq_backwards(self.start_node, None, backwards_path)
-        print("BACKWARD", backwards_path)
         self.__need_fill = False
         
         for i, (forward_q, backward_q) in enumerate(
@@ -117,7 +112,6 @@ class UpdateWidgetNodeWorker(NodeWorker):
             new_backward_q = backward_q.copy()
             new_backward_q.pop()
             new_backward_q.extend(forward_q.copy())
-            print("PATH", new_backward_q)
             if i == 0:
                 self.node_seq = new_backward_q
             else:
