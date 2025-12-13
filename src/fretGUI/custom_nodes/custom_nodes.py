@@ -179,10 +179,7 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
         self.__burst_search(fbsdata,m=self.m_slider.get_value(),
                                     L=self.L_slider.get_value(),
                                     F=self.F_slider.get_value())
-        return [fbsdata]
-        
-    def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)       
+        return [fbsdata]    
           
         
 class AbstractContentNode(ResizableContentNode):
