@@ -6,6 +6,8 @@ from node_workers import UpdateWidgetNodeWorker
 from Qt.QtCore import QThreadPool   
 from singletons import ThreadSignalManager
 from collections import deque
+from .resizable_node_item import ResizablePlotNodeItem
+from Qt.QtCore import QTimer
             
             
             
@@ -99,4 +101,137 @@ class AbstractRecomputable(AbstractExecutable):
         worker = UpdateWidgetNodeWorker(self)
         pool = QThreadPool.globalInstance()
         pool.start(worker)
+
+class ResizableContentNode(AbstractRecomputable):
+    """
+    Base class for nodes that have a single main widget
+    that should follow the node's size.
+    """
+    # default margins, override in subclasses if you want
+    LEFT_RIGHT_MARGIN = 100
+    TOP_MARGIN = 35
+    BOTTOM_MARGIN = 20
+    SLIDER_WIDTH = 200  # Fixed width for sliders and other non-plot widgets
+    MIN_WIDTH = 300  # Minimum allowed width for the node
+    MIN_HEIGHT = 200  # Minimum allowed height for the node
+
+    def __init__(self, widget_name, qgraphics_item=None):
+        # if you always use ResizablePlotNodeItem, you can default it here
+        super().__init__(qgraphics_item=qgraphics_item or ResizablePlotNodeItem)
+
+        self._content_widget_name = widget_name
+        self._initial_layout_done = False  # Track if initial layout has been applied
+
+        # hook up resize callback
+        view = self.view            # this is your ResizablePlotNodeItem
+        
+        # Set minimum width and height from constants
+        view.MIN_W = self.MIN_WIDTH
+        view.MIN_H = self.MIN_HEIGHT
+        
+        # Also ensure initial size respects minimums
+        if view._width < self.MIN_WIDTH:
+            view._width = self.MIN_WIDTH
+        if view._height < self.MIN_HEIGHT:
+            view._height = self.MIN_HEIGHT
+        
+        view.add_resize_callback(self._on_view_resized)
+        
+        # hook up paint callback to do initial layout on first paint
+        view.add_paint_callback(self._on_view_painted)
+
+    def _on_view_painted(self):
+        """Called every time the node is redrawn/painted."""
+        # Do initial layout on first paint when widgets are guaranteed to exist
+        if not self._initial_layout_done:
+            view = self.view
+            # Check if widget exists before applying layout
+            if self.get_widget(self._content_widget_name) is not None:
+                self._initial_layout_done = True
+                self._on_view_resized(view._width, view._height)
+
+    def _on_view_resized(self, w, h):
+        wrapper = self.get_widget(self._content_widget_name)
+        if wrapper is None:
+            return
+
+        inner_w = max(
+            1,
+            w - 2 * self.LEFT_RIGHT_MARGIN
+        )
+
+        # Calculate total height of widgets that come before the plot widget
+        # and update their positions to keep them left-aligned
+        widgets_before_plot = []
+        widgets_after_plot = []
+        plot_widget_found = False
+        
+        for widget_name, widget in self.widgets().items():
+            if widget_name == self._content_widget_name:
+                plot_widget_found = True
+                continue
+            if plot_widget_found:
+                widgets_after_plot.append((widget_name, widget))
+            else:
+                widgets_before_plot.append((widget_name, widget))
+        
+        def get_widget_height(widget):
+            """Safely get widget height from various sources."""
+            # Try to get from current geometry first
+            try:
+                geom = widget.geometry()
+                if geom.height() > 0:
+                    return geom.height()
+            except:
+                pass
+            
+            # Try to get from custom widget's size hint
+            try:
+                custom_widget = widget.get_custom_widget()
+                if custom_widget:
+                    hint = custom_widget.sizeHint()
+                    if hint and hint.height() > 0:
+                        return hint.height()
+            except:
+                pass
+            
+            # Fallback to a reasonable default (slider height is typically ~50)
+            return 50
+        
+        # Update all non-plot widgets to be left-aligned with fixed width
+        current_y = self.TOP_MARGIN
+        for widget_name, widget in widgets_before_plot + widgets_after_plot:
+            widget_height = get_widget_height(widget)
+            
+            # Use fixed width for sliders, keep them left-aligned
+            widget.setGeometry(
+                self.LEFT_RIGHT_MARGIN,
+                current_y,
+                self.SLIDER_WIDTH,
+                widget_height
+            )
+            current_y += widget_height
+        
+        # Calculate available height for plot widget
+        # Sum up heights of widgets before the plot
+        widgets_before_height = sum(
+            get_widget_height(widget)
+            for _, widget in widgets_before_plot
+        )
+        
+        # Position plot widget below all widgets that come before it
+        plot_y = self.TOP_MARGIN + widgets_before_height
+        plot_h = max(
+            1,
+            h - plot_y - self.BOTTOM_MARGIN
+        )
+
+        wrapper.setMinimumSize(inner_w, plot_h)
+        wrapper.setMaximumSize(inner_w, plot_h)
+        wrapper.setGeometry(
+            self.LEFT_RIGHT_MARGIN,
+            plot_y,
+            inner_w,
+            plot_h
+        )
 

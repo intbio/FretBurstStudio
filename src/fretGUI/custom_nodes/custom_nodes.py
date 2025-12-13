@@ -1,8 +1,8 @@
 import custom_widgets.path_selector as path_selector
-from custom_nodes.abstract_nodes import AbstractRecomputable
+from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
 import fretbursts
 from node_builder import NodeBuilder
-from .resizable_node_item import ResizablePlotNodeItem
+
 
 from fbs_data import FBSData
 from singletons import FBSDataCash
@@ -176,60 +176,15 @@ class BurstSelectorNode(AbstractRecomputable):
         self.int_slider = node_builder.build_int_slider('th1', [0, 100, 10], 40)
         
     def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
-        fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
+        return fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
     
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
-        self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())
-        return [fbsdata]
+        return [self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())]
+        # return [fbsdata]
         
         
-class ResizableContentNode(AbstractRecomputable):
-    """
-    Base class for nodes that have a single main widget
-    that should follow the node's size.
-    """
-    # default margins, override in subclasses if you want
-    LEFT_RIGHT_MARGIN = 100
-    TOP_MARGIN = 35
-    BOTTOM_MARGIN = 20
-
-    def __init__(self, widget_name, qgraphics_item=None):
-        # if you always use ResizablePlotNodeItem, you can default it here
-        super().__init__(qgraphics_item=qgraphics_item or ResizablePlotNodeItem)
-
-        self._content_widget_name = widget_name
-
-        # hook up resize callback
-        view = self.view            # this is your ResizablePlotNodeItem
-        view.add_resize_callback(self._on_view_resized)
-
-        # initial sync
-        self._on_view_resized(view._width, view._height)
-
-    def _on_view_resized(self, w, h):
-        wrapper = self.get_widget(self._content_widget_name)
-        if wrapper is None:
-            return
-
-        inner_w = max(
-            1,
-            w - 2 * self.LEFT_RIGHT_MARGIN
-        )
-        inner_h = max(
-            1,
-            h - self.TOP_MARGIN - self.BOTTOM_MARGIN
-        )
-
-        wrapper.setMinimumSize(inner_w, inner_h)
-        wrapper.setMaximumSize(inner_w, inner_h)
-        wrapper.setGeometry(
-            self.LEFT_RIGHT_MARGIN,
-            self.TOP_MARGIN,
-            inner_w,
-            inner_h
-        )
-        
+     
         
         
 class AbstractContentNode(ResizableContentNode):
@@ -271,14 +226,19 @@ class BGPlotterNode(AbstractContentNode):
     TOP_MARGIN = 35
     BOTTOM_MARGIN = 20
     PLOT_NODE = True
+    MIN_WIDTH = 450  # Minimum allowed width for the node
+    MIN_HEIGHT = 300  # Minimum allowed height for the node
 
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize
         super().__init__(widget_name, qgraphics_item)
 
         node_builder = NodeBuilder(self)
-
+        
         self.add_input('inport')
+        self.int_slider1 = node_builder.build_int_slider('th1', [0, 100, 10], 40)
+        self.int_slider2 = node_builder.build_float_slider('th2', [0, 100, 0.5], 40)
+        self.int_slider3 = node_builder.build_int_slider('th3', [0, 100, 10], 40)
         node_builder.build_plot_widget('plot_widget')      
                          
         
@@ -305,6 +265,8 @@ class EHistPlotterNode(AbstractContentNode):
     TOP_MARGIN = 35
     BOTTOM_MARGIN = 20
     PLOT_NODE = True
+    MIN_WIDTH = 450  # Minimum allowed width for the node
+    MIN_HEIGHT = 300  # Minimum allowed height for the node
 
 
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):

@@ -19,6 +19,7 @@ class ResizablePlotNodeItem(NodeItem):
 
         # simple python callbacks instead of Qt Signal
         self._resize_callbacks = []
+        self._paint_callbacks = []  # Add this back
 
         self.setAcceptHoverEvents(True)
 
@@ -29,12 +30,25 @@ class ResizablePlotNodeItem(NodeItem):
         if callable(func):
             self._resize_callbacks.append(func)
 
+    def add_paint_callback(self, func):
+        """Register a Python callback called as func() on paint/redraw."""
+        if callable(func):
+            self._paint_callbacks.append(func)
+
     def _emit_resized(self, w, h):
         for cb in list(self._resize_callbacks):
             try:
                 cb(w, h)
             except Exception:
-                pass  # don’t crash the view on user callback errors
+                pass  # don't crash the view on user callback errors
+
+    def _emit_painted(self):
+        """Call all registered paint callbacks."""
+        for cb in list(self._paint_callbacks):
+            try:
+                cb()
+            except Exception:
+                pass  # don't crash the view on user callback errors
 
     # ---- geometry / drawing -------------------------------------------
 
@@ -48,6 +62,9 @@ class ResizablePlotNodeItem(NodeItem):
         )
 
     def paint(self, painter, option, widget):
+        # Call paint callbacks before drawing
+        self._emit_painted()
+        
         # draw normal node
         super().paint(painter, option, widget)
 
