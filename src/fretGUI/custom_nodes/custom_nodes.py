@@ -216,9 +216,7 @@ class BGPlotterNode(AbstractContentNode):
         node_builder = NodeBuilder(self)
         
         self.add_input('inport')
-        self.int_slider1 = node_builder.build_int_slider('th1', [0, 100, 10], 40)
-        self.int_slider2 = node_builder.build_float_slider('th2', [0, 100, 0.5], 40)
-        self.int_slider3 = node_builder.build_int_slider('th3', [0, 100, 10], 40)
+
         node_builder.build_plot_widget('plot_widget')      
                          
         
@@ -256,6 +254,7 @@ class EHistPlotterNode(AbstractContentNode):
         node_builder = NodeBuilder(self)
 
         self.add_input('inport')
+        self.BinWidth_slider = node_builder.build_float_slider('Bin Width', [0.01, 0.2, 0.01], 0.03)
         node_builder.build_plot_widget('plot_widget')
 
     def _on_refresh_canvas(self):
@@ -263,9 +262,8 @@ class EHistPlotterNode(AbstractContentNode):
         plot_widget.figure.clf()
         ax1 = plot_widget.figure.add_subplot()
         ax1.cla()
-        print(len(self.data_to_plot))
         for cur_data in self.data_to_plot:
-            fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1,
+            fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1, binwidth=self.BinWidth_slider.get_value(),
             hist_style = 'bar' if len(self.data_to_plot)==1 else 'line')
         plot_widget.canvas.draw()
         self.on_plot_data_clear()
