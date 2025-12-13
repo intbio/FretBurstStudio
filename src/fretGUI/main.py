@@ -1,4 +1,5 @@
 import custom_nodes.custom_nodes as custom_nodes
+import custom_nodes.selector_nodes as selector_nodes
 import graph_engene
 from custom_widgets.toogle_widget import IconToggleButton
 import sys,os
@@ -80,7 +81,23 @@ def main():
             custom_nodes.CalcBGNode,
             custom_nodes.BurstSearchNodeRate,
             custom_nodes.BurstSearchNodeFromBG,
-            custom_nodes.BurstSelectorNode, 
+            selector_nodes.BurstSelectorNode,
+            selector_nodes.BurstSelectorENode,
+            selector_nodes.BurstSelectorBrightnessNode,
+            selector_nodes.BurstSelectorConsecutiveNode,
+            selector_nodes.BurstSelectorNANode,
+            selector_nodes.BurstSelectorNABGNode,
+            selector_nodes.BurstSelectorNDNode,
+            selector_nodes.BurstSelectorNDBGNode,
+            selector_nodes.BurstSelectorPeakPhrateNode,
+            selector_nodes.BurstSelectorPeriodNode,
+            selector_nodes.BurstSelectorSBRNode,
+            selector_nodes.BurstSelectorSingleNode,
+            selector_nodes.BurstSelectorTimeNode,
+            selector_nodes.BurstSelectorTopNMaxRateNode,
+            selector_nodes.BurstSelectorTopNNDANode,
+            selector_nodes.BurstSelectorTopNSBRNode,
+            selector_nodes.BurstSelectorWidthNode,
             custom_nodes.BGPlotterNode,
             custom_nodes.EHistPlotterNode
         ]

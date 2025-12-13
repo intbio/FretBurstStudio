@@ -161,29 +161,7 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
                                     L=self.L_slider.get_value(),
                                     F=self.F_slider.get_value())
         return [fbsdata]
-    
-    
-class BurstSelectorNode(AbstractRecomputable):
-    __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelector'
-    
-    def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
         
-        self.add_input('inport')
-        self.add_output('outport')
-        self.int_slider = node_builder.build_int_slider('th1', [0, 100, 10], 40)
-        
-    def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())
-        return [d]
-
         
         
      
