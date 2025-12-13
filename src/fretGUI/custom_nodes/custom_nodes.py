@@ -182,19 +182,8 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
         return [fbsdata]
         
     def __select_bursts(self, fbdata: str, add_naa=True, th1=40):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        # fbsdata = FBSData(path=fbsdata.path)
-        fbsdata.data = self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())
-        print(fbsdata.data is None)
-        return [fbsdata]
-
-        
-        
-     
-        
+        return fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)       
+          
         
 class AbstractContentNode(ResizableContentNode):
     def __init__(self, widget_name, qgraphics_item=None):
