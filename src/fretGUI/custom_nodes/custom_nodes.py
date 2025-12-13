@@ -180,10 +180,10 @@ class BurstSelectorNode(AbstractRecomputable):
     
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
-        d = FBSData(path=FBSData.path)
+        d = FBSData(path=fbsdata.path)
         d.data = self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())
         return [d]
-        # return [fbsdata]
+
         
         
      
