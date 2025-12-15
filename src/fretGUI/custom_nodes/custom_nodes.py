@@ -202,10 +202,10 @@ class AbstractContentNode(ResizableContentNode):
         self.data_to_plot.clear()
         self.was_executed = False
     
-    def execute(self, fbsdata: FBSData):
-        print('execute plot', self)
+    def execute(self, fbsdata: FBSData=None):
         self.was_executed = True
-        self.data_to_plot.append(fbsdata)
+        if fbsdata is not None:
+            self.data_to_plot.append(fbsdata)
         return [fbsdata]        
     
     

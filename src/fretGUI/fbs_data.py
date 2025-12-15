@@ -5,8 +5,8 @@ from copy import deepcopy
 
 class FBSData():
     def __init__(self, data=None, path=None):
-        self.__data = data
-        self.__path = path
+        self.__data = data if data else Data()
+        self.__path = path if path else ''
         self.history = []
        
     @property 

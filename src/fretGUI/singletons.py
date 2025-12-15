@@ -39,7 +39,7 @@ class FBSDataCash(metaclass=SingletonMeta):
         return len(self.__table)
     
     def fbscash(self, foo):
-        def wrapper(node, fbsdata, *args, **kwargs):
+        def wrapper(node, fbsdata, *args, **kwargs):           
             hash = FBSDataCash.make_hash(node, fbsdata)
             with QMutexLocker(self.mutex):
                 if hash in self.__table:

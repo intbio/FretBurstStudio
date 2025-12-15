@@ -15,11 +15,10 @@ class AbstractExecutable(BaseNode, ABC):
     def __init__(self, *args, **kwargs):
         BaseNode.__init__(self, *args, **kwargs)      
 
-
     @abstractmethod    
     def execute(self, data: FBSData=None) -> list[FBSData]:
         pass
-        
+           
     def is_root(self) -> bool:
         return len(self.input_ports()) == 0
            
@@ -53,6 +52,7 @@ class AbstractRecomputable(AbstractExecutable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.widget_wrappers = []  
+        self.__wired = False
         
     def on_widget_changed(self):
         root_nodes = self.find_roots()
@@ -77,12 +77,14 @@ class AbstractRecomputable(AbstractExecutable):
         super().add_custom_widget(widget, *args, **kwargs)
         
     def wire_wrappers(self):
+        self.__wired = True
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
             widget_wrapper.widget_changed_signal.connect(self.on_widget_triggered)
             
     def unwire_wrappers(self):
+        self.__wired = False
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
@@ -96,9 +98,23 @@ class AbstractRecomputable(AbstractExecutable):
         for widget_name, widget in self.widgets().items():
             widget.setEnabled(True)
             
-    def on_widget_triggered(self):
+    def on_input_connected(self, in_port, out_port):
+        res = super().on_input_connected(in_port, out_port)
+        if self.__wired:
+            self.on_widget_triggered(self)
+        return res
+    
+    def on_input_disconnected(self, in_port, out_port):
+        res = super().on_input_disconnected(in_port, out_port)
+        if self.__wired:
+            self.on_widget_triggered(self)
+            self.on_widget_triggered(out_port.node())
+        return res
+            
+    def on_widget_triggered(self, node=None):
+        node = node if node else self
         print("widget trigiered")
-        worker = UpdateWidgetNodeWorker(self)
+        worker = UpdateWidgetNodeWorker(node)
         pool = QThreadPool.globalInstance()
         pool.start(worker)
 

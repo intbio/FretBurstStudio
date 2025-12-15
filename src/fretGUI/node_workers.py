@@ -37,7 +37,7 @@ class AbstractNodeWorker(QRunnable):
         ThreadSignalManager().thread_started.emit(self.uid, len(self.node_seq) - 1)
         try:
             self._run()
-        except Exception as error:
+        except AttributeError as error:
             ThreadSignalManager().thread_error.emit(self.uid)
             raise error
         finally:
@@ -61,12 +61,21 @@ class NodeWorker(AbstractNodeWorker):
         while len(self.node_seq) != 0:
             ThreadSignalManager().thread_progress.emit(self.uid)
             cur_node = self.node_seq.popleft()
-            data_container = cur_node.execute(self.data)
-            for i, cur_data in enumerate(data_container):
-                if i >= 1:
-                    self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
+            try:
+                data_container = cur_node.execute(self.data)
+            except AttributeError as error:
+                if self.data is None:
+                    continue
                 else:
-                    self.data = cur_data
+                    raise error
+            except Exception as error:
+                raise error
+            else:        
+                for i, cur_data in enumerate(data_container):
+                    if i >= 1:
+                        self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
+                    else:
+                        self.data = cur_data
                     
     def fill_nodeseq(self):
         paths = []
