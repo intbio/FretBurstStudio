@@ -7,6 +7,8 @@ from abc import abstractmethod
 from collections import deque
 from copy import deepcopy
 from itertools import product
+import custom_nodes.custom_nodes as custom_nodes
+from Qt.QtCore import QMutex, QMutexLocker
 
 
 
@@ -141,3 +143,24 @@ class UpdateWidgetNodeWorker(NodeWorker):
 
     def need_fill(self) -> bool:
         return self.__need_fill
+    
+    
+
+
+
+class PlotCleanerWorker(NodeWorker):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__mutex = QMutex()
+        
+    def _run(self):
+        print(self.node_seq)
+        while len(self.node_seq) != 0:
+            cur_node = self.node_seq.popleft()
+            if isinstance(cur_node, custom_nodes.AbstractContentNode):
+                cur_node._on_refresh_canvas()
+                    
+    def run(self):
+        if self.need_fill():
+            self.fill_nodeseq()
+        self._run()

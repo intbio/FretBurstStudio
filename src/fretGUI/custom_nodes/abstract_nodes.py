@@ -2,7 +2,7 @@ from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
 from fbs_data import FBSData
-from node_workers import UpdateWidgetNodeWorker   
+from node_workers import PlotCleanerWorker, UpdateWidgetNodeWorker
 from Qt.QtCore import QThreadPool   
 from singletons import ThreadSignalManager
 from collections import deque
@@ -98,18 +98,15 @@ class AbstractRecomputable(AbstractExecutable):
         for widget_name, widget in self.widgets().items():
             widget.setEnabled(True)
             
-    def on_input_connected(self, in_port, out_port):
-        res = super().on_input_connected(in_port, out_port)
-        if self.__wired:
-            self.on_widget_triggered(self)
-        return res
+    def _on_input_connected(self, in_port, out_port):
+        self.on_widget_triggered(in_port.node())
+        # return super().on_input_connected(in_port, out_port)
     
-    def on_input_disconnected(self, in_port, out_port):
-        res = super().on_input_disconnected(in_port, out_port)
-        if self.__wired:
-            self.on_widget_triggered(self)
-            self.on_widget_triggered(out_port.node())
-        return res
+    def _on_input_disconnected(self, in_port, out_port):
+        worker = PlotCleanerWorker(in_port.node())
+        pool = QThreadPool().globalInstance()
+        pool.start(worker)
+        # return super().on_input_disconnected(in_port, out_port)
             
     def on_widget_triggered(self, node=None):
         node = node if node else self
