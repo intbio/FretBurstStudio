@@ -70,16 +70,15 @@ class FBSDataCash(metaclass=SingletonMeta):
             if hash in self.__table:
                 self.__table.pop(hash)
                 break
+
     @staticmethod        
     def make_hash(node, data):
         values = [widget.get_value() for name, widget in node.widgets().items()]
+        values.append(data.data)
         values.append(id(node))
-        values.append(hash(data.path))
         pickle_ = pickle.dumps(values)
         hash_hex = hashlib.sha256(pickle_).hexdigest()
         return hash_hex
-
-
 
     
     
