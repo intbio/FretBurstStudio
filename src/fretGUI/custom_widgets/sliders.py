@@ -2,10 +2,14 @@ from NodeGraphQt import NodeBaseWidget
 from Qt import QtWidgets, QtCore    
 from abc import abstractmethod 
 from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from Qt.QtCore import Signal
 
 
      
 class AbstractSliderWidget(QtWidgets.QWidget):
+    
+    widget_updaeted = Signal()
+    
     def __init__(self, parent):
         super().__init__(None)
         
@@ -23,9 +27,9 @@ class AbstractSliderWidget(QtWidgets.QWidget):
         self.wire_signals()
         
     def wire_signals(self):
-        self.slider.valueChanged.connect(self.on_slider_moved)
-        self.slider.valueChanged.connect(self.on_editing_finished)
-        self.text_box.editingFinished.connect(self.on_editing_finished)        
+        self.slider.valueChanged.connect(self.widget_updaeted.emit)
+        self.slider.valueChanged.connect(self.widget_updaeted.emit)
+        self.text_box.editingFinished.connect(self.widget_updaeted.emit)        
         
     @abstractmethod
     def on_slider_moved(self):
@@ -152,7 +156,7 @@ class SliderWidgetWrapper(AbstractWidgetWrapper):
         self.get_custom_widget().setValue(value)
         
     def wire_signals(self):
-        self.slider_widget.slider.sliderReleased.connect(
+        self.slider_widget.slider.widget_updaeted.connect(
             self.widget_changed_signal.emit)
 
         
