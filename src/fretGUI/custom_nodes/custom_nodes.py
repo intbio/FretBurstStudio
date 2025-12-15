@@ -6,7 +6,7 @@ from node_builder import NodeBuilder
 
 from fbs_data import FBSData
 from singletons import FBSDataCash
-from Qt.QtCore import Signal
+from Qt.QtCore import Signal  # pyright: ignore[reportMissingModuleSource]
 from singletons import ThreadSignalManager
 from abc import abstractmethod
 from NodeGraphQt import BaseNode
@@ -65,7 +65,7 @@ class PhHDF5Node(AbstractLoader):
     def __init__(self):
         super().__init__() 
     
-    def laod(self, path):
+    def load(self, path):
         data = fretbursts.loader.photon_hdf5(path)
         fbsdata = FBSData(data, path)
         return fbsdata   

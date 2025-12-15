@@ -11,8 +11,8 @@ from node_workers import NodeWorker
 
 import signal
 from pathlib import Path
-from Qt import QtWidgets, QtCore, QtGui
-from Qt.QtCore import QThreadPool
+from Qt import QtWidgets, QtCore, QtGui  # pyright: ignore[reportMissingModuleSource]
+from Qt.QtCore import QThreadPool  # pyright: ignore[reportMissingModuleSource]
 from NodeGraphQt import NodeGraph, NodesPaletteWidget,constants
 from NodeGraphQt import PropertiesBinWidget
 
@@ -241,6 +241,9 @@ def main():
 
 
 #styling
+    # those are needed later to apply node theme after copy and paste
+    original_paste_nodes = graph.paste_nodes
+    original_duplicate_nodes = graph.duplicate_nodes
     def apply_theme(kind=None):
         global THEME
         if kind is None:
@@ -309,6 +312,28 @@ def main():
         for n in graph.all_nodes():
             theme_node(n)
         graph.node_created.connect(theme_node)
+
+        ## a hacky way to apply  theme upon copy paste
+        def paste_nodes_wrapper(adjust_graph_style=True):
+            nodes_before = set(graph.all_nodes())
+            result = original_paste_nodes(adjust_graph_style)
+            nodes_after = set(graph.all_nodes())
+            new_nodes = nodes_after - nodes_before
+            for node in new_nodes:
+                theme_node(node)
+            return result
+        
+        def duplicate_nodes_wrapper(nodes):
+            nodes_before = set(graph.all_nodes())
+            result = original_duplicate_nodes(nodes)
+            nodes_after = set(graph.all_nodes())
+            new_nodes = nodes_after - nodes_before
+            for node in new_nodes:
+                theme_node(node)
+            return result
+        
+        graph.paste_nodes = paste_nodes_wrapper
+        graph.duplicate_nodes = duplicate_nodes_wrapper
         
         nodes_palette.setStyleSheet(f"""
             background-color: rgb{color_dict[kind]['background']};

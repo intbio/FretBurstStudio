@@ -1,5 +1,5 @@
 from NodeGraphQt import NodeBaseWidget  
-from Qt import QtWidgets, QtCore    
+from Qt import QtWidgets, QtCore      # pyright: ignore[reportMissingModuleSource]
 from abc import abstractmethod 
 from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 

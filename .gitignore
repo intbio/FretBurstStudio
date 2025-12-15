@@ -1,3 +1,5 @@
 
 *.pyc
 *.pyc
+*.pyc
+src/fretGUI/hotkeys/__pycache__/hotkey_functions.cpython-312.pyc

@@ -3,11 +3,11 @@ from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
 from fbs_data import FBSData
 from node_workers import UpdateWidgetNodeWorker   
-from Qt.QtCore import QThreadPool   
+from Qt.QtCore import QThreadPool     # pyright: ignore[reportMissingModuleSource]
 from singletons import ThreadSignalManager
 from collections import deque
 from .resizable_node_item import ResizablePlotNodeItem
-from Qt.QtCore import QTimer
+from Qt.QtCore import QTimer  # pyright: ignore[reportMissingModuleSource]
             
             
             
