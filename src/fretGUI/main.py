@@ -43,12 +43,14 @@ def on_toogle_clicked(graph, toggle_btn):
         engene.make_nodes_dinamic()
         
 def on_block_ui(graph):
-    for node in graph.all_nodes():
-        node.disable_all_node_widgets()
+    pass
+    # for node in graph.all_nodes():
+    #     node.disable_all_node_widgets()
         
 def on_release_ui(graph):
-    for node in graph.all_nodes():
-        node.enable_all_node_widgets()
+    pass
+    # for node in graph.all_nodes():
+    #     node.enable_all_node_widgets()
     
     
                 
