@@ -1,6 +1,5 @@
 import custom_nodes.custom_nodes as custom_nodes
 import custom_nodes.selector_nodes as selector_nodes
-import custom_nodes.plotter_nodes as plotter_nodes
 import graph_engene
 from custom_widgets.toogle_widget import IconToggleButton
 import sys,os
@@ -109,8 +108,8 @@ def main():
             selector_nodes.BurstSelectorTopNNDANode,
             selector_nodes.BurstSelectorTopNSBRNode,
             selector_nodes.BurstSelectorWidthNode,
-            plotter_nodes.BGPlotterNode,
-            plotter_nodes.EHistPlotterNode
+            custom_nodes.BGPlotterNode,
+            custom_nodes.EHistPlotterNode
         ]
     )
        
