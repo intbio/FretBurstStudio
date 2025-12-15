@@ -13,6 +13,8 @@ class AbstractSliderWidget(QtWidgets.QWidget):
     def __init__(self, parent):
         super().__init__(None)
         
+        self.changed = False
+        
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.slider.setTickPosition(QtWidgets.QSlider.TicksAbove)
         
@@ -27,17 +29,22 @@ class AbstractSliderWidget(QtWidgets.QWidget):
         self.wire_signals()
         
     def wire_signals(self):
-        self.slider.valueChanged.connect(self.widget_updaeted.emit)
-        self.slider.valueChanged.connect(self.widget_updaeted.emit)
-        self.text_box.editingFinished.connect(self.widget_updaeted.emit)        
+        self.slider.sliderReleased.connect(self.widget_updaeted.emit)
+        self.slider.valueChanged.connect(self.on_slider_moved)
+        self.text_box.editingFinished.connect(self.on_editing_finished)      
+        self.text_box.textEdited.connect(self.on_text_change)
+        
+    def on_text_change(self, text: str):
+        self.changed = True
         
     @abstractmethod
     def on_slider_moved(self):
         pass
-    
-    @abstractmethod
+        
     def on_editing_finished(self):
-        pass     
+        if self.changed:
+            self.widget_updaeted.emit()
+            self.changed = False
         
         
 class IntSliderWidget(AbstractSliderWidget):
@@ -66,7 +73,8 @@ class IntSliderWidget(AbstractSliderWidget):
     
     def on_editing_finished(self):
         textbox_val = int(self.text_box.text())
-        self.slider.setValue(textbox_val)
+        self.setValue(textbox_val)
+        super().on_editing_finished()
     
     def value(self):
         """Возвращает текущее int значение"""
@@ -74,7 +82,8 @@ class IntSliderWidget(AbstractSliderWidget):
     
     def setValue(self, int_value):
         """Устанавливает int значение"""
-        clamped_val = max(self.start, min(int(int_value), self.stop))
+        # clamped_val = max(self.start, min(int(int_value), self.stop))
+        clamped_val = int_value
         self.slider.setValue(clamped_val)
         self.text_box.setText(str(clamped_val))
         
@@ -108,8 +117,9 @@ class FloatSliderWidget(AbstractSliderWidget):
         normalized = (float_value - self.start) / self.step
         return int(round(normalized))
     
-    def on_slider_moved(self, slider_value):
+    def on_slider_moved(self):
         """Обработка движения слайдера"""
+        slider_value = self.value()
         float_value = self.slider_to_float(slider_value)
         formatted_value = self.format_float(float_value)
         self.text_box.setText(formatted_value)
@@ -118,7 +128,7 @@ class FloatSliderWidget(AbstractSliderWidget):
         """Обработка завершения редактирования текстового поля"""
         try:
             text_val = float(self.text_box.text().replace(',', '.'))
-            clamped_val = max(self.start, min(text_val, self.stop))
+            clamped_val = text_val
             slider_val = self.float_to_slider(clamped_val)
             self.slider.setValue(slider_val)
             self.text_box.setText(self.format_float(clamped_val))
@@ -126,6 +136,7 @@ class FloatSliderWidget(AbstractSliderWidget):
             current_slider = self.slider.value()
             current_float = self.slider_to_float(current_slider)
             self.text_box.setText(self.format_float(current_float))
+        super().on_editing_finished()
     
     def value(self):
         """Возвращает текущее float значение"""
@@ -156,7 +167,7 @@ class SliderWidgetWrapper(AbstractWidgetWrapper):
         self.get_custom_widget().setValue(value)
         
     def wire_signals(self):
-        self.slider_widget.slider.widget_updaeted.connect(
+        self.slider_widget.widget_updaeted.connect(
             self.widget_changed_signal.emit)
 
         
