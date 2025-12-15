@@ -17,8 +17,6 @@ from NodeGraphQt import NodeGraph, NodesPaletteWidget,constants
 from NodeGraphQt import PropertiesBinWidget
 
 
-
-
 BASE_PATH = Path(__file__).parent.resolve()
 
 
