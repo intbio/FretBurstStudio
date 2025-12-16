@@ -1,6 +1,6 @@
 from Qt.QtCore import Signal
 from Qt.QtCore import QObject
-from Qt.QtCore import QMutex, QMutexLocker
+from Qt.QtCore import QMutex, QMutexLocker, QTimer
 from copy import deepcopy
 import time
 import queue
@@ -25,6 +25,38 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     thread_error = Signal(str)
     all_thread_finished = Signal()
     run_btn_clicked = Signal()
+    
+    
+class EventDebouncer(metaclass=SingletonMeta):
+        
+    def __init__(self, delay_ms: int, on_triggered: callable):
+        print('________________________init________________-')
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)  # Важно: таймер должен быть одноразовым
+        self.__on_triggered = on_triggered
+        self.timer.timeout.connect(self.__on_timeout)
+        self.__delay = delay_ms
+        self.isactive = True
+        
+    def connect(self, foo):
+        self.__on_triggered = foo
+        self.timer.timeout.connect(self.__on_timeout)
+        self.isactive = True
+        
+    def disconnect(self):
+        self.timer.disconnect(self.__on_timeout)
+        self.isactive = False
+        
+    def push_event(self, event):
+        if self.isactive:
+            self._last_event = event
+            self.timer.stop()  # Останавливаем текущий таймер
+            self.timer.start(self.__delay)  # Запускаем заново
+            
+    def __on_timeout(self):
+        self.__on_triggered(self._last_event)
+        
+           
     
     
 class FBSDataCash(metaclass=SingletonMeta):

@@ -4,7 +4,7 @@ from abc import  abstractmethod, ABC
 from fbs_data import FBSData
 from node_workers import PlotCleanerWorker, UpdateWidgetNodeWorker
 from Qt.QtCore import QThreadPool   
-from singletons import ThreadSignalManager
+from singletons import ThreadSignalManager, EventDebouncer
 from collections import deque
 from .resizable_node_item import ResizablePlotNodeItem
 from Qt.QtCore import QTimer
@@ -12,8 +12,9 @@ from Qt.QtCore import QTimer
             
             
 class AbstractExecutable(BaseNode, ABC):
+   
     def __init__(self, *args, **kwargs):
-        BaseNode.__init__(self, *args, **kwargs)      
+        BaseNode.__init__(self, *args, **kwargs)     
 
     @abstractmethod    
     def execute(self, data: FBSData=None) -> list[FBSData]:
@@ -49,10 +50,13 @@ class AbstractExecutable(BaseNode, ABC):
                 
                                   
 class AbstractRecomputable(AbstractExecutable):
+   
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.widget_wrappers = []  
         self.__wired = False
+        self.event_debouncer = EventDebouncer(50, self.on_connection)
+
         
     def on_widget_changed(self):
         root_nodes = self.find_roots()
@@ -98,20 +102,25 @@ class AbstractRecomputable(AbstractExecutable):
         for widget_name, widget in self.widgets().items():
             widget.setEnabled(True)
             
-    def _on_input_connected(self, in_port, out_port):
-        self.on_widget_triggered(in_port.node())
-        # return super().on_input_connected(in_port, out_port)
+    def on_input_connected(self, in_port, out_port):
+        self.event_debouncer.push_event(('connect', in_port, out_port))
+        return super().on_input_connected(in_port, out_port)
     
-    def _on_input_disconnected(self, in_port, out_port):
-        worker = PlotCleanerWorker(in_port.node())
-        pool = QThreadPool().globalInstance()
-        pool.start(worker)
-        # return super().on_input_disconnected(in_port, out_port)
+    def on_input_disconnected(self, in_port, out_port):
+        self.event_debouncer.push_event(('disconnect', in_port, out_port))
+        return super().on_input_disconnected(in_port, out_port)
+    
+    def on_connection(self, event):
+        action, in_port, out_port = event
+        if action == 'connect':
+            self.on_widget_triggered(in_port.node())
+        elif action == 'disconnect':
+            self.on_widget_triggered(in_port.node(), PlotCleanerWorker)
             
-    def on_widget_triggered(self, node=None):
+    def on_widget_triggered(self, node=None, worker_cls=None):
         node = node if node else self
-        print("widget trigiered")
-        worker = UpdateWidgetNodeWorker(node)
+        worker_cls = worker_cls if worker_cls else UpdateWidgetNodeWorker
+        worker = worker_cls(node)
         pool = QThreadPool.globalInstance()
         pool.start(worker)
 
