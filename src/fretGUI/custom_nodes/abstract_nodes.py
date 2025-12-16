@@ -7,7 +7,7 @@ from Qt.QtCore import QThreadPool
 from singletons import ThreadSignalManager, EventDebouncer, NodeStateManager
 from collections import deque
 from .resizable_node_item import ResizablePlotNodeItem
-from Qt.QtCore import QTimer
+from Qt.QtCore import QTimer  # pyright: ignore[reportMissingModuleSource]
             
             
             
