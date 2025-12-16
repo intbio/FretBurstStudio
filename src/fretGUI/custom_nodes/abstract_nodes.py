@@ -91,13 +91,15 @@ class AbstractRecomputable(AbstractExecutable):
         super().add_custom_widget(widget, *args, **kwargs)
         
     def wire_wrappers(self):
-        if len(self.widget_wrappers) == 0:
+        connection_status = NodeStateManager()
+        if connection_status or len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
             widget_wrapper.widget_changed_signal.connect(self.on_widget_triggered)
             
     def unwire_wrappers(self):
-        if len(self.widget_wrappers) == 0:
+        connection_status = NodeStateManager()
+        if not connection_status or len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
             widget_wrapper.widget_changed_signal.disconnect()
