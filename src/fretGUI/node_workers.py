@@ -7,6 +7,8 @@ from abc import abstractmethod
 from collections import deque
 from copy import deepcopy
 from itertools import product
+import custom_nodes.custom_nodes as custom_nodes
+from Qt.QtCore import QMutex, QMutexLocker
 
 
 
@@ -37,7 +39,7 @@ class AbstractNodeWorker(QRunnable):
         ThreadSignalManager().thread_started.emit(self.uid, len(self.node_seq) - 1)
         try:
             self._run()
-        except Exception as error:
+        except AttributeError as error:
             ThreadSignalManager().thread_error.emit(self.uid)
             raise error
         finally:
@@ -61,12 +63,21 @@ class NodeWorker(AbstractNodeWorker):
         while len(self.node_seq) != 0:
             ThreadSignalManager().thread_progress.emit(self.uid)
             cur_node = self.node_seq.popleft()
-            data_container = cur_node.execute(self.data)
-            for i, cur_data in enumerate(data_container):
-                if i >= 1:
-                    self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
+            try:
+                data_container = cur_node.execute(self.data)
+            except AttributeError as error:
+                if self.data is None:
+                    continue
                 else:
-                    self.data = cur_data
+                    raise error
+            except Exception as error:
+                raise error
+            else:        
+                for i, cur_data in enumerate(data_container):
+                    if i >= 1:
+                        self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
+                    else:
+                        self.data = cur_data
                     
     def fill_nodeseq(self):
         paths = []
@@ -132,3 +143,24 @@ class UpdateWidgetNodeWorker(NodeWorker):
 
     def need_fill(self) -> bool:
         return self.__need_fill
+    
+    
+
+
+
+class PlotCleanerWorker(NodeWorker):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__mutex = QMutex()
+        
+    def _run(self):
+        print(self.node_seq)
+        while len(self.node_seq) != 0:
+            cur_node = self.node_seq.popleft()
+            if isinstance(cur_node, custom_nodes.AbstractContentNode):
+                cur_node._on_refresh_canvas()
+                    
+    def run(self):
+        if self.need_fill():
+            self.fill_nodeseq()
+        self._run()

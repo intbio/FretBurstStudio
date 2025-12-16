@@ -15,6 +15,7 @@ class IconToggleButton(QPushButton):
         self._update_appearance()
         self.toggled.connect(self._update_appearance)
         
+        
     def _update_appearance(self):
         """Обновляет внешний вид кнопки"""
         if self.isChecked():

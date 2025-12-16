@@ -1,6 +1,6 @@
 from Qt.QtCore import Signal
 from Qt.QtCore import QObject
-from Qt.QtCore import QMutex, QMutexLocker
+from Qt.QtCore import QMutex, QMutexLocker, QTimer
 from copy import deepcopy
 import time
 import queue
@@ -27,6 +27,54 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     run_btn_clicked = Signal()
     
     
+class NodeStateManager(QObject, metaclass=SingletonMeta):
+    change_state = Signal(bool)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.node_status = False
+        print('node state init')
+    
+    def on_change_node_state(self, status):
+        self.node_status = status
+        print(f"status: {status}")
+        self.change_state.emit(status)   
+    
+    
+class EventDebouncer(metaclass=SingletonMeta):
+        
+    def __init__(self, delay_ms: int, on_triggered: callable):
+        print('________________________init________________-')
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)  # Важно: таймер должен быть одноразовым
+        self.__on_triggered = on_triggered
+        self.timer.timeout.connect(self.__on_timeout)
+        self.__delay = delay_ms
+        self.isactive = True
+        
+    def connect(self, foo):
+        if not self.isactive:
+            self.__on_triggered = foo
+            self.timer.timeout.connect(self.__on_timeout)
+            self.isactive = True
+        
+    def disconnect(self):
+        if self.isactive: 
+            self.timer.timeout.disconnect(self.__on_timeout)
+            self.isactive = False
+        
+    def push_event(self, event):
+        if self.isactive:
+            self._last_event = event
+            self.timer.stop()  # Останавливаем текущий таймер
+            self.timer.start(self.__delay)  # Запускаем заново
+            
+    def __on_timeout(self):
+        self.__on_triggered(self._last_event)
+        
+           
+    
+    
 class FBSDataCash(metaclass=SingletonMeta):
     def __init__(self):
         self.__max_size = 30
@@ -39,7 +87,7 @@ class FBSDataCash(metaclass=SingletonMeta):
         return len(self.__table)
     
     def fbscash(self, foo):
-        def wrapper(node, fbsdata, *args, **kwargs):
+        def wrapper(node, fbsdata, *args, **kwargs):           
             hash = FBSDataCash.make_hash(node, fbsdata)
             with QMutexLocker(self.mutex):
                 if hash in self.__table:

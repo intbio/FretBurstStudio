@@ -37,7 +37,10 @@ class PathRowWidget(QtWidgets.QWidget):
         return self.text_field.text()
 
 
-class PathSelectorWidget(QtWidgets.QWidget):    
+class PathSelectorWidget(QtWidgets.QWidget):  
+    
+    del_btn_clicked = Signal()
+      
     def __init__(self, parent=None):
         super(PathSelectorWidget, self).__init__()
         
@@ -85,7 +88,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
             # if path in existing_pahts:
             #     continue
             new_row_widget = PathRowWidget(parent=self)
-            new_row_widget.del_signal.connect(self.on_del_bttn_clicked)
+            new_row_widget.del_signal.connect(self.del_btn_clicked.emit)
             new_row_widget.set_text(path)
             self.layout.insertWidget(0, new_row_widget)
             
@@ -121,6 +124,8 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
     
     def wire_signals(self):
         self.path_widget.open_button.clicked.connect(
+            self.widget_changed_signal.emit)
+        self.path_widget.del_btn_clicked.connect(
             self.widget_changed_signal.emit)
     
     
