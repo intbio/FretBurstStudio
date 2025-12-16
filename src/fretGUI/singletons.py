@@ -27,6 +27,20 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     run_btn_clicked = Signal()
     
     
+class NodeStateManager(QObject, metaclass=SingletonMeta):
+    change_state = Signal(bool)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.node_status = False
+        print('node state init')
+    
+    def on_change_node_state(self, status):
+        self.node_status = status
+        print(f"status: {status}")
+        self.change_state.emit(status)   
+    
+    
 class EventDebouncer(metaclass=SingletonMeta):
         
     def __init__(self, delay_ms: int, on_triggered: callable):
@@ -39,13 +53,15 @@ class EventDebouncer(metaclass=SingletonMeta):
         self.isactive = True
         
     def connect(self, foo):
-        self.__on_triggered = foo
-        self.timer.timeout.connect(self.__on_timeout)
-        self.isactive = True
+        if not self.isactive:
+            self.__on_triggered = foo
+            self.timer.timeout.connect(self.__on_timeout)
+            self.isactive = True
         
     def disconnect(self):
-        self.timer.disconnect(self.__on_timeout)
-        self.isactive = False
+        if self.isactive: 
+            self.timer.timeout.disconnect(self.__on_timeout)
+            self.isactive = False
         
     def push_event(self, event):
         if self.isactive:

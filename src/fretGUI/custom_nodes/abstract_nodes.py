@@ -4,7 +4,7 @@ from abc import  abstractmethod, ABC
 from fbs_data import FBSData
 from node_workers import PlotCleanerWorker, UpdateWidgetNodeWorker
 from Qt.QtCore import QThreadPool   
-from singletons import ThreadSignalManager, EventDebouncer
+from singletons import ThreadSignalManager, EventDebouncer, NodeStateManager
 from collections import deque
 from .resizable_node_item import ResizablePlotNodeItem
 from Qt.QtCore import QTimer
@@ -56,10 +56,8 @@ class AbstractRecomputable(AbstractExecutable):
         self.widget_wrappers = []  
         self.__wired = False
         self.event_debouncer = EventDebouncer(50, self.on_connection)
-
+        NodeStateManager().change_state.connect(self.on_state_changed)
         
-    def on_widget_changed(self):
-        root_nodes = self.find_roots()
         
     def find_roots(self):
         if self.is_root():
@@ -73,22 +71,32 @@ class AbstractRecomputable(AbstractExecutable):
             if parent.is_root():
                 root_nodes.append(parent)
             self.__find_roots(parent, root_nodes)
+            
+    def on_state_changed(self, state):
+        if state:
+            self.wire_wrappers()
+            self.event_debouncer.connect(self.on_connection)
+        else:
+            self.unwire_wrappers()
+            self.event_debouncer.disconnect()
+            
     
     def add_custom_widget(self, widget, *args, **kwargs):
-        if isinstance(widget, AbstractWidgetWrapper):               
-            widget.widget_changed_signal.connect(self.on_widget_changed)
+        connection_status = NodeStateManager()
+        if isinstance(widget, AbstractWidgetWrapper):  
+            if connection_status:      
+                widget.widget_changed_signal.connect(self.on_widget_triggered)
+                print("connectionTrue")
             self.widget_wrappers.append(widget)  
         super().add_custom_widget(widget, *args, **kwargs)
         
     def wire_wrappers(self):
-        self.__wired = True
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
             widget_wrapper.widget_changed_signal.connect(self.on_widget_triggered)
             
     def unwire_wrappers(self):
-        self.__wired = False
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:

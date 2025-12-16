@@ -15,9 +15,9 @@ class IconToggleButton(QPushButton):
         self._update_appearance()
         self.toggled.connect(self._update_appearance)
         
+        
     def _update_appearance(self):
         """Обновляет внешний вид кнопки"""
-        self.toggled.emit(self.isChecked)
         if self.isChecked():
             # Можно установить реальные иконки вместо текста
             self.setText("automatic")
