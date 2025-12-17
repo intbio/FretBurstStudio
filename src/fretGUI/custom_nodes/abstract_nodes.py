@@ -81,10 +81,14 @@ class AbstractRecomputable(AbstractExecutable):
     
     def add_custom_widget(self, widget, *args, **kwargs):
         connection_status = NodeStateManager().node_status
+        if connection_status:
+            self.event_debouncer.connect(self.on_connection)
+        else:
+            self.event_debouncer.disconnect()
+        
         if isinstance(widget, AbstractWidgetWrapper):  
             if connection_status:      
-                widget.widget_changed_signal.connect(self.on_widget_triggered)
-                print("connectionTrue")
+                widget.widget_changed_signal.connect(self.on_widget_triggered)            
             self.widget_wrappers.append(widget)  
         super().add_custom_widget(widget, *args, **kwargs)
         
