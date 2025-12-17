@@ -81,7 +81,6 @@ class AbstractRecomputable(AbstractExecutable):
     
     def add_custom_widget(self, widget, *args, **kwargs):
         connection_status = NodeStateManager().node_status
-        print(connection_status)
         if isinstance(widget, AbstractWidgetWrapper):  
             if connection_status:      
                 widget.widget_changed_signal.connect(self.on_widget_triggered)
