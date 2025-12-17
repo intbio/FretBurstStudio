@@ -1,5 +1,6 @@
 from Qt.QtWidgets import QPushButton
 from Qt.QtCore import QSize, Signal
+from singletons import NodeStateManager
 
 
 class IconToggleButton(QPushButton):
@@ -14,6 +15,8 @@ class IconToggleButton(QPushButton):
         self.setIconSize(QSize(24, 24))
         self._update_appearance()
         self.toggled.connect(self._update_appearance)
+        self.setChecked(False)
+        NodeStateManager().node_status = self.isChecked()
         
         
     def _update_appearance(self):

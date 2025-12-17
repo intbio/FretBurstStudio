@@ -11,8 +11,8 @@ from node_workers import NodeWorker
 
 import signal
 from pathlib import Path
-from Qt import QtWidgets, QtCore, QtGui  # pyright: ignore[reportMissingModuleSource]
-from Qt.QtCore import QThreadPool  # pyright: ignore[reportMissingModuleSource]
+from Qt import QtWidgets, QtCore, QtGui  
+from Qt.QtCore import QThreadPool  
 from NodeGraphQt import NodeGraph, NodesPaletteWidget,constants
 from NodeGraphQt import PropertiesBinWidget
 
@@ -32,11 +32,11 @@ def on_run_btn_clicked(graph, btn):
          
 def on_toogle_clicked(graph, toggle_btn):
     engene = graph_engene.GraphEngene(graph)
-    toggle_state = toggle_btn.text()
-    if toggle_state == 'static':
+    toggle_state = toggle_btn.isChecked()
+    if not toggle_state:
         print('static')
         engene.make_nodes_static()
-    elif toggle_state == 'automatic':
+    else:
         print('auto')
         engene.make_nodes_dinamic()
         
@@ -132,7 +132,7 @@ def main():
     run_button.clicked.connect(ThreadSignalManager().run_btn_clicked.emit)
     
     toggle_btn = IconToggleButton(parent=graph_widget)
-    # toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))   
+    toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))   
     toggle_btn.toggled.connect(NodeStateManager().on_change_node_state) 
     
     progress_bar = ProgressBar(parent=graph_widget)

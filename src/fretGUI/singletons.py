@@ -28,17 +28,13 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     
     
 class NodeStateManager(QObject, metaclass=SingletonMeta):
-    change_state = Signal(bool)
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.node_status = False
-        print('node state init')
+        self.node_status = None
     
     def on_change_node_state(self, status):
-        self.node_status = status
-        print(f"status: {status}")
-        self.change_state.emit(status)   
+        self.node_status = status 
     
     
 class EventDebouncer(metaclass=SingletonMeta):

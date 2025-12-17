@@ -55,9 +55,7 @@ class AbstractRecomputable(AbstractExecutable):
         super().__init__(*args, **kwargs)
         self.widget_wrappers = []  
         self.__wired = False
-        self.event_debouncer = EventDebouncer(50, self.on_connection)
-        NodeStateManager().change_state.connect(self.on_state_changed)
-        
+        self.event_debouncer = EventDebouncer(50, self.on_connection)        
         
     def find_roots(self):
         if self.is_root():
@@ -82,7 +80,8 @@ class AbstractRecomputable(AbstractExecutable):
             
     
     def add_custom_widget(self, widget, *args, **kwargs):
-        connection_status = NodeStateManager()
+        connection_status = NodeStateManager().node_status
+        print(connection_status)
         if isinstance(widget, AbstractWidgetWrapper):  
             if connection_status:      
                 widget.widget_changed_signal.connect(self.on_widget_triggered)
@@ -91,18 +90,18 @@ class AbstractRecomputable(AbstractExecutable):
         super().add_custom_widget(widget, *args, **kwargs)
         
     def wire_wrappers(self):
-        connection_status = NodeStateManager()
-        if connection_status or len(self.widget_wrappers) == 0:
+        self.event_debouncer.connect(self.on_connection)
+        if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
             widget_wrapper.widget_changed_signal.connect(self.on_widget_triggered)
             
     def unwire_wrappers(self):
-        connection_status = NodeStateManager()
-        if not connection_status or len(self.widget_wrappers) == 0:
+        self.event_debouncer.disconnect()
+        if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
-            widget_wrapper.widget_changed_signal.disconnect()
+            widget_wrapper.widget_changed_signal.disconnect(self.on_widget_triggered)
             
     def disable_all_node_widgets(self):
         for widget_name, widget in self.widgets().items():
