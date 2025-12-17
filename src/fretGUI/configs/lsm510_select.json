@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x220349f0ec0":{
+    "0x167879d7020":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"LSM510Node",
@@ -33,8 +33,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":371.0,
-      "height":155.05,
+      "width":206.0,
+      "height":82.6,
       "pos":[
         -267.0685594770505,
         -6.942645274986177
@@ -43,13 +43,10 @@
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "File Widget":[
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/a.002",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/a.001"
-        ]
+        "File Widget":[]
       }
     },
-    "0x220349f1250":{
+    "0x1678aa75a30":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"CalcBGNode",
@@ -73,21 +70,21 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":333.0,
-      "height":149.8,
+      "width":215.0,
+      "height":133.0,
       "pos":[
-        145.86288104589892,
-        -7.474123825502243
+        40.577248247827384,
+        -8.119931550380144
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "time_s":1000,
-        "tail_min_us":300
+        "Period, s":60,
+        "Min. lag, \u03bcs":300
       }
     },
-    "0x220349f1ac0":{
+    "0x1678aaae690":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearchFromBG",
@@ -114,19 +111,19 @@
       "width":350.0,
       "height":208.6,
       "pos":[
-        536.0913492567895,
-        -7.3368147335683425
+        317.0,
+        -7.771151513443424
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
         "m, Photon search window":10,
-        "L, Minimal Burst size":30,
+        "L, Minimal Burst size":20,
         "F, Min. Burst rate to bg. ratio":6
       }
     },
-    "0x220349f2900":{
+    "0x1678aac40b0":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"EHistPlotterNode",
@@ -151,19 +148,20 @@
       "selected":false,
       "visible":true,
       "width":762.0,
-      "height":553.0,
+      "height":611.8000000000001,
       "pos":[
-        353.50868877077687,
-        277.3717599545088
+        351.96581533039125,
+        216.9945877618145
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
+        "Bin Width":0.03,
         "plot_widget":null
       }
     },
-    "0x22035806db0":{
+    "0x1678aaacda0":{
       "type_":"Selectors.BurstSelectorNode",
       "icon":null,
       "name":"BurstSelector",
@@ -190,17 +188,17 @@
       "width":333.0,
       "height":91.0,
       "pos":[
-        1038.4626222528916,
-        99.13681234738284
+        768.4070027723898,
+        -6.7891465927362695
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "th1":30
+        "th1":40
       }
     },
-    "0x22031708bc0":{
+    "0x1678aaafa10":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"EHistPlotterNode 1",
@@ -225,15 +223,16 @@
       "selected":false,
       "visible":true,
       "width":771.0,
-      "height":553.0,
+      "height":611.8000000000001,
       "pos":[
-        1238.9576864316798,
-        315.1565556322282
+        1147.5511596673132,
+        -8.568138275566582
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
+        "Bin Width":0.03,
         "plot_widget":null
       }
     }
@@ -241,51 +240,51 @@
   "connections":[
     {
       "out":[
-        "0x220349f0ec0",
+        "0x167879d7020",
         "out_file"
       ],
       "in":[
-        "0x220349f1250",
+        "0x1678aa75a30",
         "inport"
       ]
     },
     {
       "out":[
-        "0x220349f1250",
+        "0x1678aa75a30",
         "outport"
       ],
       "in":[
-        "0x220349f1ac0",
+        "0x1678aaae690",
         "inport"
       ]
     },
     {
       "out":[
-        "0x220349f1ac0",
+        "0x1678aaae690",
         "outport"
       ],
       "in":[
-        "0x220349f2900",
+        "0x1678aac40b0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x220349f1ac0",
+        "0x1678aaae690",
         "outport"
       ],
       "in":[
-        "0x22035806db0",
+        "0x1678aaacda0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x22035806db0",
+        "0x1678aaacda0",
         "outport"
       ],
       "in":[
-        "0x22031708bc0",
+        "0x1678aaafa10",
         "inport"
       ]
     }

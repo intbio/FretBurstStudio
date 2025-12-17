@@ -119,7 +119,7 @@ class FloatSliderWidget(AbstractSliderWidget):
     
     def on_slider_moved(self):
         """Обработка движения слайдера"""
-        slider_value = self.value()
+        slider_value = self.slider.value() 
         float_value = self.slider_to_float(slider_value)
         formatted_value = self.format_float(float_value)
         self.text_box.setText(formatted_value)
@@ -151,13 +151,20 @@ class FloatSliderWidget(AbstractSliderWidget):
     
         
 class SliderWidgetWrapper(AbstractWidgetWrapper):
-    def __init__(self, parent, slider_widget: AbstractSliderWidget):
+    def __init__(self, parent, slider_widget: AbstractSliderWidget, min_width=None):
         self.slider_widget = slider_widget
         super().__init__(parent)
         
         self.set_name('Slider')
         self.set_custom_widget(self.slider_widget)
         
+        # Set minimum width if specified
+        if min_width is not None:
+            self.setMinimumWidth(min_width)
+            # Also set on the custom widget if it's a QWidget
+            if hasattr(self.slider_widget, 'setMinimumWidth'):
+                self.slider_widget.setMinimumWidth(min_width)
+    
     def get_value(self):
         # Return the converted float value, not the raw slider integer
         return self.get_custom_widget().value()
@@ -165,10 +172,102 @@ class SliderWidgetWrapper(AbstractWidgetWrapper):
     def set_value(self, value):
         # Use the widget's setValue method which handles conversion properly
         self.get_custom_widget().setValue(value)
-        
+    
     def wire_signals(self):
         self.slider_widget.widget_updaeted.connect(
             self.widget_changed_signal.emit)
 
+
+class IntSpinBoxWidget(QtWidgets.QWidget):
+    widget_updaeted = Signal()
+    
+    def __init__(self, parent=None, start=0, stop=100, step=1):
+        super().__init__(None)
+        
+        self.start = int(start)
+        self.stop = int(stop)
+        self.step = int(step)
+        
+        self.spinbox = QtWidgets.QSpinBox()
+        self.spinbox.setMinimum(self.start)
+        self.spinbox.setMaximum(self.stop)
+        self.spinbox.setSingleStep(self.step)
+        
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.layout.addWidget(self.spinbox)
+        self.layout.setContentsMargins(3, 3, 3, 3)
+        
+        # Use lambda to ignore the value argument from valueChanged
+        self.spinbox.valueChanged.connect(lambda val: self.widget_updaeted.emit())
+    
+    def value(self):
+        """Возвращает текущее int значение"""
+        return self.spinbox.value()
+    
+    def setValue(self, int_value):
+        """Устанавливает int значение"""
+        clamped_val = max(self.start, min(int(int_value), self.stop))
+        self.spinbox.setValue(clamped_val)
+
+
+class FloatSpinBoxWidget(QtWidgets.QWidget):
+    widget_updaeted = Signal()
+    
+    def __init__(self, parent=None, start=0.0, stop=100.0, step=1.0, decimals=2):
+        super().__init__(None)
+        
+        self.start = float(start)
+        self.stop = float(stop)
+        self.step = float(step)
+        self.decimals = decimals
+        
+        self.spinbox = QtWidgets.QDoubleSpinBox()
+        self.spinbox.setMinimum(self.start)
+        self.spinbox.setMaximum(self.stop)
+        self.spinbox.setSingleStep(self.step)
+        self.spinbox.setDecimals(self.decimals)
+        
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.layout.addWidget(self.spinbox)
+        self.layout.setContentsMargins(3, 3, 3, 3)
+        
+        # Use lambda to ignore the value argument from valueChanged
+        self.spinbox.valueChanged.connect(lambda val: self.widget_updaeted.emit())
+    
+    def value(self):
+        """Возвращает текущее float значение"""
+        return self.spinbox.value()
+    
+    def setValue(self, float_value):
+        """Устанавливает float значение"""
+        clamped_val = max(self.start, min(float(float_value), self.stop))
+        self.spinbox.setValue(clamped_val)
+
+
+class SpinBoxWidgetWrapper(AbstractWidgetWrapper):
+    def __init__(self, parent, spinbox_widget, min_width=None):
+        self.spinbox_widget = spinbox_widget
+        super().__init__(parent)
+        
+        self.set_name('SpinBox')
+        self.set_custom_widget(self.spinbox_widget)
+        
+        # Set minimum width if specified
+        if min_width is not None:
+            self.setMinimumWidth(min_width)
+            # Also set on the custom widget if it's a QWidget
+            if hasattr(self.spinbox_widget, 'setMinimumWidth'):
+                self.spinbox_widget.setMinimumWidth(min_width)
+    
+    def get_value(self):
+        return self.get_custom_widget().value()
+    
+    def set_value(self, value):
+        self.get_custom_widget().setValue(value)
+    
+    def wire_signals(self):
+        self.spinbox_widget.widget_updaeted.connect(
+            self.widget_changed_signal.emit)
+        
         
         

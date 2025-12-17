@@ -13,6 +13,7 @@ from NodeGraphQt import BaseNode
 import numpy as np
 from fretbursts.burstlib import Data
 from collections import Counter
+from misc import enable_legend_toggle
 
 
 class AbstractLoader(AbstractRecomputable):
@@ -95,7 +96,7 @@ class LSM510Node(AbstractLoader):
         
         data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
                                      clk_p=timestamps_unit, alternated=False,nch=1,
-                                     fname='file_name',meas_type='smFRET')  
+                                     fname=path,meas_type='smFRET')  
         fbsdata = FBSData(data, path)
         return fbsdata   
         
@@ -118,22 +119,24 @@ class AlexNode(AbstractRecomputable):
 class CalcBGNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'CalcBGNode'
-    
+
     def __init__(self):
         super().__init__()
         node_builder = NodeBuilder(self)
         
         self.add_input('inport')
         self.add_output('outport')
-        self.time_s_slider = node_builder.build_int_slider('time_s', [1000, 2000, 100])
-        self.tail_slider = node_builder.build_int_slider('tail_min_us', [0, 1000, 100], 300)
+        self.time_s_spinbox = node_builder.build_int_spinbox('Period, s', [1, 1000, 10],60, tooltip='Time for BG calculation, s', min_width=80)
+        self.tail_spinbox = node_builder.build_int_spinbox('Min. lag, μs', [1, 1000, 100], 300,tooltip='Threshold in μs for photon waiting times', min_width=80)
+
         
     def __calc_bg(self, data, time_s, tail_min_us):
         data.data.calc_bg(fretbursts.bg.exp_fit, time_s=time_s, tail_min_us=tail_min_us)
     
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData) -> list[FBSData]:
-        self.__calc_bg(fbsdata, self.time_s_slider.get_value(), self.tail_slider.get_value())
+        self.__calc_bg(fbsdata, time_s = self.time_s_spinbox.get_value(),
+                       tail_min_us = self.tail_spinbox.get_value())
         return [fbsdata]
     
     
@@ -247,6 +250,7 @@ class BGPlotterNode(AbstractContentNode):
         
     
 class EHistPlotterNode(AbstractContentNode):
+
     __identifier__ = 'Plot'
     NODE_NAME = 'EHistPlotterNode'
 
@@ -277,9 +281,54 @@ class EHistPlotterNode(AbstractContentNode):
         for cur_data in self.data_to_plot:
             fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1, binwidth=self.BinWidth_slider.get_value(),
             hist_style = 'bar' if len(self.data_to_plot)==1 else 'line')
+        # ax.legend(fancybox=True, shadow=True)
+        # enable_legend_toggle(ax1)
         plot_widget.canvas.draw()
         print("plot", self)
         self.on_plot_data_clear()
+
+class TestPlotterNode(AbstractContentNode):
+    import matplotlib.pyplot as plt
+    __identifier__ = 'Plot'
+    NODE_NAME = 'Test'
+
+    # if you want different margins just for this node:
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 35
+    BOTTOM_MARGIN = 20
+    PLOT_NODE = True
+    MIN_WIDTH = 450  # Minimum allowed width for the node
+    MIN_HEIGHT = 300  # Minimum allowed height for the node
+
+
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
+        # tell the base which widget name to resize
+        super().__init__(widget_name, qgraphics_item)
+
+        node_builder = NodeBuilder(self)
+
+        self.add_input('inport')
+        node_builder.build_plot_widget('plot_widget')
+
+    def _on_refresh_canvas(self):
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        plot_widget.figure.clf()
+        fig = plot_widget.figure
+        ax = plot_widget.figure.add_subplot()
+        t = np.linspace(0, 1)
+        y1 = 2 * np.sin(2 * np.pi * t)
+        y2 = 4 * np.sin(2 * np.pi * 2 * t)
+
+        line1, = ax.plot(t, y1, lw=2, label='1 Hz')
+        line2, = ax.plot(t, y2, lw=2, label='2 Hz')
+        leg = ax.legend(fancybox=True, shadow=True)
+
+        # Enable click-to-toggle functionality
+        enable_legend_toggle(ax)
+        
+        plot_widget.canvas.draw()
+
+
 
     
         
