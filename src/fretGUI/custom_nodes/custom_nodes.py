@@ -1,6 +1,7 @@
+from typing import Any
 import custom_widgets.path_selector as path_selector
 from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
-import fretbursts
+import fretbursts, os
 from node_builder import NodeBuilder
 
 
@@ -25,25 +26,58 @@ class AbstractLoader(AbstractRecomputable):
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
         self.add_custom_widget(self.file_widget, tab='Custom')  
         
-        self.opened_paths = dict()
+        self.opened_paths = dict()  # path_hash -> FBSData
+        self.path_to_id = dict()    # path -> id mapping
+        
+        # Connect to paths_added signal to assign IDs immediately (use DirectConnection for synchronous execution)
+        from Qt.QtCore import Qt
+        self.file_widget.paths_added.connect(self.on_paths_added, Qt.DirectConnection)
+        
+    def on_paths_added(self, paths):
+        """Assign IDs immediately when paths are added"""
+        from singletons import FBSDataIDGenerator
+        for path in paths:
+            if path not in self.path_to_id:
+                # Assign new ID immediately
+                new_id = FBSDataIDGenerator().get_next_id()
+                self.path_to_id[path] = new_id
+        # Update the widget wrapper with assigned IDs (so it can pass to add_row_widgets)
+        self.file_widget.update_path_ids(self.path_to_id)
         
     @abstractmethod
-    def load(self, path: str) -> FBSData:
+    def load(self, path: str, id: int = None) -> FBSData:
         pass
     
     def execute(self, fbsdata: FBSData=None):
         selected_paths = self.file_widget.get_value()
         self.__delete_closed_files(selected_paths)
         
+        # Ensure all selected paths have IDs assigned
+        from singletons import FBSDataIDGenerator
+        for path in selected_paths:
+            if path not in self.path_to_id:
+                # Assign ID if somehow missing (shouldn't happen, but safety check)
+                new_id = FBSDataIDGenerator().get_next_id()
+                self.path_to_id[path] = new_id
+        
         data_list = []
         for cur_path in selected_paths:
             path_hash = hash(cur_path)
+            # Get the pre-assigned ID for this path
+            assigned_id = self.path_to_id[cur_path]
+            
             if path_hash in self.opened_paths:
-                data_list.append(self.opened_paths[path_hash].copy())
+                # Use existing FBSData (which already has an ID)
+                existing_fbsdata = self.opened_paths[path_hash]
+                data_list.append(existing_fbsdata.copy())
             else:
-                loaded_fbsdata = self.load(cur_path)
+                # Load new FBSData with the pre-assigned ID
+                loaded_fbsdata = self.load(cur_path, id=assigned_id)
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
                 data_list.append(loaded_fbsdata)
+        
+        # Update the path widget with IDs (in case any were missing)
+        self.file_widget.update_path_ids(self.path_to_id)
         return data_list
     
     def __delete_closed_files(self, selected_paths: list):
@@ -53,6 +87,12 @@ class AbstractLoader(AbstractRecomputable):
         if len(for_kill) > 0:
             for item in for_kill:
                 self.opened_paths.pop(item)
+        
+        # Also clean up path_to_id mapping
+        selected_paths_set = set(selected_paths)
+        paths_to_remove = [path for path in self.path_to_id.keys() if path not in selected_paths_set]
+        for path in paths_to_remove:
+            self.path_to_id.pop(path, None)
         
         
     
@@ -66,9 +106,9 @@ class PhHDF5Node(AbstractLoader):
     def __init__(self):
         super().__init__() 
     
-    def load(self, path):
+    def load(self, path, id=None):
         data = fretbursts.loader.photon_hdf5(path)
-        fbsdata = FBSData(data, path)
+        fbsdata = FBSData(data, path, id=id)
         return fbsdata   
         
         
@@ -80,7 +120,7 @@ class LSM510Node(AbstractLoader):
     def __init__(self):
         super().__init__() 
     
-    def load(self, path: str):
+    def load(self, path: str, id=None):
         fcs=self.ConfoCor2Raw(path)
         times_acceptor, times_donor = fcs.asarray()
         fcs.frequency
@@ -97,7 +137,7 @@ class LSM510Node(AbstractLoader):
         data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
                                      clk_p=timestamps_unit, alternated=False,nch=1,
                                      fname=path,meas_type='smFRET')  
-        fbsdata = FBSData(data, path)
+        fbsdata = FBSData(data, path, id=id)
         return fbsdata   
         
     
@@ -245,6 +285,57 @@ class BGPlotterNode(AbstractContentNode):
         for cur_data in self.data_to_plot:
             fretbursts.dplot(cur_data.data, fretbursts.hist_bg, show_fit=True, ax=ax1)
             fretbursts.dplot(cur_data.data, fretbursts.timetrace_bg, ax=ax2)
+        plot_widget.canvas.draw()
+        self.on_plot_data_clear()
+
+class BGTimeLinePlotterNode(AbstractContentNode):
+    __identifier__ = 'Plot'
+    NODE_NAME = 'BGTimeLinePlotterNode'
+   
+
+    # if you want different margins just for this node:
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 35
+    BOTTOM_MARGIN = 20
+    PLOT_NODE = True
+    MIN_WIDTH = 450  # Minimum allowed width for the node
+    MIN_HEIGHT = 300  # Minimum allowed height for the node
+
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
+        # tell the base which widget name to resize
+        super().__init__(widget_name, qgraphics_item)
+
+        node_builder = NodeBuilder(self)
+        
+        self.add_input('inport')
+        node_builder.build_plot_widget('plot_widget')     
+        self.items_to_plot = node_builder.build_combobox(
+            widget_name="File to plot:",
+            items=[],
+            value=None,
+            tooltip="Select an option"
+            )
+         
+                         
+        
+    def _on_refresh_canvas(self):
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        fig = plot_widget.figure
+        fig.clear()
+        ax = fig.add_subplot()
+        
+        map_name_to_data = {}
+        for cur_data in self.data_to_plot:
+            fname = os.path.basename(cur_data.data.fname)
+            fbid = cur_data.id
+            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        selected_val = self.items_to_plot.get_value()
+        if selected_val != None:
+            fretbursts.dplot(map_name_to_data[selected_val], fretbursts.timetrace_bg, ax=ax)
+        else:
+            for cur_data in self.data_to_plot:
+                fretbursts.dplot(cur_data.data, fretbursts.timetrace_bg, ax=ax)
         plot_widget.canvas.draw()
         self.on_plot_data_clear()
         

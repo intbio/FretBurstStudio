@@ -63,6 +63,22 @@ class NodeBuilder():
             spinbox_widget.setToolTip(tooltip)
         return spinbox_widget
     
+    def build_combobox(self, widget_name=None, items=None, value=None, tooltip=None, min_width=None):
+        widget_name = widget_name if widget_name else f"combobox{len(self.node.widgets())}"
+        combobox = self.__build_combobox_widget(widget_name, sliders.ComboBoxWidget(widget_name, items), tooltip, min_width)
+        if value is not None:
+            combobox.set_value(value)
+        self.node.add_custom_widget(combobox, tab='custom')
+        return combobox
+    
+    def __build_combobox_widget(self, widget_name, combobox_widget, tooltip=None, min_width=None):
+        combobox_widget = sliders.ComboBoxWidgetWrapper(self.node.view, combobox_widget, min_width)
+        combobox_widget.set_name(widget_name)
+        combobox_widget.set_label(widget_name)
+        if tooltip:
+            combobox_widget.setToolTip(tooltip)
+        return combobox_widget
+    
     def build_plot_widget(self, widget_name):
         plot_widget = TemplatePlotWidgetWtapper(parent=self.node.view)
         plot_widget.set_name(widget_name)

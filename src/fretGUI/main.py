@@ -107,6 +107,7 @@ def main():
             selector_nodes.BurstSelectorTopNSBRNode,
             selector_nodes.BurstSelectorWidthNode,
             custom_nodes.BGPlotterNode,
+            custom_nodes.BGTimeLinePlotterNode,
             custom_nodes.EHistPlotterNode,
             custom_nodes.TestPlotterNode
         ]

@@ -268,6 +268,95 @@ class SpinBoxWidgetWrapper(AbstractWidgetWrapper):
     def wire_signals(self):
         self.spinbox_widget.widget_updaeted.connect(
             self.widget_changed_signal.emit)
+
+
+class ComboBoxWidget(QtWidgets.QWidget):
+    widget_updaeted = Signal()
+    
+    def __init__(self, parent=None, items=None):
+        super().__init__(None)
+        
+        self.combobox = QtWidgets.QComboBox()
+        
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.layout.addWidget(self.combobox)
+        self.layout.setContentsMargins(3, 3, 3, 3)
+        
+        if items is not None:
+            self.setItems(items)
+        
+        # Connect signal
+        self.combobox.currentTextChanged.connect(lambda text: self.widget_updaeted.emit())
+    
+    def value(self):
+        """Returns the currently selected item text"""
+        return self.combobox.currentText()
+    
+    def setValue(self, value):
+        """Sets the selected item by text value"""
+        index = self.combobox.findText(str(value))
+        if index >= 0:
+            self.combobox.setCurrentIndex(index)
+        else:
+            # If value not found, select first item
+            if self.combobox.count() > 0:
+                self.combobox.setCurrentIndex(0)
+    
+    def setItems(self, items):
+        """Sets items from a list while preserving selected item if it's in the new list"""
+        if not items:
+            self.combobox.clear()
+            return
+        
+        # Get current selection before clearing
+        current_text = self.combobox.currentText()
+        
+        # Clear and add new items
+        self.combobox.clear()
+        self.combobox.addItems([str(item) for item in items])
+        
+        # Try to restore previous selection if it exists in new items
+        item_strings = [str(item) for item in items]
+        if current_text in item_strings:
+            self.combobox.setCurrentText(current_text)
+        else:
+            # If previous selection not in new list, select first item
+            if self.combobox.count() > 0:
+                self.combobox.setCurrentIndex(0)
+    
+    def items(self):
+        """Returns list of all items"""
+        return [self.combobox.itemText(i) for i in range(self.combobox.count())]
+
+
+class ComboBoxWidgetWrapper(AbstractWidgetWrapper):
+    def __init__(self, parent, combobox_widget, min_width=None):
+        self.combobox_widget = combobox_widget
+        super().__init__(parent)
+        
+        self.set_name('ComboBox')
+        self.set_custom_widget(self.combobox_widget)
+        
+        # Set minimum width if specified
+        if min_width is not None:
+            self.setMinimumWidth(min_width)
+            # Also set on the custom widget if it's a QWidget
+            if hasattr(self.combobox_widget, 'setMinimumWidth'):
+                self.combobox_widget.setMinimumWidth(min_width)
+    
+    def get_value(self):
+        return self.get_custom_widget().value()
+    
+    def set_value(self, value):
+        self.get_custom_widget().setValue(value)
+    
+    def set_items(self, items):
+        """Convenience method to set items from wrapper"""
+        self.get_custom_widget().setItems(items)
+    
+    def wire_signals(self):
+        self.combobox_widget.widget_updaeted.connect(
+            self.widget_changed_signal.emit)
         
         
         

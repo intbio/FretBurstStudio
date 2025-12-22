@@ -124,5 +124,18 @@ class FBSDataCash(metaclass=SingletonMeta):
         hash_hex = hashlib.sha256(pickle_).hexdigest()
         return hash_hex
 
+
+class FBSDataIDGenerator(metaclass=SingletonMeta):
+    """Singleton to generate unique integer IDs for FBSData objects"""
+    def __init__(self):
+        self.__counter = 0
+        self.mutex = QMutex()
+    
+    def get_next_id(self):
+        """Get the next unique integer ID"""
+        with QMutexLocker(self.mutex):
+            self.__counter += 1
+            return self.__counter
+    
     
     

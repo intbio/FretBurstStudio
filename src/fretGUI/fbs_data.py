@@ -1,13 +1,18 @@
 from fretbursts.burstlib import Data
 from copy import deepcopy
-
+from singletons import FBSDataIDGenerator
 
 
 class FBSData():
-    def __init__(self, data=None, path=None):
+    def __init__(self, data=None, path=None, id=None):
         self.__data = data if data else Data()
         self.__path = path if path else ''
         self.history = []
+        # Assign ID automatically if not provided
+        if id is None:
+            self.__id = FBSDataIDGenerator().get_next_id()
+        else:
+            self.__id = id
        
     @property 
     def path(self):
@@ -24,9 +29,15 @@ class FBSData():
     @data.setter
     def data(self, new_data):
         self.__data = new_data
+    
+    @property
+    def id(self):
+        """Returns the integer ID of this FBSData object"""
+        return self.__id
         
     def copy(self):
-        new_obj = FBSData(deepcopy(self.__data), self.__path)
+        # Preserve the ID when copying
+        new_obj = FBSData(deepcopy(self.__data), self.__path, id=self.__id)
         return new_obj
     
     def __repr__(self):
