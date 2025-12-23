@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x1dc94a8fd10":{
+    "0x173b2f198b0":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"LSM510Node",
@@ -46,7 +46,7 @@
         "File Widget":[]
       }
     },
-    "0x1dc91715a30":{
+    "0x173b2f18a10":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"CalcBGNode",
@@ -84,7 +84,7 @@
         "Min. lag, \u03bcs":300
       }
     },
-    "0x1dc94ab8bc0":{
+    "0x173b5fe78f0":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearchFromBG",
@@ -123,7 +123,7 @@
         "F, Min. Burst rate to bg. ratio":6
       }
     },
-    "0x1dc94ab93d0":{
+    "0x173b6014380":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"EHistPlotterNode",
@@ -147,8 +147,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":683.3858637996968,
-      "height":300,
+      "width":532.0,
+      "height":431.20000000000005,
       "pos":[
         574.6855947705051,
         304.765929413091
@@ -161,7 +161,7 @@
         "plot_widget":null
       }
     },
-    "0x1dc94aba6f0":{
+    "0x173b6015610":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"BGTimeLinePlotterNode",
@@ -183,13 +183,13 @@
         30
       ],
       "disabled":false,
-      "selected":false,
+      "selected":true,
       "visible":true,
-      "width":479.87337175611526,
-      "height":301.5722827240061,
+      "width":472.0,
+      "height":422.8,
       "pos":[
-        71.96562519255835,
-        304.1257240642314
+        59.897065715507836,
+        216.35438241295506
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -203,41 +203,41 @@
   "connections":[
     {
       "out":[
-        "0x1dc94a8fd10",
+        "0x173b2f198b0",
         "out_file"
       ],
       "in":[
-        "0x1dc91715a30",
+        "0x173b2f18a10",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1dc91715a30",
+        "0x173b2f18a10",
         "outport"
       ],
       "in":[
-        "0x1dc94ab8bc0",
+        "0x173b5fe78f0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1dc91715a30",
+        "0x173b2f18a10",
         "outport"
       ],
       "in":[
-        "0x1dc94aba6f0",
+        "0x173b6015610",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1dc94ab8bc0",
+        "0x173b5fe78f0",
         "outport"
       ],
       "in":[
-        "0x1dc94ab93d0",
+        "0x173b6014380",
         "inport"
       ]
     }

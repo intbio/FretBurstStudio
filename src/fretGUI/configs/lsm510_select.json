@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x167879d7020":{
+    "0x173b6e40740":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"LSM510Node",
@@ -33,8 +33,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":206.0,
-      "height":82.6,
+      "width":325.0,
+      "height":165,
       "pos":[
         -267.0685594770505,
         -6.942645274986177
@@ -43,10 +43,13 @@
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "File Widget":[]
+        "File Widget":[
+          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.002",
+          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001"
+        ]
       }
     },
-    "0x1678aa75a30":{
+    "0x173b6e13680":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"CalcBGNode",
@@ -73,8 +76,8 @@
       "width":215.0,
       "height":133.0,
       "pos":[
-        40.577248247827384,
-        -8.119931550380144
+        81.1714937615427,
+        -5.925648009098236
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -84,7 +87,7 @@
         "Min. lag, \u03bcs":300
       }
     },
-    "0x1678aaae690":{
+    "0x173b6e40140":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearchFromBG",
@@ -111,8 +114,8 @@
       "width":350.0,
       "height":208.6,
       "pos":[
-        317.0,
-        -7.771151513443424
+        348.81711134858745,
+        -5.576867972161515
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -123,7 +126,7 @@
         "F, Min. Burst rate to bg. ratio":6
       }
     },
-    "0x1678aac40b0":{
+    "0x173b6e41370":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"EHistPlotterNode",
@@ -147,11 +150,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":762.0,
-      "height":611.8000000000001,
+      "width":532.0,
+      "height":431.20000000000005,
       "pos":[
-        351.96581533039125,
-        216.9945877618145
+        574.6855947705051,
+        304.765929413091
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -161,7 +164,45 @@
         "plot_widget":null
       }
     },
-    "0x1678aaacda0":{
+    "0x173b6e10ec0":{
+      "type_":"Plot.BGTimeLinePlotterNode",
+      "icon":null,
+      "name":"BGTimeLinePlotterNode",
+      "color":[
+        255,
+        255,
+        255,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":472.0,
+      "height":422.8,
+      "pos":[
+        59.897065715507836,
+        216.35438241295506
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "plot_widget":null,
+        "File to plot:":"2, L2-dCas-NS_1to500.002"
+      }
+    },
+    "0x173b6e0c890":{
       "type_":"Selectors.BurstSelectorNode",
       "icon":null,
       "name":"BurstSelector",
@@ -188,17 +229,17 @@
       "width":333.0,
       "height":91.0,
       "pos":[
-        768.4070027723898,
-        -6.7891465927362695
+        734.8914633394895,
+        113.50289625692567
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "th1":40
+        "th1":20
       }
     },
-    "0x1678aaafa10":{
+    "0x173b9ecbe60":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"EHistPlotterNode 1",
@@ -222,11 +263,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":771.0,
-      "height":611.8000000000001,
+      "width":541.0,
+      "height":431.20000000000005,
       "pos":[
-        1147.5511596673132,
-        -8.568138275566582
+        813.735951913581,
+        -330.0877713520882
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -240,52 +281,62 @@
   "connections":[
     {
       "out":[
-        "0x167879d7020",
+        "0x173b6e40740",
         "out_file"
       ],
       "in":[
-        "0x1678aa75a30",
+        "0x173b6e13680",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1678aa75a30",
+        "0x173b6e13680",
         "outport"
       ],
       "in":[
-        "0x1678aaae690",
+        "0x173b6e40140",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1678aaae690",
+        "0x173b6e13680",
         "outport"
       ],
       "in":[
-        "0x1678aac40b0",
+        "0x173b6e10ec0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1678aaae690",
+        "0x173b6e40140",
         "outport"
       ],
       "in":[
-        "0x1678aaacda0",
+        "0x173b6e0c890",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1678aaacda0",
+        "0x173b6e40140",
         "outport"
       ],
       "in":[
-        "0x1678aaafa10",
+        "0x173b9ecbe60",
         "inport"
+      ]
+    },
+    {
+      "in":[
+        "0x173b6e41370",
+        "inport"
+      ],
+      "out":[
+        "0x173b6e0c890",
+        "outport"
       ]
     }
   ]
