@@ -5,7 +5,7 @@ from custom_widgets.toogle_widget import IconToggleButton
 import sys,os
 from singletons import ThreadSignalManager, NodeStateManager
 
-from custom_widgets.progressbar_widget import ProgressBar
+from custom_widgets.progressbar_widget import ProgressBar, ProgressBar2
 from custom_nodes.custom_nodes import PhHDF5Node
 from node_workers import NodeWorker
 
@@ -137,7 +137,7 @@ def main():
     toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))   
     toggle_btn.toggled.connect(NodeStateManager().on_change_node_state) 
     
-    progress_bar = ProgressBar(parent=graph_widget)
+    progress_bar = ProgressBar2(parent=graph_widget)
     ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
     ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
     ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
@@ -145,7 +145,7 @@ def main():
     progress_bar.block_ui.connect(lambda: on_block_ui(graph))
     progress_bar.release_ui.connect(lambda: run_button.setDisabled(False))
     progress_bar.release_ui.connect(lambda: on_release_ui(graph))
-    progress_bar.show()
+    # progress_bar.show()
 
     
     
