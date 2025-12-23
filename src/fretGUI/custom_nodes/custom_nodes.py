@@ -48,6 +48,66 @@ class AbstractLoader(AbstractRecomputable):
     def load(self, path: str, id: int = None) -> FBSData:
         pass
     
+    def _format_metadata_tooltip(self, fbsdata: FBSData) -> str:
+        """Format metadata from FBSData into a tooltip string"""
+        if fbsdata is None or fbsdata.data is None:
+            return "Not loaded, press RUN"
+        
+        data = fbsdata.data
+        path = fbsdata.path
+        
+        # Start with "loaded" and path
+        tooltip_parts = [f"Loaded: {path}"]
+        
+        try:
+            # Get experiment type
+            if hasattr(data, 'meas_type') and data.meas_type:
+                tooltip_parts.append(f"Type: {data.meas_type}")
+            
+            # Get number of channels
+            if hasattr(data, 'nch'):
+                tooltip_parts.append(f"Channels: {data.nch}")
+            
+            # Calculate experiment length and total photons per channel
+            if hasattr(data, 'ph_times_m') and data.ph_times_m:
+                # ph_times_m is a list of arrays, one per channel
+                if hasattr(data, 'clk_p') and data.clk_p:
+                    clk_period = data.clk_p
+                else:
+                    clk_period = 1.0  # Default if not available
+                
+                total_photons = []
+                experiment_lengths = []
+                
+                for ch_idx, ph_times in enumerate(data.ph_times_m):
+                    if ph_times is not None and len(ph_times) > 0:
+                        num_photons = len(ph_times)
+                        total_photons.append(num_photons)
+                        # Calculate experiment length in seconds
+                        max_time = ph_times[-1] if len(ph_times) > 0 else 0
+                        exp_length = max_time * clk_period
+                        experiment_lengths.append(exp_length)
+                    else:
+                        total_photons.append(0)
+                        experiment_lengths.append(0.0)
+                
+                # Add experiment length (use max if multiple channels)
+                if experiment_lengths:
+                    max_length = max(experiment_lengths)
+                    tooltip_parts.append(f"Length: {max_length:.2f} s")
+                
+                # Add total photons per channel
+                if total_photons:
+                    photons_str = ", ".join([f"Ch{i}: {count}" for i, count in enumerate(total_photons) if count > 0])
+                    if photons_str:
+                        tooltip_parts.append(f"Photons: {photons_str}")
+            
+        except Exception as e:
+            # If there's an error extracting metadata, just show basic info
+            tooltip_parts.append(f"(Metadata extraction error: {str(e)})")
+        
+        return "\n".join(tooltip_parts)
+    
     def execute(self, fbsdata: FBSData=None):
         selected_paths = self.file_widget.get_value()
         self.__delete_closed_files(selected_paths)
@@ -70,11 +130,17 @@ class AbstractLoader(AbstractRecomputable):
                 # Use existing FBSData (which already has an ID)
                 existing_fbsdata = self.opened_paths[path_hash]
                 data_list.append(existing_fbsdata.copy())
+                # Update tooltip for loaded file
+                tooltip_text = self._format_metadata_tooltip(existing_fbsdata)
+                self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
             else:
                 # Load new FBSData with the pre-assigned ID
                 loaded_fbsdata = self.load(cur_path, id=assigned_id)
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
                 data_list.append(loaded_fbsdata)
+                # Update tooltip for newly loaded file
+                tooltip_text = self._format_metadata_tooltip(loaded_fbsdata)
+                self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
         
         # Update the path widget with IDs (in case any were missing)
         self.file_widget.update_path_ids(self.path_to_id)
@@ -252,9 +318,9 @@ class AbstractContentNode(ResizableContentNode):
         return [fbsdata]        
     
     
-class BGPlotterNode(AbstractContentNode):
+class BGFitPlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
-    NODE_NAME = 'BGPlotterNode'
+    NODE_NAME = 'BGFitPlotterNode'
    
 
     # if you want different margins just for this node:
@@ -273,18 +339,35 @@ class BGPlotterNode(AbstractContentNode):
         
         self.add_input('inport')
 
-        node_builder.build_plot_widget('plot_widget')      
+        node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)
+        self.items_to_plot = node_builder.build_combobox(
+            widget_name="File to plot:",
+            items=[],
+            value=None,
+            tooltip="Select an option"
+            )  
+                
                          
         
     def _on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget
         fig = plot_widget.figure
         fig.clear()
-        ax1 = fig.add_subplot(2, 1, 1)
-        ax2 = fig.add_subplot(2, 1, 2)
+        ax = fig.add_subplot()
+
+        map_name_to_data = {}
         for cur_data in self.data_to_plot:
-            fretbursts.dplot(cur_data.data, fretbursts.hist_bg, show_fit=True, ax=ax1)
-            fretbursts.dplot(cur_data.data, fretbursts.timetrace_bg, ax=ax2)
+            fname = os.path.basename(cur_data.data.fname)
+            fbid = cur_data.id
+            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        selected_val = self.items_to_plot.get_value()
+        if selected_val != None:
+            fretbursts.dplot(map_name_to_data[selected_val], fretbursts.hist_bg, show_fit=True, ax=ax)
+        else:
+            for cur_data in self.data_to_plot:
+                fretbursts.dplot(cur_data.data, fretbursts.hist_bg, show_fit=True, ax=ax)
+
         plot_widget.canvas.draw()
         self.on_plot_data_clear()
 
@@ -308,13 +391,14 @@ class BGTimeLinePlotterNode(AbstractContentNode):
         node_builder = NodeBuilder(self)
         
         self.add_input('inport')
-        node_builder.build_plot_widget('plot_widget')     
+        node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)   
         self.items_to_plot = node_builder.build_combobox(
             widget_name="File to plot:",
             items=[],
             value=None,
             tooltip="Select an option"
             )
+          
          
                          
         
@@ -362,7 +446,7 @@ class EHistPlotterNode(AbstractContentNode):
 
         self.add_input('inport')
         self.BinWidth_slider = node_builder.build_float_slider('Bin Width', [0.01, 0.2, 0.01], 0.03)
-        node_builder.build_plot_widget('plot_widget')
+        node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)   
 
     def _on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget

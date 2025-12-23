@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x167879d7020":{
+    "0x1dc94a8fd10":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"LSM510Node",
@@ -33,8 +33,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":206.0,
-      "height":82.6,
+      "width":325.0,
+      "height":137.2,
       "pos":[
         -267.0685594770505,
         -6.942645274986177
@@ -46,7 +46,7 @@
         "File Widget":[]
       }
     },
-    "0x1678aa75a30":{
+    "0x1dc91715a30":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"CalcBGNode",
@@ -73,8 +73,8 @@
       "width":215.0,
       "height":133.0,
       "pos":[
-        40.577248247827384,
-        -8.119931550380144
+        81.1714937615427,
+        -5.925648009098236
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -84,7 +84,7 @@
         "Min. lag, \u03bcs":300
       }
     },
-    "0x1678aaae690":{
+    "0x1dc94ab8bc0":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearchFromBG",
@@ -111,8 +111,8 @@
       "width":350.0,
       "height":208.6,
       "pos":[
-        317.0,
-        -7.771151513443424
+        364.17709613756097,
+        -6.67400974280247
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -123,7 +123,7 @@
         "F, Min. Burst rate to bg. ratio":6
       }
     },
-    "0x1678aac40b0":{
+    "0x1dc94ab93d0":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"EHistPlotterNode",
@@ -147,49 +147,97 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":762.0,
-      "height":611.8000000000001,
+      "width":683.3858637996968,
+      "height":300,
       "pos":[
-        351.96581533039125,
-        216.9945877618145
+        574.6855947705051,
+        304.765929413091
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "Bin Width":0.03,
+        "Bin Width":0.08,
         "plot_widget":null
+      }
+    },
+    "0x1dc94aba6f0":{
+      "type_":"Plot.BGTimeLinePlotterNode",
+      "icon":null,
+      "name":"BGTimeLinePlotterNode",
+      "color":[
+        255,
+        255,
+        255,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":479.87337175611526,
+      "height":301.5722827240061,
+      "pos":[
+        71.96562519255835,
+        304.1257240642314
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "plot_widget":null,
+        "File to plot:":""
       }
     }
   },
   "connections":[
     {
       "out":[
-        "0x167879d7020",
+        "0x1dc94a8fd10",
         "out_file"
       ],
       "in":[
-        "0x1678aa75a30",
+        "0x1dc91715a30",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1678aa75a30",
+        "0x1dc91715a30",
         "outport"
       ],
       "in":[
-        "0x1678aaae690",
+        "0x1dc94ab8bc0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1678aaae690",
+        "0x1dc91715a30",
         "outport"
       ],
       "in":[
-        "0x1678aac40b0",
+        "0x1dc94aba6f0",
+        "inport"
+      ]
+    },
+    {
+      "out":[
+        "0x1dc94ab8bc0",
+        "outport"
+      ],
+      "in":[
+        "0x1dc94ab93d0",
         "inport"
       ]
     }

@@ -16,7 +16,7 @@ class ProgressBar(QtWidgets.QWidget):
         self.bars = {}
         
         self.layout = QVBoxLayout(self)
-        self.layout.setSpacing(5)
+        self.layout.setSpacing(2)
         
         self.release_ui.connect(ThreadSignalManager().all_thread_finished.emit)
     
@@ -34,7 +34,7 @@ class ProgressBar(QtWidgets.QWidget):
         pbar = self.bars.pop(uid)
         if len(self.bars) == 0:
             self.release_ui.emit()
-        QTimer.singleShot(2000, lambda: self.__del_pbar(pbar))
+        QTimer.singleShot(500, lambda: self.__del_pbar(pbar))
 
     def on_thread_processed(self, uid: str):
         pbar = self.bars[uid]

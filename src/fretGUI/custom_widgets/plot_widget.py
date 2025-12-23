@@ -14,7 +14,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
     """
     Simplest widget with a matplotlib plot area and toolbar
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, mpl_width=None, mpl_height=None):
         super().__init__()
 
         highlightColor = 'white'
@@ -24,7 +24,12 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.mainLayout.setSpacing(0)
 
-        self.figure = plt.figure(facecolor=highlightColor)
+        # Create figure with optional size
+        if mpl_width is not None and mpl_height is not None:
+            self.figure = plt.figure(facecolor=highlightColor, figsize=(mpl_width, mpl_height))
+        else:
+            self.figure = plt.figure(facecolor=highlightColor)
+            
         self.canvas = FigureCanvas(self.figure)
         self.toolbar = NavigationToolbar(self.canvas)
 
@@ -46,10 +51,10 @@ class TemplatePlotWidgetWtapper(NodeBaseWidget):
     '''
     Provides Widget for opening multiple files
     '''
-    def __init__(self, parent=None, fretData=None):
+    def __init__(self, parent=None, fretData=None, mpl_width=None, mpl_height=None):
         super().__init__(parent)
         self.set_label('')
-        self.plot_widget = TemplatePlotWidget(parent=parent)
+        self.plot_widget = TemplatePlotWidget(parent=parent, mpl_width=mpl_width, mpl_height=mpl_height)
         self.set_custom_widget(self.plot_widget)
         self.fretData=fretData
         

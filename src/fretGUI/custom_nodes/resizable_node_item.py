@@ -22,6 +22,8 @@ class ResizablePlotNodeItem(NodeItem):
         self._paint_callbacks = []  # Add this back
 
         self.setAcceptHoverEvents(True)
+        # Enable drag and drop
+        self.setAcceptDrops(True)
 
     # ---- public API for BGPlotterNode ---------------------------------
 
@@ -52,6 +54,10 @@ class ResizablePlotNodeItem(NodeItem):
 
     # ---- geometry / drawing -------------------------------------------
 
+    def boundingRect(self):
+        """Override to use custom width and height"""
+        return QtCore.QRectF(0, 0, self._width, self._height)
+    
     def _handle_rect(self):
         r = self.boundingRect()
         return QtCore.QRectF(

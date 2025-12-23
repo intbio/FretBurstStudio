@@ -79,8 +79,8 @@ class NodeBuilder():
             combobox_widget.setToolTip(tooltip)
         return combobox_widget
     
-    def build_plot_widget(self, widget_name):
-        plot_widget = TemplatePlotWidgetWtapper(parent=self.node.view)
+    def build_plot_widget(self, widget_name, mpl_width=None, mpl_height=None):
+        plot_widget = TemplatePlotWidgetWtapper(parent=self.node.view, mpl_width=mpl_width, mpl_height=mpl_height)
         plot_widget.set_name(widget_name)
         self.node.add_custom_widget(plot_widget, tab='custom')
     

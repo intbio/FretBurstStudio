@@ -106,7 +106,7 @@ def main():
             selector_nodes.BurstSelectorTopNNDANode,
             selector_nodes.BurstSelectorTopNSBRNode,
             selector_nodes.BurstSelectorWidthNode,
-            custom_nodes.BGPlotterNode,
+            custom_nodes.BGFitPlotterNode,
             custom_nodes.BGTimeLinePlotterNode,
             custom_nodes.EHistPlotterNode,
             custom_nodes.TestPlotterNode
@@ -149,9 +149,10 @@ def main():
 
     
     
+    top_layout.addWidget(progress_bar)
     top_layout.addWidget(run_button)
     top_layout.addWidget(toggle_btn)
-    top_layout.addWidget(progress_bar)
+    
     main_layout.addLayout(top_layout)
     run_button.show()
     

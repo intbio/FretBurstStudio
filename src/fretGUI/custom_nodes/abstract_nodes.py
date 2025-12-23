@@ -156,6 +156,7 @@ class ResizableContentNode(AbstractRecomputable):
         self._content_widget_name = widget_name
         self._initial_layout_done = False  # Track if initial layout has been applied
 
+
         # hook up resize callback
         view = self.view            # this is your ResizablePlotNodeItem
         
@@ -268,4 +269,3 @@ class ResizableContentNode(AbstractRecomputable):
             inner_w,
             plot_h
         )
-
