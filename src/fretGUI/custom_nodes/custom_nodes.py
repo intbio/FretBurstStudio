@@ -398,10 +398,7 @@ class BGTimeLinePlotterNode(AbstractContentNode):
             value=None,
             tooltip="Select an option"
             )
-          
-         
-                         
-        
+            
     def _on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget
         fig = plot_widget.figure
@@ -415,11 +412,9 @@ class BGTimeLinePlotterNode(AbstractContentNode):
             map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
         self.items_to_plot.set_items(list(map_name_to_data.keys()))
         selected_val = self.items_to_plot.get_value()
-        if selected_val != None:
-            fretbursts.dplot(map_name_to_data[selected_val], fretbursts.timetrace_bg, ax=ax)
-        else:
-            for cur_data in self.data_to_plot:
-                fretbursts.dplot(cur_data.data, fretbursts.timetrace_bg, ax=ax)
+        selected_data = map_name_to_data.get(selected_val, None)
+        if selected_data != None:
+            fretbursts.dplot(selected_data, fretbursts.timetrace_bg, ax=ax)
         plot_widget.canvas.draw()
         self.on_plot_data_clear()
         
