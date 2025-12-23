@@ -1,67 +1,73 @@
-import custom_nodes.custom_nodes as custom_nodes
-import custom_nodes.selector_nodes as selector_nodes
-import graph_engene
-from custom_widgets.toogle_widget import IconToggleButton
-import sys,os
-from singletons import ThreadSignalManager, NodeStateManager
-
-from custom_widgets.progressbar_widget import ProgressBar, ProgressBar2
-from custom_nodes.custom_nodes import PhHDF5Node
-from node_workers import NodeWorker
-
+# Essential imports only - these are fast
+import sys
+import os
 import signal
 from pathlib import Path
-from Qt import QtWidgets, QtCore, QtGui  
-from Qt.QtCore import QThreadPool  
-from NodeGraphQt import NodeGraph, NodesPaletteWidget,constants
-from NodeGraphQt import PropertiesBinWidget
+from Qt import QtWidgets, QtCore, QtGui
 
 
-BASE_PATH = Path(__file__).parent.resolve()
-
-
-def on_run_btn_clicked(graph, btn):
-    engene = graph_engene.GraphEngene(graph)
-    roots = engene.find_root_nodes()
-    pool = QThreadPool.globalInstance()
-    for root_node in roots:
-        new_worker = NodeWorker(root_node)
-        pool.start(new_worker)
-            
-        
-         
-def on_toogle_clicked(graph, toggle_btn):
-    engene = graph_engene.GraphEngene(graph)
-    toggle_state = toggle_btn.isChecked()
-    if not toggle_state:
-        print('static')
-        engene.make_nodes_static()
-    else:
-        print('auto')
-        engene.make_nodes_dinamic()
-        
-def on_block_ui(graph):
-    pass
-    # for node in graph.all_nodes():
-    #     node.disable_all_node_widgets()
-        
-def on_release_ui(graph):
-    pass
-    # for node in graph.all_nodes():
-    #     node.enable_all_node_widgets()
-    
-    
-                
-           
 def main():
     THEME = 'light'
     # handle SIGINT to make the app terminate on CTRL+C
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     
-
+    # Create QApplication immediately
     app = QtWidgets.QApplication(sys.argv)
     
-
+    # Show splash screen ASAP
+    BASE_PATH = Path(__file__).parent.resolve()
+    
+    # Load logo image
+    logo_path = BASE_PATH / 'static' / 'fb_logo.png'
+    
+    if logo_path.exists():
+        # Use the logo as the base pixmap
+        splash_pixmap = QtGui.QPixmap(str(logo_path))
+        # Scale if needed (optional)
+        # splash_pixmap = splash_pixmap.scaled(600, 400, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+    else:
+        # Fallback if logo not found
+        splash_pixmap = QtGui.QPixmap(500, 300)
+        splash_pixmap.fill(QtGui.QColor(240, 240, 240))
+    
+    splash = QtWidgets.QSplashScreen(splash_pixmap)
+    
+    splash.setStyleSheet("""
+        QSplashScreen {
+            background-color: rgb(240, 240, 240);
+            color: rgb(30, 30, 30);
+            font-size: 16pt;
+            font-weight: bold;
+        }
+    """)
+    
+    splash.showMessage(
+        "FRETBursts Studio Loading...",
+        QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom,
+        QtGui.QColor(30, 30, 30)
+    )
+    splash.show()
+    app.processEvents()
+    
+    # Now import heavy modules while splash is showing
+    splash.showMessage("Loading modules...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
+    app.processEvents()
+    
+    import custom_nodes.custom_nodes as custom_nodes
+    import custom_nodes.selector_nodes as selector_nodes
+    import graph_engene
+    from custom_widgets.toogle_widget import IconToggleButton
+    from singletons import ThreadSignalManager, NodeStateManager
+    from custom_widgets.progressbar_widget import ProgressBar, ProgressBar2
+    from custom_nodes.custom_nodes import PhHDF5Node
+    from node_workers import NodeWorker
+    from Qt.QtCore import QThreadPool
+    from NodeGraphQt import NodeGraph, NodesPaletteWidget, constants
+    from NodeGraphQt import PropertiesBinWidget
+    
+    splash.showMessage("Initializing graph...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
+    app.processEvents()
+    
     # create graph controller.
     graph = NodeGraph()  
     
@@ -78,7 +84,8 @@ def main():
     hotkey_path = Path(BASE_PATH, 'hotkeys', 'hotkeys.json')
     graph.set_context_menu_from_file(hotkey_path, 'graph')
     
-    
+    splash.showMessage("Loading nodes...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
+    app.processEvents()
     
     # registered example nodes.
     graph.register_nodes(
@@ -112,8 +119,9 @@ def main():
             custom_nodes.TestPlotterNode
         ]
     )
-       
     
+    splash.showMessage("Initializing UI...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
+    app.processEvents()
     
     run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
     # run_button.setFixedSize(50, 50)    
@@ -159,7 +167,11 @@ def main():
     
     graph_widget.resize(1280, 800)
     graph_widget.setWindowTitle("FretBurstsStudio")
-    graph_widget.show()  
+    
+    # Close splash screen before showing main window
+    splash.finish(graph_widget)
+    
+    graph_widget.show()
     
     
     # file_node = graph.create_node(
