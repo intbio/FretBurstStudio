@@ -244,7 +244,69 @@ class CalcBGNode(AbstractRecomputable):
         self.__calc_bg(fbsdata, time_s = self.time_s_spinbox.get_value(),
                        tail_min_us = self.tail_spinbox.get_value())
         return [fbsdata]
+
+class CorrectionsNode(AbstractRecomputable):
+    __identifier__ = 'Analysis'
+    NODE_NAME = 'Corrections'
+    fields_width = 100
     
+    def __init__(self):
+        super().__init__()
+
+        node_builder = NodeBuilder(self)
+        self.add_input('inport')
+        self.add_output('outport')   
+        self.gamma_spinbox = node_builder.build_float_spinbox(    
+            'Gamma', 
+            [0.01, 10, 0.01],
+            1, 
+            tooltip='Gamma correction factor (compensates DexDem and DexAem unbalance)',
+            min_width=self.fields_width
+            )
+        self.leakage_spinbox = node_builder.build_float_spinbox(
+            'Leakage', 
+            [0, 1, 0.01],
+            0,
+            tooltip='Spectral leakage (bleed-through) of D emission in the A channel', 
+            min_width=self.fields_width)
+        self.dir_ex_spinbox = node_builder.build_float_spinbox(
+            'Direct ex.', 
+            [0, 1, 0.01], 
+            0,
+            tooltip='The coefficient dir_ex_t expresses the direct excitation as n_dir = dir_ex_t * (na + gamma*nd). In terms of physical parameters it is the ratio of acceptor over donor absorption cross-sections at the donor-excitation wavelength.', 
+            min_width=self.fields_width)
+
+    
+    @FBSDataCash().fbscash
+    def execute(self, fbsdata: FBSData) -> list[FBSData]:
+        fbsdata.data.gamma = self.gamma_spinbox.get_value()
+        fbsdata.data.leakage = self.leakage_spinbox.get_value()
+        fbsdata.data.dir_ex = self.dir_ex_spinbox.get_value()
+        return [fbsdata]
+    
+class DitherNode(AbstractRecomputable):
+    __identifier__ = 'Analysis'
+    NODE_NAME = 'Dither'
+    fields_width = 100
+    
+    def __init__(self):
+        super().__init__()
+
+        node_builder = NodeBuilder(self)
+        self.add_input('inport')
+        self.add_output('outport')   
+        self.dither_spinbox = node_builder.build_int_spinbox(    
+            'LSB', 
+            [1, 100, 1],
+            2, 
+            tooltip="Add dithering (uniform random noise) to burst counts (nd, na,…). The dithering amplitude is the range -0.5*lsb .. 0.5*lsb. LSB represents the smallest possible change in the signal's value",
+            min_width=self.fields_width
+            )
+        
+    @FBSDataCash().fbscash
+    def execute(self, fbsdata: FBSData) -> list[FBSData]:
+        fbsdata.data.dither(self.dither_spinbox.get_value()) 
+        return [fbsdata]
     
 class BurstSearchNodeRate(AbstractRecomputable):
     __identifier__ = 'Analysis'
@@ -417,6 +479,79 @@ class BGTimeLinePlotterNode(AbstractContentNode):
             fretbursts.dplot(selected_data, fretbursts.timetrace_bg, ax=ax)
         plot_widget.canvas.draw()
         self.on_plot_data_clear()
+
+
+class BaseScatterPlotterNode(AbstractContentNode):
+    __identifier__ = 'Plot'
+    NODE_NAME = 'BaseScatterPlotterNode'
+
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 35
+    BOTTOM_MARGIN = 20
+    PLOT_NODE = True
+    MIN_WIDTH = 450
+    MIN_HEIGHT = 300
+    PLOT_FUNC = None
+
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
+        super().__init__(widget_name, qgraphics_item)
+
+        node_builder = NodeBuilder(self)
+
+        self.add_input('inport')
+        node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
+        self.items_to_plot = node_builder.build_combobox(
+            widget_name="File to plot:",
+            items=[],
+            value=None,
+            tooltip="Select an option"
+        )
+
+    def _on_refresh_canvas(self):
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        fig = plot_widget.figure
+        fig.clear()
+        ax = fig.add_subplot()
+
+        map_name_to_data = {}
+        for cur_data in self.data_to_plot:
+            fname = os.path.basename(cur_data.data.fname)
+            fbid = cur_data.id
+            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+
+        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        selected_val = self.items_to_plot.get_value()
+        selected_data = map_name_to_data.get(selected_val)
+        print(type(selected_data))
+
+        fretbursts.dplot(selected_data, self.PLOT_FUNC, ax=ax)
+        plot_widget.canvas.draw()
+        self.on_plot_data_clear()
+
+
+class ScatterWidthSizePlotterNode(BaseScatterPlotterNode):
+    NODE_NAME = 'ScatterWidthSizePlotterNode'
+    PLOT_FUNC = staticmethod(fretbursts.scatter_width_size)
+
+class ScatterDaPlotterNode(BaseScatterPlotterNode):
+    NODE_NAME = 'ScatterDaPlotterNode'
+    PLOT_FUNC = staticmethod(fretbursts.scatter_da)
+
+class ScatterRateDaPlotterNode(BaseScatterPlotterNode):
+    NODE_NAME = 'ScatterRateDaPlotterNode'
+    PLOT_FUNC = staticmethod(fretbursts.scatter_rate_da)
+
+class ScatterFretSizePlotterNode(BaseScatterPlotterNode):
+    NODE_NAME = 'ScatterFretSizePlotterNode'
+    PLOT_FUNC = staticmethod(fretbursts.scatter_fret_size)
+
+class ScatterFretNdNaPlotterNode(BaseScatterPlotterNode):
+    NODE_NAME = 'ScatterFretNdNaPlotterNode'
+    PLOT_FUNC = staticmethod(fretbursts.scatter_fret_nd_na)
+
+class ScatterFretWidthPlotterNode(BaseScatterPlotterNode):
+    NODE_NAME = 'ScatterFretWidthPlotterNode'
+    PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
         
     
 class EHistPlotterNode(AbstractContentNode):

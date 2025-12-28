@@ -94,6 +94,8 @@ def main():
             custom_nodes.LSM510Node,     
             custom_nodes.AlexNode,
             custom_nodes.CalcBGNode,
+            custom_nodes.CorrectionsNode,
+            custom_nodes.DitherNode,
             custom_nodes.BurstSearchNodeRate,
             custom_nodes.BurstSearchNodeFromBG,
             selector_nodes.BurstSelectorNode,
@@ -115,8 +117,14 @@ def main():
             selector_nodes.BurstSelectorWidthNode,
             custom_nodes.BGFitPlotterNode,
             custom_nodes.BGTimeLinePlotterNode,
+            custom_nodes.ScatterWidthSizePlotterNode,
+            custom_nodes.ScatterDaPlotterNode,
+            custom_nodes.ScatterRateDaPlotterNode,
+            custom_nodes.ScatterFretSizePlotterNode,
+            custom_nodes.ScatterFretNdNaPlotterNode,
+            custom_nodes.ScatterFretWidthPlotterNode,
             custom_nodes.EHistPlotterNode,
-            custom_nodes.TestPlotterNode
+            # custom_nodes.TestPlotterNode
         ]
     )
     
