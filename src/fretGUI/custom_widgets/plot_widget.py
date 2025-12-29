@@ -81,8 +81,29 @@ class TemplatePlotWidget(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Fixed
         )
 
-        self.mainLayout.addWidget(self.canvas)
+        # Absolute margins for labels/ticks (in inches); tweak to taste
+        ABS_MARGINS_IN = dict(left=0.8, right=0.25, bottom=0.5, top=0.25)
+
+        def _apply_absolute_margins(fig):
+            w, h = fig.get_size_inches()
+            w = max(w, 0.01)
+            h = max(h, 0.01)
+            left   = ABS_MARGINS_IN['left']   / w
+            right  = 1 - ABS_MARGINS_IN['right'] / w
+            bottom = ABS_MARGINS_IN['bottom'] / h
+            top    = 1 - ABS_MARGINS_IN['top'] / h
+            fig.subplots_adjust(left=left, right=right, bottom=bottom, top=top)
+
+        # Apply once now and on every canvas resize
+        _apply_absolute_margins(self.figure)
+        self.canvas.mpl_connect(
+            "resize_event",
+            lambda evt: (_apply_absolute_margins(evt.canvas.figure), evt.canvas.draw_idle())
+        )
+
         self.mainLayout.addWidget(self.toolbar)
+        self.mainLayout.addWidget(self.canvas)
+        
     
     def _custom_save_figure(self, *args, **kwargs):
         """

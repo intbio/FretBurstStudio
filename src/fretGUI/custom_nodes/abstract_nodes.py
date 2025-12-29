@@ -233,12 +233,15 @@ class ResizableContentNode(AbstractRecomputable):
             # Fallback to a reasonable default (slider height is typically ~50)
             return 50
         
-        # Update all non-plot widgets to be left-aligned with fixed width
+        # Lay out widgets in three vertical blocks:
+        # 1) widgets_before_plot at the top
+        # 2) plot widget in the middle
+        # 3) widgets_after_plot below the plot
+
+        # First, place widgets that precede the plot widget.
         current_y = self.TOP_MARGIN
-        for widget_name, widget in widgets_before_plot + widgets_after_plot:
+        for widget_name, widget in widgets_before_plot:
             widget_height = get_widget_height(widget)
-            
-            # Use fixed width for sliders, keep them left-aligned
             widget.setGeometry(
                 self.LEFT_RIGHT_MARGIN,
                 current_y,
@@ -246,21 +249,19 @@ class ResizableContentNode(AbstractRecomputable):
                 widget_height
             )
             current_y += widget_height
-        
-        # Calculate available height for plot widget
-        # Sum up heights of widgets before the plot
-        widgets_before_height = sum(
+
+        # Pre-compute total height of widgets that should appear after the plot
+        widgets_after_height = sum(
             get_widget_height(widget)
-            for _, widget in widgets_before_plot
-        )
-        
-        # Position plot widget below all widgets that come before it
-        plot_y = self.TOP_MARGIN + widgets_before_height
-        plot_h = max(
-            1,
-            h - plot_y - self.BOTTOM_MARGIN
+            for _, widget in widgets_after_plot
         )
 
+        # Position the plot widget using remaining space minus the space needed for widgets_after_plot.
+        plot_y = current_y
+        plot_h = max(
+            1,
+            h - plot_y - widgets_after_height - self.BOTTOM_MARGIN
+        )
         wrapper.setMinimumSize(inner_w, plot_h)
         wrapper.setMaximumSize(inner_w, plot_h)
         wrapper.setGeometry(
@@ -269,3 +270,15 @@ class ResizableContentNode(AbstractRecomputable):
             inner_w,
             plot_h
         )
+
+        # Finally, place widgets that were added after the plot widget.
+        current_y = plot_y + plot_h
+        for widget_name, widget in widgets_after_plot:
+            widget_height = get_widget_height(widget)
+            widget.setGeometry(
+                self.LEFT_RIGHT_MARGIN,
+                current_y,
+                self.SLIDER_WIDTH,
+                widget_height
+            )
+            current_y += widget_height
