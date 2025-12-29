@@ -117,14 +117,18 @@ def main():
             selector_nodes.BurstSelectorWidthNode,
             custom_nodes.BGFitPlotterNode,
             custom_nodes.BGTimeLinePlotterNode,
+            custom_nodes.EHistPlotterNode,
             custom_nodes.ScatterWidthSizePlotterNode,
             custom_nodes.ScatterDaPlotterNode,
             custom_nodes.ScatterRateDaPlotterNode,
             custom_nodes.ScatterFretSizePlotterNode,
             custom_nodes.ScatterFretNdNaPlotterNode,
             custom_nodes.ScatterFretWidthPlotterNode,
-            custom_nodes.EHistPlotterNode,
-            # custom_nodes.TestPlotterNode
+            custom_nodes.HistBurstSizeAllPlotterNode,
+            custom_nodes.HistBurstWidthPlotterNode,
+            custom_nodes.HistBurstBrightnessPlotterNode,
+            custom_nodes.HistBurstSBRPlotterNode,
+            custom_nodes.HistBurstPhratePlotterNode  
         ]
     )
     

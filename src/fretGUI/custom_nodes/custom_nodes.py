@@ -380,110 +380,9 @@ class AbstractContentNode(ResizableContentNode):
         return [fbsdata]        
     
     
-# class BGFitPlotterNode(AbstractContentNode):
-#     __identifier__ = 'Plot'
-#     NODE_NAME = 'BGFitPlotterNode'
-   
-
-#     # if you want different margins just for this node:
-#     LEFT_RIGHT_MARGIN = 67
-#     TOP_MARGIN = 35
-#     BOTTOM_MARGIN = 20
-#     PLOT_NODE = True
-#     MIN_WIDTH = 450  # Minimum allowed width for the node
-#     MIN_HEIGHT = 300  # Minimum allowed height for the node
-
-#     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
-#         # tell the base which widget name to resize
-#         super().__init__(widget_name, qgraphics_item)
-
-#         node_builder = NodeBuilder(self)
-        
-#         self.add_input('inport')
-
-#         node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)
-#         self.items_to_plot = node_builder.build_combobox(
-#             widget_name="File to plot:",
-#             items=[],
-#             value=None,
-#             tooltip="Select an option"
-#             )  
-                
-                         
-        
-#     def _on_refresh_canvas(self):
-#         plot_widget = self.get_widget('plot_widget').plot_widget
-#         fig = plot_widget.figure
-#         fig.clear()
-#         ax = fig.add_subplot()
-
-#         map_name_to_data = {}
-#         for cur_data in self.data_to_plot:
-#             fname = os.path.basename(cur_data.data.fname)
-#             fbid = cur_data.id
-#             map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
-#         self.items_to_plot.set_items(list(map_name_to_data.keys()))
-#         selected_val = self.items_to_plot.get_value()
-#         if selected_val != None:
-#             fretbursts.dplot(map_name_to_data[selected_val], fretbursts.hist_bg, show_fit=True, ax=ax)
-#         else:
-#             for cur_data in self.data_to_plot:
-#                 fretbursts.dplot(cur_data.data, fretbursts.hist_bg, show_fit=True, ax=ax)
-
-#         plot_widget.canvas.draw()
-#         self.on_plot_data_clear()
-
-# class BGTimeLinePlotterNode(AbstractContentNode):
-#     __identifier__ = 'Plot'
-#     NODE_NAME = 'BGTimeLinePlotterNode'
-   
-
-#     # if you want different margins just for this node:
-#     LEFT_RIGHT_MARGIN = 67
-#     TOP_MARGIN = 35
-#     BOTTOM_MARGIN = 20
-#     PLOT_NODE = True
-#     MIN_WIDTH = 450  # Minimum allowed width for the node
-#     MIN_HEIGHT = 300  # Minimum allowed height for the node
-
-#     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
-#         # tell the base which widget name to resize
-#         super().__init__(widget_name, qgraphics_item)
-
-#         node_builder = NodeBuilder(self)
-        
-#         self.add_input('inport')
-#         node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)   
-#         self.items_to_plot = node_builder.build_combobox(
-#             widget_name="File to plot:",
-#             items=[],
-#             value=None,
-#             tooltip="Select an option"
-#             )
-            
-#     def _on_refresh_canvas(self):
-#         plot_widget = self.get_widget('plot_widget').plot_widget
-#         fig = plot_widget.figure
-#         fig.clear()
-#         ax = fig.add_subplot()
-        
-#         map_name_to_data = {}
-#         for cur_data in self.data_to_plot:
-#             fname = os.path.basename(cur_data.data.fname)
-#             fbid = cur_data.id
-#             map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
-#         self.items_to_plot.set_items(list(map_name_to_data.keys()))
-#         selected_val = self.items_to_plot.get_value()
-#         selected_data = map_name_to_data.get(selected_val, None)
-#         if selected_data != None:
-#             fretbursts.dplot(selected_data, fretbursts.timetrace_bg, ax=ax)
-#         plot_widget.canvas.draw()
-#         self.on_plot_data_clear()
-
-
-class BaseScatterPlotterNode(AbstractContentNode):
+class BaseSingleFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
-    NODE_NAME = 'BaseScatterPlotterNode'
+    NODE_NAME = 'BaseSingleFilePlotterNode'
 
     LEFT_RIGHT_MARGIN = 67
     TOP_MARGIN = 10
@@ -536,38 +435,39 @@ class BaseScatterPlotterNode(AbstractContentNode):
         self.on_plot_data_clear()
 
 
-class BGFitPlotterNode(BaseScatterPlotterNode):
+class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'BGFitPlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.hist_bg)
     PLOT_KWARGS = dict(show_fit=True)
 
-class BGTimeLinePlotterNode(BaseScatterPlotterNode):
+class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'BGTimeLinePlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.timetrace_bg)
 
-class ScatterWidthSizePlotterNode(BaseScatterPlotterNode):
+class ScatterWidthSizePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'ScatterWidthSizePlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.scatter_width_size)
 
-class ScatterDaPlotterNode(BaseScatterPlotterNode):
+class ScatterDaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'ScatterDaPlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.scatter_da)
 
-class ScatterRateDaPlotterNode(BaseScatterPlotterNode):
+class ScatterRateDaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'ScatterRateDaPlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.scatter_rate_da)
 
-class ScatterFretSizePlotterNode(BaseScatterPlotterNode):
+class ScatterFretSizePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'ScatterFretSizePlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_size)
 
-class ScatterFretNdNaPlotterNode(BaseScatterPlotterNode):
+class ScatterFretNdNaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'ScatterFretNdNaPlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_nd_na)
 
-class ScatterFretWidthPlotterNode(BaseScatterPlotterNode):
+class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'ScatterFretWidthPlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
+
         
     
 class EHistPlotterNode(AbstractContentNode):
@@ -595,6 +495,7 @@ class EHistPlotterNode(AbstractContentNode):
         node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)   
         self.BinWidth_slider = node_builder.build_float_slider('Bin Width', [0.01, 0.2, 0.01], 0.03)
 
+
     def _on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget
         plot_widget.figure.clf()
@@ -603,52 +504,32 @@ class EHistPlotterNode(AbstractContentNode):
         for cur_data in self.data_to_plot:
             fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1, binwidth=self.BinWidth_slider.get_value(),
             hist_style = 'bar' if len(self.data_to_plot)==1 else 'line')
-        # ax.legend(fancybox=True, shadow=True)
-        # enable_legend_toggle(ax1)
+
         plot_widget.canvas.draw()
         print("plot", self)
         self.on_plot_data_clear()
 
-class TestPlotterNode(AbstractContentNode):
-    import matplotlib.pyplot as plt
-    __identifier__ = 'Plot'
-    NODE_NAME = 'Test'
 
-    # if you want different margins just for this node:
-    LEFT_RIGHT_MARGIN = 67
-    TOP_MARGIN = 35
-    BOTTOM_MARGIN = 20
-    PLOT_NODE = True
-    MIN_WIDTH = 450  # Minimum allowed width for the node
-    MIN_HEIGHT = 300  # Minimum allowed height for the node
+class HistBurstSizeAllPlotterNode(BaseSingleFilePlotterNode):
+    NODE_NAME = 'Hist. Burst Size'
+    PLOT_FUNC = staticmethod(fretbursts.hist_size_all)
 
+class HistBurstWidthPlotterNode(BaseSingleFilePlotterNode):
+    NODE_NAME = 'Hist Burst Width'
+    PLOT_FUNC = staticmethod(fretbursts.hist_width)
 
-    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
-        # tell the base which widget name to resize
-        super().__init__(widget_name, qgraphics_item)
+class HistBurstBrightnessPlotterNode(BaseSingleFilePlotterNode):
+    NODE_NAME = 'Hist Burst Brightness'
+    PLOT_FUNC = staticmethod(fretbursts.hist_brightness)
 
-        node_builder = NodeBuilder(self)
+class HistBurstSBRPlotterNode(BaseSingleFilePlotterNode):
+    NODE_NAME = 'Hist Burst SBR'
+    PLOT_FUNC = staticmethod(fretbursts.hist_sbr)
 
-        self.add_input('inport')
-        node_builder.build_plot_widget('plot_widget')
+class HistBurstPhratePlotterNode(BaseSingleFilePlotterNode):
+    NODE_NAME = 'Hist Burst ph.Rate'
+    PLOT_FUNC = staticmethod(fretbursts.hist_burst_phrate)
 
-    def _on_refresh_canvas(self):
-        plot_widget = self.get_widget('plot_widget').plot_widget
-        plot_widget.figure.clf()
-        fig = plot_widget.figure
-        ax = plot_widget.figure.add_subplot()
-        t = np.linspace(0, 1)
-        y1 = 2 * np.sin(2 * np.pi * t)
-        y2 = 4 * np.sin(2 * np.pi * 2 * t)
-
-        line1, = ax.plot(t, y1, lw=2, label='1 Hz')
-        line2, = ax.plot(t, y2, lw=2, label='2 Hz')
-        leg = ax.legend(fancybox=True, shadow=True)
-
-        # Enable click-to-toggle functionality
-        enable_legend_toggle(ax)
-        
-        plot_widget.canvas.draw()
 
 
 

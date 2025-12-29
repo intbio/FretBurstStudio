@@ -357,6 +357,37 @@ class ComboBoxWidgetWrapper(AbstractWidgetWrapper):
     def wire_signals(self):
         self.combobox_widget.widget_updaeted.connect(
             self.widget_changed_signal.emit)
+
+# class TripleFloatSpinnerWrapper(AbstractWidgetWrapper):
+#     def __init__(self, parent=None, ranges=None, name="Bin/Min/Max"):
+#         self.spinners = []
+#         ranges = ranges or [(0.01, 0.2, 0.01)] * 3
+
+#         row = QtWidgets.QWidget()
+#         layout = QtWidgets.QHBoxLayout(row)
+#         layout.setContentsMargins(0, 0, 0, 0)
+#         layout.setSpacing(6)
+
+#         for start, stop, step in ranges:
+#             s = FloatSliderWidget(None, start=start, stop=stop, step=step)
+#             self.spinners.append(s)
+#             layout.addWidget(s)
+
+#         super().__init__(parent)
+#         self.set_name(name)
+#         self.set_custom_widget(row)
+
+#     def wire_signals(self):
+#         for s in self.sliders:
+#             s.widget_updaeted.connect(self.widget_changed_signal.emit)
+
+#     def get_value(self):
+#         # returns a tuple of the three values
+#         return tuple(s.value() for s in self.sliders)
+
+#     def set_value(self, values):
+#         for s, v in zip(self.sliders, values):
+#             s.setValue(v)
         
         
         
