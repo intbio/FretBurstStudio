@@ -8,6 +8,7 @@ from node_builder import NodeBuilder
 from fbs_data import FBSData
 from singletons import FBSDataCash
 from Qt.QtCore import Signal  # pyright: ignore[reportMissingModuleSource]
+from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingModuleSource]
 from singletons import ThreadSignalManager
 from abc import abstractmethod
 from NodeGraphQt import BaseNode
@@ -15,6 +16,7 @@ import numpy as np
 from fretbursts.burstlib import Data
 from collections import Counter
 from misc import enable_legend_toggle
+import pandas as pd
 
 
 class AbstractLoader(AbstractRecomputable):
@@ -396,11 +398,11 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         super().__init__(widget_name, qgraphics_item)
 
-        node_builder = NodeBuilder(self)
+        self.node_builder = NodeBuilder(self)
 
         self.add_input('inport')
-        node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
-        self.items_to_plot = node_builder.build_combobox(
+        self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
+        self.items_to_plot = self.node_builder.build_combobox(
             widget_name="File to plot:",
             items=[],
             value=None,
@@ -434,6 +436,64 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         plot_widget.canvas.draw()
         self.on_plot_data_clear()
 
+class BaseMultiFilePlotterNode(AbstractContentNode):
+    __identifier__ = 'Plot'
+    NODE_NAME = 'BaseMultiFilePlotterNode'
+
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 10
+    BOTTOM_MARGIN = 0
+    PLOT_NODE = True
+    MIN_WIDTH = 450
+    MIN_HEIGHT = 300
+    PLOT_FUNC = None
+    PLOT_KWARGS = {}
+    LAST_PLOTTED_DATA_LIST = []
+
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
+        super().__init__(widget_name, qgraphics_item)
+
+        self.node_builder = NodeBuilder(self)
+
+        self.add_input('inport')
+        self.node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)
+    
+    def update_plot_kwargs(self):
+        pass
+
+    def _on_refresh_canvas(self):
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        plot_widget.figure.clf()
+        ax = plot_widget.figure.add_subplot()
+        ax.cla()
+        self.LAST_PLOTTED_DATA_LIST = []
+
+        # Avoid accidental binding and ensure we have a valid plot function
+        plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
+        if plot_func is None:
+            self.on_plot_data_clear()
+            return
+        self.update_plot_kwargs()
+        for cur_data in self.data_to_plot:
+            if not isinstance(cur_data.data, Data):
+                continue
+            
+            # Call fretbursts.dplot for each item in data_to_plot
+            fretbursts.dplot(cur_data.data, plot_func, ax=ax, **self.PLOT_KWARGS)
+            self.LAST_PLOTTED_DATA_LIST.append(cur_data)
+
+            # Set label for the last plotted line/bar if available
+            name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
+            if ax.lines:
+                ax.lines[-1].set_label(name)
+
+        # Add legend if multiple files are plotted
+        if len(self.data_to_plot) > 1:
+            ax.legend()
+            ax.set_title('')
+        
+        plot_widget.canvas.draw()
+        self.on_plot_data_clear()
 
 class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'BGFitPlotterNode'
@@ -467,66 +527,82 @@ class ScatterFretNdNaPlotterNode(BaseSingleFilePlotterNode):
 class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'ScatterFretWidthPlotterNode'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
-
-        
+       
     
-class EHistPlotterNode(AbstractContentNode):
-
-    __identifier__ = 'Plot'
+class EHistPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'EHistPlotterNode'
-
-    # if you want different margins just for this node:
-    LEFT_RIGHT_MARGIN = 67
-    TOP_MARGIN = 10
-    BOTTOM_MARGIN = 0
-    PLOT_NODE = True
-    MIN_WIDTH = 450  # Minimum allowed width for the node
-    MIN_HEIGHT = 300  # Minimum allowed height for the node
+    PLOT_FUNC = staticmethod(fretbursts.hist_fret)
 
 
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize
         super().__init__(widget_name, qgraphics_item)
-
-        node_builder = NodeBuilder(self)
-
-        self.add_input('inport')
-        
-        node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)   
-        self.BinWidth_slider = node_builder.build_float_slider('Bin Width', [0.01, 0.2, 0.01], 0.03)
-
-
-    def _on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget
-        plot_widget.figure.clf()
-        ax1 = plot_widget.figure.add_subplot()
-        ax1.cla()
-        for cur_data in self.data_to_plot:
-            fretbursts.dplot(cur_data.data, fretbursts.hist_fret, ax=ax1, binwidth=self.BinWidth_slider.get_value(),
-            hist_style = 'bar' if len(self.data_to_plot)==1 else 'line')
+        toolbar = plot_widget.toolbar
+        
+        # Add "save data" button to toolbar
+        save_data_action = QAction('save data', toolbar)
+        save_data_action.triggered.connect(self.export)
+        toolbar.addAction(save_data_action)
+        
+        # Add 1px border around the action button
+        action_button = toolbar.widgetForAction(save_data_action)
+        if action_button:
+            action_button.setStyleSheet("border: 1px solid gray;")
+        
+        self.BinWidth_slider = self.node_builder.build_float_slider('Bin Width', [0.01, 0.2, 0.01], 0.03)
+    
+    def update_plot_kwargs(self):
+        self.PLOT_KWARGS['binwidth'] = self.BinWidth_slider.get_value()
+        self.PLOT_KWARGS['hist_style'] = 'bar' if len(self.data_to_plot)==1 else 'line'
 
-        plot_widget.canvas.draw()
-        print("plot", self)
-        self.on_plot_data_clear()
+    def export(self):
+        data_dict = {}
 
+        for cur_data in self.LAST_PLOTTED_DATA_LIST:
+            name = cur_data.data.name
+            data_dict['PR%']=cur_data.data.E_fitter.hist_axis
+            data_dict[f'PDF {name}']=cur_data.data.E_fitter.hist_pdf[0]
+        df = pd.DataFrame(data_dict)
+        if not df.empty:
+            # Open file save dialog
+            from Qt.QtWidgets import QApplication
+            parent_window = QApplication.activeWindow()
+            filename, selected_filter = QFileDialog.getSaveFileName(
+                parent_window,
+                "Save Data to CSV",
+                os.getcwd(),
+                "CSV files (*.csv);;All files (*)"
+            )
+            
+            if filename:
+                try:
+                    df.to_csv(filename, index=False)
+                except Exception as e:
+                    from Qt.QtWidgets import QMessageBox
+                    QMessageBox.warning(
+                        parent_window if parent_window else self.view,
+                        "Save Error",
+                        f"Failed to save CSV file:\n{str(e)}"
+                    )
 
 class HistBurstSizeAllPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Hist. Burst Size'
     PLOT_FUNC = staticmethod(fretbursts.hist_size_all)
 
-class HistBurstWidthPlotterNode(BaseSingleFilePlotterNode):
+class HistBurstWidthPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Hist Burst Width'
     PLOT_FUNC = staticmethod(fretbursts.hist_width)
 
-class HistBurstBrightnessPlotterNode(BaseSingleFilePlotterNode):
+class HistBurstBrightnessPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Hist Burst Brightness'
     PLOT_FUNC = staticmethod(fretbursts.hist_brightness)
 
-class HistBurstSBRPlotterNode(BaseSingleFilePlotterNode):
+class HistBurstSBRPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Hist Burst SBR'
     PLOT_FUNC = staticmethod(fretbursts.hist_sbr)
 
-class HistBurstPhratePlotterNode(BaseSingleFilePlotterNode):
+class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Hist Burst ph.Rate'
     PLOT_FUNC = staticmethod(fretbursts.hist_burst_phrate)
 

@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x173b2f198b0":{
+    "0x29023358560":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"LSM510Node",
@@ -46,7 +46,7 @@
         "File Widget":[]
       }
     },
-    "0x173b2f18a10":{
+    "0x2902335ac60":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"CalcBGNode",
@@ -84,7 +84,7 @@
         "Min. lag, \u03bcs":300
       }
     },
-    "0x173b5fe78f0":{
+    "0x2902335b410":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearchFromBG",
@@ -123,7 +123,7 @@
         "F, Min. Burst rate to bg. ratio":6
       }
     },
-    "0x173b6014380":{
+    "0x2902335ae40":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"EHistPlotterNode",
@@ -145,23 +145,23 @@
         30
       ],
       "disabled":false,
-      "selected":false,
+      "selected":true,
       "visible":true,
       "width":532.0,
       "height":431.20000000000005,
       "pos":[
-        574.6855947705051,
-        304.765929413091
+        556.034184669609,
+        313.5430635782185
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "Bin Width":0.08,
-        "plot_widget":null
+        "plot_widget":null,
+        "Bin Width":0.05
       }
     },
-    "0x173b6015610":{
+    "0x290233996a0":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"BGTimeLinePlotterNode",
@@ -183,7 +183,7 @@
         30
       ],
       "disabled":false,
-      "selected":true,
+      "selected":false,
       "visible":true,
       "width":472.0,
       "height":422.8,
@@ -203,41 +203,41 @@
   "connections":[
     {
       "out":[
-        "0x173b2f198b0",
+        "0x29023358560",
         "out_file"
       ],
       "in":[
-        "0x173b2f18a10",
+        "0x2902335ac60",
         "inport"
       ]
     },
     {
       "out":[
-        "0x173b2f18a10",
+        "0x2902335ac60",
         "outport"
       ],
       "in":[
-        "0x173b5fe78f0",
+        "0x2902335b410",
         "inport"
       ]
     },
     {
       "out":[
-        "0x173b2f18a10",
+        "0x2902335ac60",
         "outport"
       ],
       "in":[
-        "0x173b6015610",
+        "0x290233996a0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x173b5fe78f0",
+        "0x2902335b410",
         "outport"
       ],
       "in":[
-        "0x173b6014380",
+        "0x2902335ae40",
         "inport"
       ]
     }

@@ -106,7 +106,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
         self.file_dialog.setFileMode(QtWidgets.QFileDialog.ExistingFiles)
         self.file_dialog.setNameFilter("все файлы (*);;Изображения (*.png *.jpg);;Текстовые файлы (*.txt)")
         
-        self.open_button = QtWidgets.QPushButton(parent=self, text='Open')
+        self.open_button = QtWidgets.QPushButton(parent=self, text='Add File')
         
         self.layout = QtWidgets.QVBoxLayout(self)
         self.layout.setContentsMargins(2, 2, 2, 2)
