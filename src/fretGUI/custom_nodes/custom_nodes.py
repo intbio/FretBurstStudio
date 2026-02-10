@@ -474,7 +474,11 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             self.on_plot_data_clear()
             return
         self.update_plot_kwargs()
+        
+        self.data_to_plot.sort(key = lambda x: x.id)
+
         for cur_data in self.data_to_plot:
+            print(cur_data.id)
             if not isinstance(cur_data.data, Data):
                 continue
             

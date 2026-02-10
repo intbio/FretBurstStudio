@@ -1,4 +1,4 @@
-from Qt import QtWidgets, QtCore
+from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import Signal
 from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 import os
@@ -10,12 +10,17 @@ class PathRowWidget(QtWidgets.QWidget):
     def __init__(self, parent=None, path_id=None):    
         super(PathRowWidget, self).__init__(parent)
                       
-        self.del_button = QtWidgets.QPushButton(parent=self, text='x')
-        self.del_button.setFixedSize(30, 25)
+        self.del_button = QtWidgets.QPushButton(parent=self)
+        self.del_button.setFixedSize(25, 25)
+        style = self.del_button.style()
+        close_icon = style.standardIcon(QtWidgets.QStyle.SP_TitleBarCloseButton)
+        self.del_button.setIcon(close_icon)
+        self.del_button.setIconSize(QtCore.QSize(16, 16))
+        self.del_button.setToolTip("Close file")
         
         # ID label on the left
         self.id_label = QtWidgets.QLabel(parent=self, text='-')
-        self.id_label.setFixedSize(40, 25)
+        self.id_label.setFixedSize(25, 25)
         self.id_label.setAlignment(QtCore.Qt.AlignCenter)
         self.id_label.setStyleSheet("background-color: #e0e0e0; border: 1px solid #ccc;")
         
@@ -28,9 +33,10 @@ class PathRowWidget(QtWidgets.QWidget):
                 
         row_layout = QtWidgets.QHBoxLayout(self)
         row_layout.setContentsMargins(2, 2, 2, 2)
-        row_layout.addWidget(self.del_button)
+        
         row_layout.addWidget(self.id_label)
         row_layout.addWidget(self.text_field)
+        row_layout.addWidget(self.del_button)
         
         # Set ID if provided
         if path_id is not None:
@@ -107,10 +113,14 @@ class PathSelectorWidget(QtWidgets.QWidget):
         self.file_dialog.setNameFilter("все файлы (*);;Изображения (*.png *.jpg);;Текстовые файлы (*.txt)")
         
         self.open_button = QtWidgets.QPushButton(parent=self, text='Add File')
+        self.open_button.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.open_button.setMinimumSize(100, 30)  # Set minimum button size
         
         self.layout = QtWidgets.QVBoxLayout(self)
         self.layout.setContentsMargins(2, 2, 2, 2)
-        self.layout.addWidget(self.open_button, alignment=QtCore.Qt.AlignBottom)
+        self.layout.addWidget(self.open_button, alignment=QtCore.Qt.AlignTop)
+        
+
         
         # Enable drag and drop
         self.setAcceptDrops(True)
@@ -238,7 +248,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
             new_row_widget = PathRowWidget(parent=self, path_id=path_id)
             new_row_widget.del_signal.connect(self.del_btn_clicked.emit)
             new_row_widget.set_text(path)
-            self.layout.insertWidget(0, new_row_widget)
+            self.layout.addWidget(new_row_widget)
     
     def update_path_ids(self, path_to_id):
         """Update IDs for existing path rows based on path_to_id mapping"""
@@ -303,7 +313,7 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
         self.border_frame = QtWidgets.QFrame()
         self.border_frame.setObjectName("pathSelectorBorderFrame")
         # Use object name selector to prevent stylesheet cascading to children
-        self.border_frame.setStyleSheet("#pathSelectorBorderFrame { border: 1px solid grey; }")
+        # self.border_frame.setStyleSheet("#pathSelectorBorderFrame { border: 1px solid grey; }")
         # Set size policy to allow resizing with content
         self.border_frame.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         frame_layout = QtWidgets.QVBoxLayout(self.border_frame)

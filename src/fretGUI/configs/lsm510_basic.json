@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x29023358560":{
+    "0x1e00cc39d90":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"LSM510Node",
@@ -46,7 +46,7 @@
         "File Widget":[]
       }
     },
-    "0x2902335ac60":{
+    "0x1e00cc3acc0":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"CalcBGNode",
@@ -73,8 +73,8 @@
       "width":215.0,
       "height":133.0,
       "pos":[
-        81.1714937615427,
-        -5.925648009098236
+        75.68578490833795,
+        26.988605110130408
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -84,7 +84,7 @@
         "Min. lag, \u03bcs":300
       }
     },
-    "0x2902335b410":{
+    "0x1e00cc3b5f0":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearchFromBG",
@@ -111,8 +111,8 @@
       "width":350.0,
       "height":208.6,
       "pos":[
-        364.17709613756097,
-        -6.67400974280247
+        582.5083084951109,
+        16.36596744065758
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -123,7 +123,7 @@
         "F, Min. Burst rate to bg. ratio":6
       }
     },
-    "0x2902335ae40":{
+    "0x1e00cc74350":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"EHistPlotterNode",
@@ -145,13 +145,13 @@
         30
       ],
       "disabled":false,
-      "selected":true,
+      "selected":false,
       "visible":true,
       "width":532.0,
       "height":431.20000000000005,
       "pos":[
-        556.034184669609,
-        313.5430635782185
+        482.525686036665,
+        238.93742317463358
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -161,7 +161,7 @@
         "Bin Width":0.05
       }
     },
-    "0x290233996a0":{
+    "0x1e00cc75b80":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"BGTimeLinePlotterNode",
@@ -183,13 +183,13 @@
         30
       ],
       "disabled":false,
-      "selected":false,
+      "selected":true,
       "visible":true,
       "width":472.0,
       "height":422.8,
       "pos":[
-        59.897065715507836,
-        216.35438241295506
+        -87.11993155038007,
+        182.34298752308547
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -198,46 +198,95 @@
         "plot_widget":null,
         "File to plot:":""
       }
+    },
+    "0x1e00cc773b0":{
+      "type_":"Analysis.CorrectionsNode",
+      "icon":null,
+      "name":"Corrections",
+      "color":[
+        150,
+        150,
+        150,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":235.0,
+      "height":183.4,
+      "pos":[
+        310.0283921557575,
+        -8.342417109586638
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "Gamma":1.0,
+        "Leakage":0.21,
+        "Direct ex.":0.0
+      }
     }
   },
   "connections":[
     {
       "out":[
-        "0x29023358560",
+        "0x1e00cc39d90",
         "out_file"
       ],
       "in":[
-        "0x2902335ac60",
+        "0x1e00cc3acc0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x2902335ac60",
+        "0x1e00cc3acc0",
         "outport"
       ],
       "in":[
-        "0x2902335b410",
+        "0x1e00cc75b80",
         "inport"
       ]
     },
     {
       "out":[
-        "0x2902335ac60",
+        "0x1e00cc3acc0",
         "outport"
       ],
       "in":[
-        "0x290233996a0",
+        "0x1e00cc773b0",
         "inport"
       ]
     },
     {
+      "in":[
+        "0x1e00cc3b5f0",
+        "inport"
+      ],
       "out":[
-        "0x2902335b410",
+        "0x1e00cc773b0",
+        "outport"
+      ]
+    },
+    {
+      "out":[
+        "0x1e00cc3b5f0",
         "outport"
       ],
       "in":[
-        "0x2902335ae40",
+        "0x1e00cc74350",
         "inport"
       ]
     }
