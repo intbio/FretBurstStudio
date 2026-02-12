@@ -443,6 +443,7 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None or selected_data is None or not isinstance(selected_data, Data):
             self.on_plot_data_clear()
+            plot_widget.canvas.draw()
             return
 
         fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
@@ -486,6 +487,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None:
             self.on_plot_data_clear()
+            plot_widget.canvas.draw()
             return
         self.update_plot_kwargs()
         
