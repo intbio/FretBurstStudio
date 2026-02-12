@@ -374,7 +374,7 @@ class AbstractContentNode(ResizableContentNode):
         super().__init__(widget_name, qgraphics_item)
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
-        ThreadSignalManager().run_btn_clicked.connect(self.__on_plot_data_clear)
+        ThreadSignalManager().run_btn_clicked.connect(self.on_plot_data_clear)
         self.was_executed = False
         
     def on_refresh_canvas(self):
@@ -385,7 +385,7 @@ class AbstractContentNode(ResizableContentNode):
     def _on_refresh_canvas(self):
         pass
     
-    def __on_plot_data_clear(self):
+    def on_plot_data_clear(self):
         self.data_to_plot.clear()
         self.was_executed = False
     
@@ -442,12 +442,13 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         # Avoid accidental binding and ensure we pass a Data instance.
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None or selected_data is None or not isinstance(selected_data, Data):
-            plot_widget.canvas.draw()
+            self.on_plot_data_clear()
             return
 
         fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
         # fig.tight_layout()
         plot_widget.canvas.draw()
+        self.on_plot_data_clear()
 
 class BaseMultiFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
@@ -484,6 +485,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         # Avoid accidental binding and ensure we have a valid plot function
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None:
+            self.on_plot_data_clear()
             return
         self.update_plot_kwargs()
         
@@ -509,6 +511,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             ax.set_title('')
         
         plot_widget.canvas.draw()
+        self.on_plot_data_clear()
 
 class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'BGFitPlotterNode'
