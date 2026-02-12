@@ -98,6 +98,7 @@ def main():
             custom_nodes.DitherNode,
             custom_nodes.BurstSearchNodeRate,
             custom_nodes.BurstSearchNodeFromBG,
+            custom_nodes.FuseBurstsNode,
             selector_nodes.BurstSelectorNode,
             selector_nodes.BurstSelectorENode,
             selector_nodes.BurstSelectorBrightnessNode,

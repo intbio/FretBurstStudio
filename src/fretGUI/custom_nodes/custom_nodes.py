@@ -324,14 +324,52 @@ class BurstSearchNodeRate(AbstractRecomputable):
         
         self.add_input('inport')
         self.add_output('outport')
-        self.int_slider = node_builder.build_int_slider('min_rate_cps', [1000, 100000, 1000], 8000)
+        self.m_slider = node_builder.build_int_slider(
+            'm, Photon search window',
+             [3, 100, 1],
+              10,
+              tooltip='Number of consecutive photons used to compute the photon rate. Typical values 5-20.')
+        self.L_slider = node_builder.build_int_slider(
+            'L, Minimal Burst size',
+            [3, 100, 1],
+            20,
+            tooltip='Minimum number of photons in burst.')
+        self.int_slider = node_builder.build_int_slider(
+            'Min. rate cps',
+            [1000, 100000, 1000],
+            8000,
+            tooltip = "Minimum rate in cps for burst start.")
         
-    def __burst_search(self, fbdata: str, min_rate_cps):
-        fbdata.data.burst_search(min_rate_cps)
+    def __burst_search(self, fbdata: str, m, L, min_rate_cps):
+        fbdata.data.burst_search(m=m, L=L, min_rate_cps = min_rate_cps)
        
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
-        self.__burst_search(fbsdata, self.int_slider.get_value())
+        self.__burst_search(fbsdata, m=self.m_slider.get_value(),
+                                    L=self.L_slider.get_value(),
+                                    min_rate_cps=self.int_slider.get_value())
+        return [fbsdata]
+
+class FuseBurstsNode(AbstractRecomputable):
+    __identifier__ = 'Analysis'
+    NODE_NAME = 'FuseBursts'
+    
+    def __init__(self):
+        super().__init__()
+        node_builder = NodeBuilder(self)
+        
+        self.add_input('inport')
+        self.add_output('outport')
+        self.delay_slider = node_builder.build_float_slider(
+            'Delay, ms', 
+            [0, 10, 0.1], 
+            0,
+            tooltip = "Fuse all burst separated by less than Delay millisecs. Note that with ms = 0, overlapping bursts are fused.")
+        
+       
+    @FBSDataCash().fbscash
+    def execute(self, fbsdata: FBSData):
+        fbsdata.data = fbsdata.data.fuse_bursts(ms=self.delay_slider.get_value())
         return [fbsdata]
         
 class BurstSearchNodeFromBG(AbstractRecomputable):
@@ -344,9 +382,21 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
         
         self.add_input('inport')
         self.add_output('outport')
-        self.m_slider = node_builder.build_int_slider('m, Photon search window', [3, 100, 1], 10)
-        self.L_slider = node_builder.build_int_slider('L, Minimal Burst size', [3, 100, 1], 20)
-        self.F_slider = node_builder.build_int_slider('F, Min. Burst rate to bg. ratio', [1, 20, 1], 6)
+        self.m_slider = node_builder.build_int_slider(
+            'm, Photon search window',
+             [3, 100, 1],
+              10,
+              tooltip='Number of consecutive photons used to compute the photon rate. Typical values 5-20.')
+        self.L_slider = node_builder.build_int_slider(
+            'L, Minimal Burst size',
+            [3, 100, 1],
+            20,
+            tooltip='Minimum number of photons in burst.')
+        self.F_slider = node_builder.build_int_slider(
+            'F, Min. Burst rate to bg. ratio',
+             [1, 20, 1],
+              6,
+              tooltip='defines how many times higher than the background rate is the minimum rate used for burst search (min rate = F * bg. rate). Typical values are 3-9.')
         
     def __burst_search(self, fbdata: str, m: int,L: int,F: int):
         fbdata.data.burst_search(m=m,L=L,F=F)
