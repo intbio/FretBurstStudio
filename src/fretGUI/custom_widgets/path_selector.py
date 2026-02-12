@@ -7,6 +7,7 @@ import os
 
 class PathRowWidget(QtWidgets.QWidget):
     del_signal = Signal()
+    changed_state = Signal(bool)
     
     def __init__(self, parent=None, path_id=None):    
         super(PathRowWidget, self).__init__(parent)
@@ -53,6 +54,11 @@ class PathRowWidget(QtWidgets.QWidget):
         
     def wire_signals(self):
         self.del_button.clicked.connect(self.on_button_click)
+        self.checkbox.stateChanged.connect(self.on_state_chenged)
+        
+    def on_state_chenged(self, state: bool):
+        print("state  changed")
+        self.changed_state.emit(state)
         
     def on_button_click(self):
         # Remove widget from layout immediately before deletion
