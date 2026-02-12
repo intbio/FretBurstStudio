@@ -1,6 +1,7 @@
 from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import Signal
 from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from Qt.QtWidgets import QCheckBox
 import os
 
 
@@ -9,6 +10,8 @@ class PathRowWidget(QtWidgets.QWidget):
     
     def __init__(self, parent=None, path_id=None):    
         super(PathRowWidget, self).__init__(parent)
+        
+        self.checkbox = QCheckBox(parent=parent)
                       
         self.del_button = QtWidgets.QPushButton(parent=self)
         self.del_button.setFixedSize(25, 25)
@@ -37,6 +40,7 @@ class PathRowWidget(QtWidgets.QWidget):
         row_layout.addWidget(self.id_label)
         row_layout.addWidget(self.text_field)
         row_layout.addWidget(self.del_button)
+        row_layout.addWidget(self.checkbox)
         
         # Set ID if provided
         if path_id is not None:
