@@ -374,23 +374,18 @@ class AbstractContentNode(ResizableContentNode):
         super().__init__(widget_name, qgraphics_item)
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
+        ThreadSignalManager().run_btn_clicked.connect(self.on_plot_data_clear)
         self.was_executed = False
         
     def on_refresh_canvas(self):
         if self.was_executed:
             self._on_refresh_canvas()
-            self.__draw()
-            self.__plot_data_clear()
         
     @abstractmethod
     def _on_refresh_canvas(self):
         pass
     
-    def __draw(self):
-        plot_widget = self.get_widget('plot_widget').plot_widget
-        plot_widget.canvas.draw()
-    
-    def __plot_data_clear(self):
+    def on_plot_data_clear(self):
         self.data_to_plot.clear()
         self.was_executed = False
     
@@ -398,14 +393,7 @@ class AbstractContentNode(ResizableContentNode):
         self.was_executed = True
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)
-        return [fbsdata]   
-    
-    def get_cleared_ax(self):
-        plot_widget = self.get_widget('plot_widget').plot_widget
-        fig = plot_widget.figure
-        fig.clear()
-        ax = fig.add_subplot()
-        return ax
+        return [fbsdata]        
     
     
 class BaseSingleFilePlotterNode(AbstractContentNode):
@@ -436,7 +424,10 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         )
 
     def _on_refresh_canvas(self):
-        ax = self.get_cleared_ax()
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        fig = plot_widget.figure
+        fig.clear()
+        ax = fig.add_subplot()
 
         map_name_to_data = {}
         for cur_data in self.data_to_plot:
@@ -451,9 +442,14 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         # Avoid accidental binding and ensure we pass a Data instance.
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None or selected_data is None or not isinstance(selected_data, Data):
+            self.on_plot_data_clear()
+            plot_widget.canvas.draw()
             return
-        
+
         fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
+        # fig.tight_layout()
+        plot_widget.canvas.draw()
+        self.on_plot_data_clear()
 
 class BaseMultiFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
@@ -481,12 +477,17 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         pass
 
     def _on_refresh_canvas(self):
-        ax = self.get_cleared_ax()
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        plot_widget.figure.clf()
+        ax = plot_widget.figure.add_subplot()
+        ax.cla()
         self.LAST_PLOTTED_DATA_LIST = []
 
         # Avoid accidental binding and ensure we have a valid plot function
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None:
+            self.on_plot_data_clear()
+            plot_widget.canvas.draw()
             return
         self.update_plot_kwargs()
         
@@ -511,6 +512,8 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             ax.legend()
             ax.set_title('')
         
+        plot_widget.canvas.draw()
+        self.on_plot_data_clear()
 
 class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'BGFitPlotterNode'
