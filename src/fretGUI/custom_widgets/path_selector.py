@@ -98,11 +98,15 @@ class PathRowWidget(QtWidgets.QWidget):
     def set_tooltip(self, tooltip_text):
         """Set tooltip for the row widget"""
         self.setToolTip(tooltip_text)
+        
+    def is_checked(self):
+        return self.checkbox.isChecked()
 
 
 class PathSelectorWidget(QtWidgets.QWidget):  
     
     del_btn_clicked = Signal()
+    checkbox_clicked = Signal()
     paths_added = Signal(list)  # Signal emitted when paths are added, with list of paths
     _get_path_to_id_callback = None  # Callback to get path_to_id mapping
     _wrapper = None  # Reference to the wrapper widget
@@ -115,6 +119,8 @@ class PathSelectorWidget(QtWidgets.QWidget):
       
     def __init__(self, parent=None):
         super(PathSelectorWidget, self).__init__()
+        
+        self.rowwidget_map = dict()
         
         self.parentView = parent
                
@@ -248,17 +254,23 @@ class PathSelectorWidget(QtWidgets.QWidget):
             event.ignore()
             
     def add_row_widgets(self, file_paths, path_to_id=None):
-        # existing_pahts = set(self.get_paths())
         if path_to_id is None:
             path_to_id = {}
         for path in file_paths:
-            # if path in existing_pahts:
-            #     continue
             path_id = path_to_id.get(path)
             new_row_widget = PathRowWidget(parent=self, path_id=path_id)
-            new_row_widget.del_signal.connect(self.del_btn_clicked.emit)
+            self.__wire_row_widget(new_row_widget)
+            self.rowwidget_map[path_id] = new_row_widget
+            
             new_row_widget.set_text(path)
             self.layout.addWidget(new_row_widget)
+            
+    def __wire_row_widget(self, row_widget):
+        row_widget.changed_state.connect(
+            lambda state: self.checkbox_clicked.emit()
+        )        
+        row_widget.del_signal.connect(self.del_btn_clicked.emit)
+        
     
     def update_path_ids(self, path_to_id):
         """Update IDs for existing path rows based on path_to_id mapping"""
@@ -340,6 +352,9 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
     def get_value(self):
         selected_paths = self.path_widget.get_paths()
         return selected_paths
+    
+    def get_rowwidget(self, id: int) -> PathRowWidget:
+        return self.path_widget.rowwidget_map[id]
 
     def set_value(self, value):
         pass
@@ -393,7 +408,11 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
             self.widget_changed_signal.emit)
         self.path_widget.del_btn_clicked.connect(
             self.widget_changed_signal.emit)
+        self.path_widget.checkbox_clicked.connect(
+            self.widget_changed_signal.emit)
+        
         # Forward paths_added signal
         self.path_widget.paths_added.connect(self.paths_added.emit)
+        # self.path_widget./
     
     

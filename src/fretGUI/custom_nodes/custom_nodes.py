@@ -128,17 +128,26 @@ class AbstractLoader(AbstractRecomputable):
             # Get the pre-assigned ID for this path
             assigned_id = self.path_to_id[cur_path]
             
+            rowwidget = self.file_widget.get_rowwidget(assigned_id)
+            if not rowwidget.is_checked():
+                continue
+            
             if path_hash in self.opened_paths:
                 # Use existing FBSData (which already has an ID)
                 existing_fbsdata = self.opened_paths[path_hash]
-                data_list.append(existing_fbsdata.copy())
+                fbsdata_copy = existing_fbsdata.copy()
+                self.__wire_fbsdata(fbsdata_copy)
+                # self.__wire_fbsdata(existing_fbsdata)
+                data_list.append(fbsdata_copy)
                 # Update tooltip for loaded file
                 tooltip_text = self._format_metadata_tooltip(existing_fbsdata)
                 self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
             else:
                 # Load new FBSData with the pre-assigned ID
                 loaded_fbsdata = self.load(cur_path, id=assigned_id)
+                self.__wire_fbsdata(loaded_fbsdata)
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
+                # self.__wire_fbsdata(self.opened_paths[path_hash])
                 data_list.append(loaded_fbsdata)
                 # Update tooltip for newly loaded file
                 tooltip_text = self._format_metadata_tooltip(loaded_fbsdata)
@@ -147,6 +156,11 @@ class AbstractLoader(AbstractRecomputable):
         # Update the path widget with IDs (in case any were missing)
         self.file_widget.update_path_ids(self.path_to_id)
         return data_list
+    
+    def __wire_fbsdata(self, fbsdata):
+        pass
+        #  rowwidget = self.file_widget.get_rowwidget(fbsdata.id)
+        #  rowwidget.changed_state.connect(fbsdata.on_state_changed)
     
     def __delete_closed_files(self, selected_paths: list):
         selected_hashes = set([hash(path) for path in selected_paths])
