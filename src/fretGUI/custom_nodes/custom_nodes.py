@@ -254,6 +254,7 @@ class CorrectionsNode(AbstractRecomputable):
     
     def __init__(self):
         super().__init__()
+        self.view.setToolTip("Apply gamma, leakage, and direct excitation corrections to FRET data")
 
         node_builder = NodeBuilder(self)
         self.add_input('inport')
@@ -275,7 +276,7 @@ class CorrectionsNode(AbstractRecomputable):
             'Direct ex.', 
             [0, 1, 0.01], 
             0,
-            tooltip='The coefficient dir_ex_t expresses the direct excitation as n_dir = dir_ex_t * (na + gamma*nd). In terms of physical parameters it is the ratio of acceptor over donor absorption cross-sections at the donor-excitation wavelength.', 
+            tooltip='ALEX ONLY!!! The coefficient dir_ex_t expresses the direct excitation as n_dir = dir_ex_t * (na + gamma*nd). In terms of physical parameters it is the ratio of acceptor over donor absorption cross-sections at the donor-excitation wavelength.', 
             min_width=self.fields_width)
 
     
@@ -284,6 +285,9 @@ class CorrectionsNode(AbstractRecomputable):
         fbsdata.data.gamma = self.gamma_spinbox.get_value()
         fbsdata.data.leakage = self.leakage_spinbox.get_value()
         fbsdata.data.dir_ex = self.dir_ex_spinbox.get_value()
+        if hasattr(fbsdata.data, 'num_bursts') and fbsdata.data.num_bursts[0] > 0:
+            # Recalculate E values for existing bursts
+            fbsdata.data.calc_fret()
         return [fbsdata]
     
 class DitherNode(AbstractRecomputable):
@@ -320,7 +324,7 @@ class BurstSearchNodeRate(AbstractRecomputable):
         
         self.add_input('inport')
         self.add_output('outport')
-        self.int_slider = node_builder.build_int_slider('min_rate_cps', [5000, 20000, 1000], 8000)
+        self.int_slider = node_builder.build_int_slider('min_rate_cps', [1000, 100000, 1000], 8000)
         
     def __burst_search(self, fbdata: str, min_rate_cps):
         fbdata.data.burst_search(min_rate_cps)
@@ -393,11 +397,10 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
     MIN_WIDTH = 450
     MIN_HEIGHT = 300
     PLOT_FUNC = None
-    PLOT_KWARGS = {}
 
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         super().__init__(widget_name, qgraphics_item)
-
+        self.PLOT_KWARGS = {}
         self.node_builder = NodeBuilder(self)
 
         self.add_input('inport')
@@ -416,6 +419,7 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         ax = fig.add_subplot()
 
         map_name_to_data = {}
+        self.data_to_plot.sort(key = lambda x: x.id)
         for cur_data in self.data_to_plot:
             fname = os.path.basename(cur_data.data.fname)
             fbid = cur_data.id
@@ -447,13 +451,14 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
     MIN_WIDTH = 450
     MIN_HEIGHT = 300
     PLOT_FUNC = None
-    PLOT_KWARGS = {}
+    
     LAST_PLOTTED_DATA_LIST = []
 
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         super().__init__(widget_name, qgraphics_item)
 
         self.node_builder = NodeBuilder(self)
+        self.PLOT_KWARGS = {}
 
         self.add_input('inport')
         self.node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)
@@ -474,7 +479,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             self.on_plot_data_clear()
             return
         self.update_plot_kwargs()
-        
+
         self.data_to_plot.sort(key = lambda x: x.id)
 
         for cur_data in self.data_to_plot:
