@@ -12,6 +12,9 @@ class FBSData():
         
     def is_checked(self):
         return self.__checked == True
+    
+    def set_checked(self, new_state: bool):
+        self.__checked = new_state
        
     @property 
     def path(self):
@@ -41,9 +44,6 @@ class FBSData():
     def __repr__(self):
         return f"fbs_data at {id(self)}, inner at {id(self.__data)}"
     
-    def on_state_changed(self, state: bool):
-        self.__checked = state
-        print(f"id: {self.id}, new state is {self.__checked}")
         
     
 

@@ -47,7 +47,7 @@ class AbstractLoader(AbstractRecomputable):
         self.file_widget.update_path_ids(self.path_to_id)
         
     @abstractmethod
-    def load(self, path: str, id: int = None) -> FBSData:
+    def load(self, path: str, id: int = None, checked: bool=False) -> FBSData:
         pass
     
     def _format_metadata_tooltip(self, fbsdata: FBSData) -> str:
@@ -132,20 +132,19 @@ class AbstractLoader(AbstractRecomputable):
             if not rowwidget.is_checked():
                 continue
             
+            rowwidget = self.file_widget.get_rowwidget(assigned_id)
             if path_hash in self.opened_paths:
                 # Use existing FBSData (which already has an ID)
                 existing_fbsdata = self.opened_paths[path_hash]
                 fbsdata_copy = existing_fbsdata.copy()
-                self.__wire_fbsdata(fbsdata_copy)
-                # self.__wire_fbsdata(existing_fbsdata)
+                fbsdata_copy.set_checked(rowwidget.is_checked())
                 data_list.append(fbsdata_copy)
                 # Update tooltip for loaded file
                 tooltip_text = self._format_metadata_tooltip(existing_fbsdata)
                 self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
             else:
                 # Load new FBSData with the pre-assigned ID
-                loaded_fbsdata = self.load(cur_path, id=assigned_id)
-                self.__wire_fbsdata(loaded_fbsdata)
+                loaded_fbsdata = self.load(cur_path, id=assigned_id, checked=rowwidget.is_checked())
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
                 # self.__wire_fbsdata(self.opened_paths[path_hash])
                 data_list.append(loaded_fbsdata)
@@ -156,11 +155,6 @@ class AbstractLoader(AbstractRecomputable):
         # Update the path widget with IDs (in case any were missing)
         self.file_widget.update_path_ids(self.path_to_id)
         return data_list
-    
-    def __wire_fbsdata(self, fbsdata):
-        pass
-        #  rowwidget = self.file_widget.get_rowwidget(fbsdata.id)
-        #  rowwidget.changed_state.connect(fbsdata.on_state_changed)
     
     def __delete_closed_files(self, selected_paths: list):
         selected_hashes = set([hash(path) for path in selected_paths])
@@ -188,9 +182,9 @@ class PhHDF5Node(AbstractLoader):
     def __init__(self):
         super().__init__() 
     
-    def load(self, path, id=None):
+    def load(self, path, id=None, checked=False):
         data = fretbursts.loader.photon_hdf5(path)
-        fbsdata = FBSData(data, path, id=id)
+        fbsdata = FBSData(data, path, id=id, checked=checked)
         return fbsdata   
         
         
@@ -202,7 +196,7 @@ class LSM510Node(AbstractLoader):
     def __init__(self):
         super().__init__() 
     
-    def load(self, path: str, id=None):
+    def load(self, path: str, id=None, checked=False):
         fcs=self.ConfoCor2Raw(path)
         times_acceptor, times_donor = fcs.asarray()
         fcs.frequency
@@ -219,7 +213,7 @@ class LSM510Node(AbstractLoader):
         data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
                                      clk_p=timestamps_unit, alternated=False,nch=1,
                                      fname=path,meas_type='smFRET')  
-        fbsdata = FBSData(data, path, id=id)
+        fbsdata = FBSData(data, path, id=id, checked=checked)
         return fbsdata   
         
     
