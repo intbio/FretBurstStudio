@@ -12,7 +12,7 @@ class PathRowWidget(QtWidgets.QWidget):
     def __init__(self, parent=None, path_id=None):    
         super(PathRowWidget, self).__init__(parent)
         
-        self.checkbox = QCheckBox(parent=parent)
+        self.checkbox = QCheckBox(parent=parent, checked=True)
                       
         self.del_button = QtWidgets.QPushButton(parent=self)
         self.del_button.setFixedSize(25, 25)
