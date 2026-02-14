@@ -47,7 +47,7 @@ class AbstractLoader(AbstractRecomputable):
         self.file_widget.update_path_ids(self.path_to_id)
         
     @abstractmethod
-    def load(self, path: str, id: int = None) -> FBSData:
+    def load(self, path: str, id: int = None, checked: bool=False) -> FBSData:
         pass
     
     def _format_metadata_tooltip(self, fbsdata: FBSData) -> str:
@@ -128,17 +128,25 @@ class AbstractLoader(AbstractRecomputable):
             # Get the pre-assigned ID for this path
             assigned_id = self.path_to_id[cur_path]
             
+            rowwidget = self.file_widget.get_rowwidget(assigned_id)
+            if not rowwidget.is_checked():
+                continue
+            
+            rowwidget = self.file_widget.get_rowwidget(assigned_id)
             if path_hash in self.opened_paths:
                 # Use existing FBSData (which already has an ID)
                 existing_fbsdata = self.opened_paths[path_hash]
-                data_list.append(existing_fbsdata.copy())
+                fbsdata_copy = existing_fbsdata.copy()
+                fbsdata_copy.set_checked(rowwidget.is_checked())
+                data_list.append(fbsdata_copy)
                 # Update tooltip for loaded file
                 tooltip_text = self._format_metadata_tooltip(existing_fbsdata)
                 self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
             else:
                 # Load new FBSData with the pre-assigned ID
-                loaded_fbsdata = self.load(cur_path, id=assigned_id)
+                loaded_fbsdata = self.load(cur_path, id=assigned_id, checked=rowwidget.is_checked())
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
+                # self.__wire_fbsdata(self.opened_paths[path_hash])
                 data_list.append(loaded_fbsdata)
                 # Update tooltip for newly loaded file
                 tooltip_text = self._format_metadata_tooltip(loaded_fbsdata)
@@ -174,9 +182,9 @@ class PhHDF5Node(AbstractLoader):
     def __init__(self):
         super().__init__() 
     
-    def load(self, path, id=None):
+    def load(self, path, id=None, checked=False):
         data = fretbursts.loader.photon_hdf5(path)
-        fbsdata = FBSData(data, path, id=id)
+        fbsdata = FBSData(data, path, id=id, checked=checked)
         return fbsdata   
         
         
@@ -188,7 +196,7 @@ class LSM510Node(AbstractLoader):
     def __init__(self):
         super().__init__() 
     
-    def load(self, path: str, id=None):
+    def load(self, path: str, id=None, checked=False):
         fcs=self.ConfoCor2Raw(path)
         times_acceptor, times_donor = fcs.asarray()
         fcs.frequency
@@ -205,7 +213,7 @@ class LSM510Node(AbstractLoader):
         data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
                                      clk_p=timestamps_unit, alternated=False,nch=1,
                                      fname=path,meas_type='smFRET')  
-        fbsdata = FBSData(data, path, id=id)
+        fbsdata = FBSData(data, path, id=id, checked=checked)
         return fbsdata   
         
     
@@ -414,18 +422,18 @@ class AbstractContentNode(ResizableContentNode):
         super().__init__(widget_name, qgraphics_item)
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
-        ThreadSignalManager().run_btn_clicked.connect(self.on_plot_data_clear)
         self.was_executed = False
         
     def on_refresh_canvas(self):
         if self.was_executed:
             self._on_refresh_canvas()
+            self.__on_plot_data_clear()
         
     @abstractmethod
     def _on_refresh_canvas(self):
         pass
     
-    def on_plot_data_clear(self):
+    def __on_plot_data_clear(self):
         self.data_to_plot.clear()
         self.was_executed = False
     
@@ -482,13 +490,12 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         # Avoid accidental binding and ensure we pass a Data instance.
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None or selected_data is None or not isinstance(selected_data, Data):
-            self.on_plot_data_clear()
+            plot_widget.canvas.draw()
             return
 
         fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
         # fig.tight_layout()
         plot_widget.canvas.draw()
-        self.on_plot_data_clear()
 
 class BaseMultiFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
@@ -526,7 +533,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         # Avoid accidental binding and ensure we have a valid plot function
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None:
-            self.on_plot_data_clear()
+            plot_widget.canvas.draw()
             return
         self.update_plot_kwargs()
 
@@ -552,7 +559,6 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             ax.set_title('')
         
         plot_widget.canvas.draw()
-        self.on_plot_data_clear()
 
 class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'BGFitPlotterNode'

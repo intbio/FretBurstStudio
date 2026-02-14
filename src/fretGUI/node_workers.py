@@ -158,7 +158,10 @@ class PlotCleanerWorker(NodeWorker):
         while len(self.node_seq) != 0:
             cur_node = self.node_seq.popleft()
             if isinstance(cur_node, custom_nodes.AbstractContentNode):
-                cur_node._on_refresh_canvas()
+                plot_widget = cur_node.get_widget('plot_widget').plot_widget
+                fig = plot_widget.figure
+                fig.clear()
+                plot_widget.canvas.draw()
                     
     def run(self):
         if self.need_fill():
