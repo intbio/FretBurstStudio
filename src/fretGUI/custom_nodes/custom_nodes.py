@@ -213,6 +213,7 @@ class LSM510Node(AbstractLoader):
         data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
                                      clk_p=timestamps_unit, alternated=False,nch=1,
                                      fname=path,meas_type='smFRET')  
+        data.name = os.path.basename(path)
         fbsdata = FBSData(data, path, id=id, checked=checked)
         return fbsdata   
         
@@ -561,41 +562,41 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         plot_widget.canvas.draw()
 
 class BGFitPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'BGFitPlotterNode'
+    NODE_NAME = 'Background Fit'
     PLOT_FUNC = staticmethod(fretbursts.hist_bg)
     PLOT_KWARGS = dict(show_fit=True)
 
 class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'BGTimeLinePlotterNode'
+    NODE_NAME = 'Background TimeLine'
     PLOT_FUNC = staticmethod(fretbursts.timetrace_bg)
 
 class ScatterWidthSizePlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'ScatterWidthSizePlotterNode'
+    NODE_NAME = 'Burst Width vs Size'
     PLOT_FUNC = staticmethod(fretbursts.scatter_width_size)
 
 class ScatterDaPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'ScatterDaPlotterNode'
+    NODE_NAME = 'B.Donor vs Acc Size'
     PLOT_FUNC = staticmethod(fretbursts.scatter_da)
 
 class ScatterRateDaPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'ScatterRateDaPlotterNode'
+    NODE_NAME = 'B.Donor vs Acc Rate'
     PLOT_FUNC = staticmethod(fretbursts.scatter_rate_da)
 
 class ScatterFretSizePlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'ScatterFretSizePlotterNode'
+    NODE_NAME = 'Burst FRET vs Size'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_size)
 
 class ScatterFretNdNaPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'ScatterFretNdNaPlotterNode'
+    NODE_NAME = 'B. FRET vs Corr.Size'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_nd_na)
 
 class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'ScatterFretWidthPlotterNode'
+    NODE_NAME = 'Burst FRET vs Width'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
        
     
 class EHistPlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'EHistPlotterNode'
+    NODE_NAME = 'FRET histogram'
     PLOT_FUNC = staticmethod(fretbursts.hist_fret)
 
 
@@ -607,13 +608,16 @@ class EHistPlotterNode(BaseMultiFilePlotterNode):
         
         # Add "save data" button to toolbar
         save_data_action = QAction('save data', toolbar)
-        save_data_action.triggered.connect(self.export)
+        save_data_action.triggered.connect(lambda: self.export(export_type='file'))
         toolbar.addAction(save_data_action)
         
         # Add 1px border around the action button
-        action_button = toolbar.widgetForAction(save_data_action)
-        if action_button:
-            action_button.setStyleSheet("border: 1px solid gray;")
+        toolbar.widgetForAction(save_data_action).setStyleSheet("border: 1px solid gray;")
+
+        copy_data_action = QAction('copy data', toolbar)
+        copy_data_action.triggered.connect(lambda: self.export(export_type='copy'))
+        toolbar.addAction(copy_data_action)
+        toolbar.widgetForAction(copy_data_action).setStyleSheet("border: 1px solid gray;")
         
         self.BinWidth_slider = self.node_builder.build_float_slider('Bin Width', [0.01, 0.2, 0.01], 0.03)
     
@@ -621,54 +625,58 @@ class EHistPlotterNode(BaseMultiFilePlotterNode):
         self.PLOT_KWARGS['binwidth'] = self.BinWidth_slider.get_value()
         self.PLOT_KWARGS['hist_style'] = 'bar' if len(self.data_to_plot)==1 else 'line'
 
-    def export(self):
+    def export(self, export_type = 'file'):
         data_dict = {}
 
         for cur_data in self.LAST_PLOTTED_DATA_LIST:
-            name = cur_data.data.name
+            name = cur_data.data.name 
             data_dict['PR%']=cur_data.data.E_fitter.hist_axis
             data_dict[f'PDF {name}']=cur_data.data.E_fitter.hist_pdf[0]
         df = pd.DataFrame(data_dict)
         if not df.empty:
-            # Open file save dialog
-            from Qt.QtWidgets import QApplication
-            parent_window = QApplication.activeWindow()
-            filename, selected_filter = QFileDialog.getSaveFileName(
-                parent_window,
-                "Save Data to CSV",
-                os.getcwd(),
-                "CSV files (*.csv);;All files (*)"
-            )
-            
-            if filename:
-                try:
-                    df.to_csv(filename, index=False)
-                except Exception as e:
-                    from Qt.QtWidgets import QMessageBox
-                    QMessageBox.warning(
-                        parent_window if parent_window else self.view,
-                        "Save Error",
-                        f"Failed to save CSV file:\n{str(e)}"
+            df.set_index('PR%', inplace=True)
+            if export_type == 'file':
+                    # Open file save dialog
+                    from Qt.QtWidgets import QApplication
+                    parent_window = QApplication.activeWindow()
+                    filename, selected_filter = QFileDialog.getSaveFileName(
+                        parent_window,
+                        "Save Data to CSV",
+                        os.getcwd(),
+                        "CSV files (*.csv);;All files (*)"
                     )
+                    
+                    if filename:
+                        try:
+                            df.to_csv(filename, index=False)
+                        except Exception as e:
+                            from Qt.QtWidgets import QMessageBox
+                            QMessageBox.warning(
+                                parent_window if parent_window else self.view,
+                                "Save Error",
+                                f"Failed to save CSV file:\n{str(e)}"
+                            )
+            else:
+                df.to_clipboard()
 
 class HistBurstSizeAllPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'Hist. Burst Size'
+    NODE_NAME = 'Burst Size hist.'
     PLOT_FUNC = staticmethod(fretbursts.hist_size_all)
 
 class HistBurstWidthPlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'Hist Burst Width'
+    NODE_NAME = 'Burst Width hist'
     PLOT_FUNC = staticmethod(fretbursts.hist_width)
 
 class HistBurstBrightnessPlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'Hist Burst Brightness'
+    NODE_NAME = 'Burst Brightness hist.'
     PLOT_FUNC = staticmethod(fretbursts.hist_brightness)
 
 class HistBurstSBRPlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'Hist Burst SBR'
+    NODE_NAME = 'Burst Sig.Bg.Rat. Hist.'
     PLOT_FUNC = staticmethod(fretbursts.hist_sbr)
 
 class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'Hist Burst ph.Rate'
+    NODE_NAME = 'Burst Max.Rate Hist.'
     PLOT_FUNC = staticmethod(fretbursts.hist_burst_phrate)
 
 

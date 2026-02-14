@@ -5,248 +5,149 @@ from fbs_data import FBSData
 from singletons import FBSDataCash
 
 
-class BurstSelectorNode(AbstractRecomputable):
-    __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelector'
-    
+
+
+
+class BaseSelectorNode(AbstractRecomputable):
+    SELECT_FUNC = None
+
     def __init__(self):
         super().__init__() 
-        node_builder = NodeBuilder(self)
+        self.node_builder = NodeBuilder(self)
+        self.SELECT_KWARGS = {}
         
         self.add_input('inport')
         self.add_output('outport')
-        self.th1_slider = node_builder.build_int_slider('th1', [0, 1000, 10], 40)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=40):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.size, add_naa=add_naa, th1=th1)
     
+    def update_select_kwargs(self):
+        pass
+
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True, self.get_widget('th1').get_value())
-        return [d]
+        self.update_select_kwargs()
+        fbsdata.data = fbsdata.data.select_bursts(self.SELECT_FUNC, **self.SELECT_KWARGS)
+        return [fbsdata]
 
-
-class BurstSelectorENode(AbstractRecomputable):
+class BurstSelectorNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorE'
-    
+    NODE_NAME = 'Size'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.size)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.th1_slider = node_builder.build_float_slider('th1', [0.0, 1.0, 0.01], 0.0)
-        self.th2_slider = node_builder.build_float_slider('th2', [0.0, 1.0, 0.01], 1.0)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=0.0, th2=1.0):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.E, add_naa=add_naa, th1=th1, th2=th2)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True, 
-                                     self.get_widget('th1').get_value(),
-                                     self.get_widget('th2').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_int_slider('Low Threshold', [0, 1000, 1], 0)
+        self.th2 = self.node_builder.build_int_slider('High Threshold', [0, 1000, 1], 500)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['th1'] = self.th1.get_value()
+        self.SELECT_KWARGS['th2'] = self.th2.get_value()
 
-
-class BurstSelectorBrightnessNode(AbstractRecomputable):
+class BurstSelectorENode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorBrightness'
-    
+    NODE_NAME = 'FRET'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.E)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.th1_slider = node_builder.build_float_slider('th1', [0.0, 10000.0, 100.0], 0.0)
-        self.th2_slider = node_builder.build_float_slider('th2', [0.0, 10000.0, 100.0], 10000.0)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=0.0, th2=10000.0):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.brightness, add_naa=add_naa, th1=th1, th2=th2)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True,
-                                     self.get_widget('th1').get_value(),
-                                     self.get_widget('th2').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_float_slider('Low Threshold', [-0.5, 1.5, 0.01], -0.5)
+        self.th2 = self.node_builder.build_float_slider('High Threshold', [-0.5, 1.5, 0.01], 1.5)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['E1'] = self.th1.get_value()
+        self.SELECT_KWARGS['E2'] = self.th2.get_value()
 
 
-class BurstSelectorConsecutiveNode(AbstractRecomputable):
+class BurstSelectorBrightnessNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorConsecutive'
-    
+    NODE_NAME = 'Brightness'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.brightness)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.n_slider = node_builder.build_int_slider('n', [1, 100, 1], 1)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, n=1):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.consecutive, add_naa=add_naa, n=n)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True, self.get_widget('n').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [0, 1000000, 1], 0)
+        self.th2 = self.node_builder.build_float_spinbox('High Threshold', [0, 1000000, 1], 1000000)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['th1'] = self.th1.get_value()
+        self.SELECT_KWARGS['th2'] = self.th2.get_value()
 
-
-class BurstSelectorNANode(AbstractRecomputable):
+class BurstSelectorConsecutiveNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorNA'
-    
+    NODE_NAME = 'Consecutive?'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.consecutive)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.th1_slider = node_builder.build_float_slider('th1', [0.0, 1000.0, 10.0], 0.0)
-        self.th2_slider = node_builder.build_float_slider('th2', [0.0, 1000.0, 10.0], 1000.0)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=0.0, th2=1000.0):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.na, add_naa=add_naa, th1=th1, th2=th2)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True,
-                                     self.get_widget('th1').get_value(),
-                                     self.get_widget('th2').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_int_spinbox('Low Threshold', [0, 1000000, 1], 0)
+        self.th2 = self.node_builder.build_int_spinbox('High Threshold', [0, 1000000, 1], 1000000)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['th1'] = self.th1.get_value()
+        self.SELECT_KWARGS['th2'] = self.th2.get_value()
 
-
-class BurstSelectorNABGNode(AbstractRecomputable):
+class BurstSelectorNANode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorNABG'
-    
+    NODE_NAME = 'N Acceptor'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.na)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.th1_slider = node_builder.build_float_slider('th1', [0.0, 1000.0, 10.0], 0.0)
-        self.th2_slider = node_builder.build_float_slider('th2', [0.0, 1000.0, 10.0], 1000.0)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=0.0, th2=1000.0):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.na_bg, add_naa=add_naa, th1=th1, th2=th2)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True,
-                                     self.get_widget('th1').get_value(),
-                                     self.get_widget('th2').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_int_spinbox('Low Threshold', [0, 1000000, 1], 0)
+        self.th2 = self.node_builder.build_int_spinbox('High Threshold', [0, 1000000, 1], 1000000)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['th1'] = self.th1.get_value()
+        self.SELECT_KWARGS['th2'] = self.th2.get_value()
 
-
-class BurstSelectorNDNode(AbstractRecomputable):
+class BurstSelectorNABGNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorND'
-    
+    NODE_NAME = 'N Acc. to Bg'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.na_bg)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.th1_slider = node_builder.build_float_slider('th1', [0.0, 1000.0, 10.0], 0.0)
-        self.th2_slider = node_builder.build_float_slider('th2', [0.0, 1000.0, 10.0], 1000.0)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=0.0, th2=1000.0):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.nd, add_naa=add_naa, th1=th1, th2=th2)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True,
-                                     self.get_widget('th1').get_value(),
-                                     self.get_widget('th2').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [0, 100, 1], 0)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['F'] = self.th1.get_value()
 
-
-class BurstSelectorNDBGNode(AbstractRecomputable):
+class BurstSelectorNDNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorNDBG'
-    
+    NODE_NAME = 'N Donor'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.nd)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.th1_slider = node_builder.build_float_slider('th1', [0.0, 1000.0, 10.0], 0.0)
-        self.th2_slider = node_builder.build_float_slider('th2', [0.0, 1000.0, 10.0], 1000.0)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=0.0, th2=1000.0):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.nd_bg, add_naa=add_naa, th1=th1, th2=th2)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True,
-                                     self.get_widget('th1').get_value(),
-                                     self.get_widget('th2').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_int_spinbox('Low Threshold', [0, 1000000, 1], 0)
+        self.th2 = self.node_builder.build_int_spinbox('High Threshold', [0, 1000000, 1], 1000000)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['th1'] = self.th1.get_value()
+        self.SELECT_KWARGS['th2'] = self.th2.get_value()
 
-
-class BurstSelectorPeakPhrateNode(AbstractRecomputable):
+class BurstSelectorNDBGNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorPeakPhrate'
-    
+    NODE_NAME = 'N Don. to Bg'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.nd_bg)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.th1_slider = node_builder.build_float_slider('th1', [0.0, 100000.0, 1000.0], 0.0)
-        self.th2_slider = node_builder.build_float_slider('th2', [0.0, 100000.0, 1000.0], 100000.0)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=0.0, th2=100000.0):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.peak_phrate, add_naa=add_naa, th1=th1, th2=th2)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True,
-                                     self.get_widget('th1').get_value(),
-                                     self.get_widget('th2').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [0, 100, 1], 0)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['F'] = self.th1.get_value()
 
-
-class BurstSelectorPeriodNode(AbstractRecomputable):
+class BurstSelectorPeakPhrateNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'BurstSelectorPeriod'
-    
+    NODE_NAME = 'Peak Phrate'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.peak_phrate)
     def __init__(self):
-        super().__init__() 
-        node_builder = NodeBuilder(self)
-        
-        self.add_input('inport')
-        self.add_output('outport')
-        self.th1_slider = node_builder.build_float_slider('th1', [0.0, 1000.0, 1.0], 0.0)
-        self.th2_slider = node_builder.build_float_slider('th2', [0.0, 1000.0, 1.0], 1000.0)
-        
-    def __select_bursts(self, fbdata: FBSData, add_naa=True, th1=0.0, th2=1000.0):
-        return fbdata.data.select_bursts(fretbursts.select_bursts.period, add_naa=add_naa, th1=th1, th2=th2)
-    
-    @FBSDataCash().fbscash
-    def execute(self, fbsdata: FBSData):
-        d = FBSData(path=fbsdata.path)
-        d.data = self.__select_bursts(fbsdata, True,
-                                     self.get_widget('th1').get_value(),
-                                     self.get_widget('th2').get_value())
-        return [d]
+        super().__init__()
+        self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [0, 1000000, 1], 0)
+        self.th2 = self.node_builder.build_float_spinbox('High Threshold', [0, 10000000, 1], 10000000)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['th1'] = self.th1.get_value()
+        self.SELECT_KWARGS['th2'] = self.th2.get_value()
+
+
+
+
+class BurstSelectorPeriodNode(BaseSelectorNode):
+    __identifier__ = 'Selectors'
+    NODE_NAME = 'Period?'
+    SELECT_FUNC = staticmethod(fretbursts.select_bursts.period)
+    def __init__(self):
+        super().__init__()
+        self.th1 = self.node_builder.build_int_spinbox('Low Threshold', [0, 1000000, 1], 0)
+        self.th2 = self.node_builder.build_int_spinbox('High Threshold', [0, 1000000, 1], 1000000)
+    def update_select_kwargs(self):
+        self.SELECT_KWARGS['bp1'] = self.th1.get_value()
+        self.SELECT_KWARGS['bp2'] = self.th2.get_value()
+
 
 
 class BurstSelectorSBRNode(AbstractRecomputable):

@@ -13,6 +13,7 @@ class IconToggleButton(QPushButton):
         self.setCheckable(True)
         self.setFixedSize(80, 40)
         self.setIconSize(QSize(24, 24))
+        self.setText("Auto Run")
         self._update_appearance()
         self.toggled.connect(self._update_appearance)
         self.setChecked(False)
@@ -23,7 +24,6 @@ class IconToggleButton(QPushButton):
         """Обновляет внешний вид кнопки"""
         if self.isChecked():
             # Можно установить реальные иконки вместо текста
-            self.setText("automatic")
             self.setStyleSheet("""
                 QPushButton {
                     background-color: #e3f2fd;
@@ -38,7 +38,6 @@ class IconToggleButton(QPushButton):
                 }
             """)
         else:
-            self.setText("static")
             self.setStyleSheet("""
                 QPushButton {
                     background-color: #f5f5f5;

@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x1e00cc39d90":{
+    "0x1e1926b4e00":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"LSM510Node",
@@ -34,7 +34,7 @@
       "selected":false,
       "visible":true,
       "width":325.0,
-      "height":137.2,
+      "height":200,
       "pos":[
         -267.0685594770505,
         -6.942645274986177
@@ -43,10 +43,14 @@
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "File Widget":[]
+        "File Widget":[
+          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.001",
+          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.002",
+          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001"
+        ]
       }
     },
-    "0x1e00cc3acc0":{
+    "0x1e1929a6ae0":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"CalcBGNode",
@@ -81,10 +85,10 @@
       "subgraph_session":{},
       "custom":{
         "Period, s":60,
-        "Min. lag, \u03bcs":300
+        "Min. lag, \u03bcs":900
       }
     },
-    "0x1e00cc3b5f0":{
+    "0x1e18ead7bf0":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearchFromBG",
@@ -123,83 +127,7 @@
         "F, Min. Burst rate to bg. ratio":6
       }
     },
-    "0x1e00cc74350":{
-      "type_":"Plot.EHistPlotterNode",
-      "icon":null,
-      "name":"EHistPlotterNode",
-      "color":[
-        255,
-        255,
-        255,
-        255
-      ],
-      "border_color":[
-        74,
-        84,
-        85,
-        255
-      ],
-      "text_color":[
-        30,
-        30,
-        30
-      ],
-      "disabled":false,
-      "selected":false,
-      "visible":true,
-      "width":532.0,
-      "height":431.20000000000005,
-      "pos":[
-        482.525686036665,
-        238.93742317463358
-      ],
-      "layout_direction":0,
-      "port_deletion_allowed":false,
-      "subgraph_session":{},
-      "custom":{
-        "plot_widget":null,
-        "Bin Width":0.05
-      }
-    },
-    "0x1e00cc75b80":{
-      "type_":"Plot.BGTimeLinePlotterNode",
-      "icon":null,
-      "name":"BGTimeLinePlotterNode",
-      "color":[
-        255,
-        255,
-        255,
-        255
-      ],
-      "border_color":[
-        74,
-        84,
-        85,
-        255
-      ],
-      "text_color":[
-        30,
-        30,
-        30
-      ],
-      "disabled":false,
-      "selected":true,
-      "visible":true,
-      "width":472.0,
-      "height":422.8,
-      "pos":[
-        -87.11993155038007,
-        182.34298752308547
-      ],
-      "layout_direction":0,
-      "port_deletion_allowed":false,
-      "subgraph_session":{},
-      "custom":{
-        "plot_widget":null,
-        "File to plot:":""
-      }
-    },
-    "0x1e00cc773b0":{
+    "0x1e1929dc050":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
@@ -234,59 +162,135 @@
       "subgraph_session":{},
       "custom":{
         "Gamma":1.0,
-        "Leakage":0.21,
+        "Leakage":0.24000000000000002,
         "Direct ex.":0.0
+      }
+    },
+    "0x1e1929dc620":{
+      "type_":"Plot.EHistPlotterNode",
+      "icon":null,
+      "name":"FRET histogram",
+      "color":[
+        255,
+        255,
+        255,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":746.8169212107547,
+      "height":535.4284682108907,
+      "pos":[
+        484.4569364217814,
+        240.52587617449774
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "plot_widget":null,
+        "Bin Width":0.05
+      }
+    },
+    "0x1e19294eb10":{
+      "type_":"Plot.BGTimeLinePlotterNode",
+      "icon":null,
+      "name":"Background TimeLine",
+      "color":[
+        255,
+        255,
+        255,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":535.7027821742258,
+      "height":359.16577730282455,
+      "pos":[
+        -75.7997338070339,
+        201.2688256700166
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "plot_widget":null,
+        "File to plot:":"1, #4_M2dCas-NS_09hOct_400x.001"
       }
     }
   },
   "connections":[
     {
       "out":[
-        "0x1e00cc39d90",
+        "0x1e1926b4e00",
         "out_file"
       ],
       "in":[
-        "0x1e00cc3acc0",
+        "0x1e1929a6ae0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1e00cc3acc0",
+        "0x1e1929a6ae0",
         "outport"
       ],
       "in":[
-        "0x1e00cc75b80",
+        "0x1e1929dc050",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1e00cc3acc0",
+        "0x1e1929a6ae0",
         "outport"
       ],
       "in":[
-        "0x1e00cc773b0",
+        "0x1e19294eb10",
         "inport"
       ]
     },
     {
       "in":[
-        "0x1e00cc3b5f0",
+        "0x1e18ead7bf0",
         "inport"
       ],
       "out":[
-        "0x1e00cc773b0",
+        "0x1e1929dc050",
         "outport"
       ]
     },
     {
       "out":[
-        "0x1e00cc3b5f0",
+        "0x1e18ead7bf0",
         "outport"
       ],
       "in":[
-        "0x1e00cc74350",
+        "0x1e1929dc620",
         "inport"
       ]
     }

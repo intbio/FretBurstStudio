@@ -154,6 +154,8 @@ def main():
         else:
             print('auto')
             engene.make_nodes_dinamic()
+            on_run_btn_clicked(graph, toggle_btn)
+
     
     def on_block_ui(graph):
         pass
