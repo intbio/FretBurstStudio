@@ -286,7 +286,7 @@ class ComboBoxWidget(QtWidgets.QWidget):
             self.setItems(items)
         
         # Connect signal
-        self.combobox.currentTextChanged.connect(lambda text: self.widget_updaeted.emit())
+        self.combobox.activated.connect(lambda text: self.widget_updaeted.emit())
     
     def value(self):
         """Returns the currently selected item text"""
