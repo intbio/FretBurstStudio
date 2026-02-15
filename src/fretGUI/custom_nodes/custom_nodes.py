@@ -24,7 +24,7 @@ class AbstractLoader(AbstractRecomputable):
         super().__init__(*args, **kwargs)
         
         p = self.add_output('out_file')
-        p.type_ = lambda: 'no_burst'
+        # p.type_ = lambda: 'no_burst'
 
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
         self.add_custom_widget(self.file_widget, tab='Custom')  
@@ -243,7 +243,7 @@ class CalcBGNode(AbstractRecomputable):
         node_builder = NodeBuilder(self)
         self.add_input('inport')
         p = self.add_output('outport')
-        p.type_ = lambda: 'no_burst'
+        # p.type_ = lambda: 'no_burst'
         self.time_s_spinbox = node_builder.build_int_spinbox('Period, s', [1, 1000, 10],60, tooltip='Time for BG calculation, s', min_width=80)
         self.tail_spinbox = node_builder.build_int_spinbox('Min. lag, μs', [1, 1000, 100], 300,tooltip='Threshold in μs for photon waiting times', min_width=80)
 
@@ -311,9 +311,8 @@ class DitherNode(AbstractRecomputable):
 
         node_builder = NodeBuilder(self)
         p = self.add_input('inport')
-        p.type_ = lambda: 'burst'
-        # Then reject 'no_burst' type connections
-        # p.add_reject_port_type('outport', 'no_burst', '')
+        # p.type_ = lambda: 'burst'
+        # p.add_reject_port_type('outport', 'no_burst', None)
         self.add_output('outport')   
         self.dither_spinbox = node_builder.build_int_spinbox(    
             'LSB', 
