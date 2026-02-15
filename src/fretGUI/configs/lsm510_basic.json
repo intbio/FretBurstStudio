@@ -9,125 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x1e1926b4e00":{
-      "type_":"Loaders.LSM510Node",
-      "icon":null,
-      "name":"LSM510Node",
-      "color":[
-        150,
-        150,
-        150,
-        255
-      ],
-      "border_color":[
-        74,
-        84,
-        85,
-        255
-      ],
-      "text_color":[
-        30,
-        30,
-        30
-      ],
-      "disabled":false,
-      "selected":false,
-      "visible":true,
-      "width":325.0,
-      "height":200,
-      "pos":[
-        -267.0685594770505,
-        -6.942645274986177
-      ],
-      "layout_direction":0,
-      "port_deletion_allowed":false,
-      "subgraph_session":{},
-      "custom":{
-        "File Widget":[
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.001",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.002",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001"
-        ]
-      }
-    },
-    "0x1e1929a6ae0":{
-      "type_":"Analysis.CalcBGNode",
-      "icon":null,
-      "name":"CalcBGNode",
-      "color":[
-        150,
-        150,
-        150,
-        255
-      ],
-      "border_color":[
-        74,
-        84,
-        85,
-        255
-      ],
-      "text_color":[
-        30,
-        30,
-        30
-      ],
-      "disabled":false,
-      "selected":false,
-      "visible":true,
-      "width":215.0,
-      "height":133.0,
-      "pos":[
-        75.68578490833795,
-        26.988605110130408
-      ],
-      "layout_direction":0,
-      "port_deletion_allowed":false,
-      "subgraph_session":{},
-      "custom":{
-        "Period, s":60,
-        "Min. lag, \u03bcs":900
-      }
-    },
-    "0x1e18ead7bf0":{
-      "type_":"Analysis.BurstSearchNodeFromBG",
-      "icon":null,
-      "name":"BurstSearchFromBG",
-      "color":[
-        150,
-        150,
-        150,
-        255
-      ],
-      "border_color":[
-        74,
-        84,
-        85,
-        255
-      ],
-      "text_color":[
-        30,
-        30,
-        30
-      ],
-      "disabled":false,
-      "selected":false,
-      "visible":true,
-      "width":350.0,
-      "height":208.6,
-      "pos":[
-        582.5083084951109,
-        16.36596744065758
-      ],
-      "layout_direction":0,
-      "port_deletion_allowed":false,
-      "subgraph_session":{},
-      "custom":{
-        "m, Photon search window":10,
-        "L, Minimal Burst size":20,
-        "F, Min. Burst rate to bg. ratio":6
-      }
-    },
-    "0x1e1929dc050":{
+    "0x12747dc7d10":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
@@ -154,19 +36,19 @@
       "width":235.0,
       "height":183.4,
       "pos":[
-        310.0283921557575,
-        -8.342417109586638
+        327.5826604860128,
+        -13.82812596279141
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
         "Gamma":1.0,
-        "Leakage":0.24000000000000002,
+        "Leakage":0.24,
         "Direct ex.":0.0
       }
     },
-    "0x1e1929dc620":{
+    "0x12747dfc830":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET histogram",
@@ -190,11 +72,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":746.8169212107547,
-      "height":535.4284682108907,
+      "width":523.0,
+      "height":431.20000000000005,
       "pos":[
-        484.4569364217814,
-        240.52587617449774
+        579.9082704675445,
+        221.87446607360152
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -204,7 +86,7 @@
         "Bin Width":0.05
       }
     },
-    "0x1e19294eb10":{
+    "0x12747dfdf10":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
@@ -226,71 +108,185 @@
         30
       ],
       "disabled":false,
-      "selected":false,
+      "selected":true,
       "visible":true,
-      "width":535.7027821742258,
-      "height":359.16577730282455,
+      "width":460.0,
+      "height":422.8,
       "pos":[
-        -75.7997338070339,
-        201.2688256700166
+        40.49729388090731,
+        181.52027379847942
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
         "plot_widget":null,
-        "File to plot:":"1, #4_M2dCas-NS_09hOct_400x.001"
+        "File to plot:":""
+      }
+    },
+    "0x12747dff9e0":{
+      "type_":"Loaders.LSM510Node",
+      "icon":null,
+      "name":"Confocor2 RAW",
+      "color":[
+        150,
+        150,
+        150,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":339.0,
+      "height":137.2,
+      "pos":[
+        -271.39416945858216,
+        -5.491121091390156
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "File Widget":[]
+      }
+    },
+    "0x12747dfeed0":{
+      "type_":"Analysis.BurstSearchNodeFromBG",
+      "icon":null,
+      "name":"BurstSearch by BG",
+      "color":[
+        150,
+        150,
+        150,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":341.0,
+      "height":208.6,
+      "pos":[
+        587.2912351740896,
+        -14.159718596007252
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "m, Photon search window":10,
+        "L, Minimal Burst size":20,
+        "F, Min. Burst rate to bg. ratio":6
+      }
+    },
+    "0x12747dc6690":{
+      "type_":"Analysis.CalcBGNode",
+      "icon":null,
+      "name":"Calc.Background",
+      "color":[
+        150,
+        150,
+        150,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":217.0,
+      "height":133.0,
+      "pos":[
+        87.94862792667035,
+        5.7831168168118126
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "Period, s":60,
+        "Min. lag, \u03bcs":1000
       }
     }
   },
   "connections":[
     {
+      "in":[
+        "0x12747dc7d10",
+        "inport"
+      ],
       "out":[
-        "0x1e1926b4e00",
+        "0x12747dc6690",
+        "outport"
+      ]
+    },
+    {
+      "out":[
+        "0x12747dc7d10",
+        "outport"
+      ],
+      "in":[
+        "0x12747dfeed0",
+        "inport"
+      ]
+    },
+    {
+      "in":[
+        "0x12747dfc830",
+        "inport"
+      ],
+      "out":[
+        "0x12747dfeed0",
+        "outport"
+      ]
+    },
+    {
+      "in":[
+        "0x12747dfdf10",
+        "inport"
+      ],
+      "out":[
+        "0x12747dc6690",
+        "outport"
+      ]
+    },
+    {
+      "out":[
+        "0x12747dff9e0",
         "out_file"
       ],
       "in":[
-        "0x1e1929a6ae0",
-        "inport"
-      ]
-    },
-    {
-      "out":[
-        "0x1e1929a6ae0",
-        "outport"
-      ],
-      "in":[
-        "0x1e1929dc050",
-        "inport"
-      ]
-    },
-    {
-      "out":[
-        "0x1e1929a6ae0",
-        "outport"
-      ],
-      "in":[
-        "0x1e19294eb10",
-        "inport"
-      ]
-    },
-    {
-      "in":[
-        "0x1e18ead7bf0",
-        "inport"
-      ],
-      "out":[
-        "0x1e1929dc050",
-        "outport"
-      ]
-    },
-    {
-      "out":[
-        "0x1e18ead7bf0",
-        "outport"
-      ],
-      "in":[
-        "0x1e1929dc620",
+        "0x12747dc6690",
         "inport"
       ]
     }

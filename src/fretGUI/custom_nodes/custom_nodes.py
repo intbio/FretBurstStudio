@@ -177,7 +177,7 @@ class AbstractLoader(AbstractRecomputable):
 class PhHDF5Node(AbstractLoader):
 
     __identifier__ = 'Loaders'
-    NODE_NAME  = 'PhHDF5Node'
+    NODE_NAME  = 'Photon HDF5'
 
     def __init__(self):
         super().__init__() 
@@ -191,7 +191,7 @@ class PhHDF5Node(AbstractLoader):
 class LSM510Node(AbstractLoader):
     from misc.fcsfiles import ConfoCor2Raw
     __identifier__ = 'Loaders'
-    NODE_NAME  = 'LSM510Node'
+    NODE_NAME  = 'Confocor2 RAW'
 
     def __init__(self):
         super().__init__() 
@@ -235,7 +235,7 @@ class AlexNode(AbstractRecomputable):
     
 class CalcBGNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'CalcBGNode'
+    NODE_NAME = 'Calc.Background'
 
     def __init__(self):
         super().__init__()
@@ -325,7 +325,7 @@ class DitherNode(AbstractRecomputable):
     
 class BurstSearchNodeRate(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'BurstSearchRate'
+    NODE_NAME = 'BurstSearch by Rate'
     
     def __init__(self):
         super().__init__()
@@ -383,7 +383,7 @@ class FuseBurstsNode(AbstractRecomputable):
         
 class BurstSearchNodeFromBG(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'BurstSearchFromBG'
+    NODE_NAME = 'BurstSearch by BG'
     
     def __init__(self):
         super().__init__()

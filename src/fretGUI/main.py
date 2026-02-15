@@ -90,32 +90,44 @@ def main():
     # registered example nodes.
     graph.register_nodes(
         [
-            custom_nodes.PhHDF5Node,    
-            custom_nodes.LSM510Node,     
-            custom_nodes.AlexNode,
+             
+            custom_nodes.LSM510Node,    
+            custom_nodes.PhHDF5Node,  
+
+            
             custom_nodes.CalcBGNode,
             custom_nodes.CorrectionsNode,
-            custom_nodes.DitherNode,
-            custom_nodes.BurstSearchNodeRate,
             custom_nodes.BurstSearchNodeFromBG,
+            
+
+            custom_nodes.BurstSearchNodeRate,            
             custom_nodes.FuseBurstsNode,
-            selector_nodes.BurstSelectorNode,
-            selector_nodes.BurstSelectorENode,
+            custom_nodes.DitherNode,
+            # custom_nodes.AlexNode,
+
+            selector_nodes.BurstSelectorSizeNode,
+            selector_nodes.BurstSelectorWidthNode,
             selector_nodes.BurstSelectorBrightnessNode,
+
+            selector_nodes.BurstSelectorTimeNode,
+            selector_nodes.BurstSelectorSingleNode,
+            selector_nodes.BurstSelectorENode,     
+
+            selector_nodes.BurstSelectorPeakPhrateNode,
+            selector_nodes.BurstSelectorNDNode,
+            selector_nodes.BurstSelectorNDBGNode,
+
             selector_nodes.BurstSelectorConsecutiveNode,
             selector_nodes.BurstSelectorNANode,
             selector_nodes.BurstSelectorNABGNode,
-            selector_nodes.BurstSelectorNDNode,
-            selector_nodes.BurstSelectorNDBGNode,
-            selector_nodes.BurstSelectorPeakPhrateNode,
-            selector_nodes.BurstSelectorPeriodNode,
-            selector_nodes.BurstSelectorSBRNode,
-            selector_nodes.BurstSelectorSingleNode,
-            selector_nodes.BurstSelectorTimeNode,
+                              
             selector_nodes.BurstSelectorTopNMaxRateNode,
             selector_nodes.BurstSelectorTopNNDANode,
             selector_nodes.BurstSelectorTopNSBRNode,
-            selector_nodes.BurstSelectorWidthNode,
+
+            selector_nodes.BurstSelectorSBRNode,
+            selector_nodes.BurstSelectorPeriodNode,
+            
             custom_nodes.BGFitPlotterNode,
             custom_nodes.BGTimeLinePlotterNode,
             custom_nodes.EHistPlotterNode,
