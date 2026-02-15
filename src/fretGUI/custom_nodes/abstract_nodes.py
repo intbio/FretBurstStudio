@@ -134,7 +134,6 @@ class AbstractRecomputable(AbstractExecutable):
         worker_cls = worker_cls if worker_cls else UpdateWidgetNodeWorker
         worker = worker_cls(node)
         pool = QThreadPool.globalInstance()
-        print(f"node {node} was triggered with worker {worker_cls}")
         pool.start(worker)
 
 

@@ -171,14 +171,14 @@ def main():
 
     
     def on_block_ui(graph):
-        for node in graph.all_nodes():
-            node.disable_all_node_widgets()
-            node.unwire_wrappers()
+        pass
+        # for node in graph.all_nodes():
+        #     node.disable_all_node_widgets()
     
     def on_release_ui(graph):
-        for node in graph.all_nodes():
-            node.enable_all_node_widgets()
-            node.wire_wrappers()
+        pass
+        # for node in graph.all_nodes():
+        #     node.enable_all_node_widgets()
     
     run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
     # run_button.setFixedSize(50, 50)    
