@@ -196,7 +196,7 @@ class ResizableContentNode(AbstractRecomputable):
         # hook up paint callback to do initial layout on first paint
         view.add_paint_callback(self._on_view_painted)
 
-    def set_property(self, name, value):
+    def set_property(self, name, value,push_undo=None):
         """Override to intercept width/height property changes and sync to view."""
         # Call parent first to set the property
         result = super().set_property(name, value)
