@@ -23,7 +23,8 @@ class AbstractLoader(AbstractRecomputable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        self.add_output('out_file')
+        p = self.add_output('out_file')
+        p.type_ = lambda: 'no_burst'
 
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
         self.add_custom_widget(self.file_widget, tab='Custom')  
@@ -241,7 +242,8 @@ class CalcBGNode(AbstractRecomputable):
         super().__init__()
         node_builder = NodeBuilder(self)
         self.add_input('inport')
-        self.add_output('outport')
+        p = self.add_output('outport')
+        p.type_ = lambda: 'no_burst'
         self.time_s_spinbox = node_builder.build_int_spinbox('Period, s', [1, 1000, 10],60, tooltip='Time for BG calculation, s', min_width=80)
         self.tail_spinbox = node_builder.build_int_spinbox('Min. lag, μs', [1, 1000, 100], 300,tooltip='Threshold in μs for photon waiting times', min_width=80)
 
@@ -266,7 +268,8 @@ class CorrectionsNode(AbstractRecomputable):
 
         node_builder = NodeBuilder(self)
         self.add_input('inport')
-        self.add_output('outport')   
+        p = self.add_output('outport')  
+        p.type_ = lambda: 'no_burst'
         self.gamma_spinbox = node_builder.build_float_spinbox(    
             'Gamma', 
             [0.01, 10, 0.01],
@@ -307,7 +310,10 @@ class DitherNode(AbstractRecomputable):
         super().__init__()
 
         node_builder = NodeBuilder(self)
-        self.add_input('inport')
+        p = self.add_input('inport')
+        p.type_ = lambda: 'burst'
+        # Then reject 'no_burst' type connections
+        # p.add_reject_port_type('outport', 'no_burst', '')
         self.add_output('outport')   
         self.dither_spinbox = node_builder.build_int_spinbox(    
             'LSB', 
@@ -366,7 +372,8 @@ class FuseBurstsNode(AbstractRecomputable):
         super().__init__()
         node_builder = NodeBuilder(self)
         
-        self.add_input('inport')
+        p = self.add_input('inport')
+        # p.add_reject_port_type(None,'no_burst',None)
         self.add_output('outport')
         self.delay_slider = node_builder.build_float_slider(
             'Delay, ms', 
@@ -409,15 +416,21 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
               6,
               tooltip='defines how many times higher than the background rate is the minimum rate used for burst search (min rate = F * bg. rate). Typical values are 3-9.',
               min_width=self.fields_width)
+        self.sel_box = node_builder.build_combobox(
+            'Channel',
+            ['DAem','Dem','Aem'],
+            'DAem',
+            '“photon selection” to be used for burst search, DAem - both donor and Acceptor, Dem - only donor, Aem - only acceptor')
         
-    def __burst_search(self, fbdata: str, m: int,L: int,F: int):
-        fbdata.data.burst_search(m=m,L=L,F=F)
+    def __burst_search(self, fbdata: str, m: int,L: int,F: int,sel):
+        fbdata.data.burst_search(m=m,L=L,F=F,ph_sel=fretbursts.Ph_sel(Dex=sel))
        
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
         self.__burst_search(fbsdata,m=self.m_slider.get_value(),
                                     L=self.L_slider.get_value(),
-                                    F=self.F_slider.get_value())
+                                    F=self.F_slider.get_value(),
+                                    sel = self.sel_box.get_value())
         return [fbsdata]    
           
         
@@ -519,7 +532,8 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         self.node_builder = NodeBuilder(self)
         self.PLOT_KWARGS = {}
 
-        self.add_input('inport')
+        p = self.add_input('inport')
+        
         self.node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)
 
         plot_widget = self.get_widget('plot_widget').plot_widget
@@ -661,6 +675,13 @@ class HistBurstSizeAllPlotterNode(BaseSingleFilePlotterNode):
 class HistBurstWidthPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Burst Width hist'
     PLOT_FUNC = staticmethod(fretbursts.hist_width)
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
+        # tell the base which widget name to resize
+        super().__init__(widget_name, qgraphics_item)        
+        self.BinWidth_slider = self.node_builder.build_float_slider('Bin Width, ms', [0.01, 3, 0.1], 0.5)
+    def update_plot_kwargs(self):
+        self.PLOT_KWARGS['bins'] = (0, 15, self.BinWidth_slider.get_value() )   
+
 
 class HistBurstBrightnessPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Burst Brightness hist.'

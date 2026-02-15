@@ -34,8 +34,8 @@ class BurstSelectorSizeNode(BaseSelectorNode):
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.size)
     def __init__(self):
         super().__init__()
-        self.th1 = self.node_builder.build_int_slider('Low Threshold', [0, 1000, 1], 0)
-        self.th2 = self.node_builder.build_int_slider('High Threshold', [0, 1000, 1], 500)
+        self.th1 = self.node_builder.build_int_spinbox('Low Threshold', [0, 1000, 1], 0)
+        self.th2 = self.node_builder.build_int_spinbox('High Threshold', [0, 1000, 1], 500)
     def update_select_kwargs(self):
         self.SELECT_KWARGS['th1'] = self.th1.get_value()
         self.SELECT_KWARGS['th2'] = self.th2.get_value()
@@ -46,8 +46,8 @@ class BurstSelectorENode(BaseSelectorNode):
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.E)
     def __init__(self):
         super().__init__()
-        self.th1 = self.node_builder.build_float_slider('Low Threshold', [-0.5, 1.5, 0.01], -0.5)
-        self.th2 = self.node_builder.build_float_slider('High Threshold', [-0.5, 1.5, 0.01], 1.5)
+        self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [-0.5, 1.5, 0.01], -0.5)
+        self.th2 = self.node_builder.build_float_spinbox('High Threshold', [-0.5, 1.5, 0.01], 1.5)
     def update_select_kwargs(self):
         self.SELECT_KWARGS['E1'] = self.th1.get_value()
         self.SELECT_KWARGS['E2'] = self.th2.get_value()
@@ -151,8 +151,8 @@ class BurstSelectorSBRNode(BaseSelectorNode):
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.sbr)
     def __init__(self):
         super().__init__()
-        self.th1 = self.node_builder.build_float_slider('Low Threshold', [0, 100, 1], 0)
-        self.th2 = self.node_builder.build_float_slider('High Threshold', [0, 100, 1], 100)
+        self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [0, 100, 1], 0)
+        self.th2 = self.node_builder.build_float_spinbox('High Threshold', [0, 100, 1], 100)
     def update_select_kwargs(self):
         self.SELECT_KWARGS['th1'] = self.th1.get_value()
         self.SELECT_KWARGS['th2'] = self.th2.get_value()
@@ -215,8 +215,8 @@ class BurstSelectorWidthNode(BaseSelectorNode):
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.width)
     def __init__(self):
         super().__init__()
-        self.th1 = self.node_builder.build_float_slider('Longer than, ms', [0, 1000, 1], 0)
-        self.th2 = self.node_builder.build_float_slider('Shorter than, ms', [0, 1000, 1], 1000)
+        self.th1 = self.node_builder.build_float_spinbox('Longer than, ms', [0, 1000, 1], 0)
+        self.th2 = self.node_builder.build_float_spinbox('Shorter than, ms', [0, 1000, 1], 1000)
     def update_select_kwargs(self):
         self.SELECT_KWARGS['th1'] = self.th1.get_value()
         self.SELECT_KWARGS['th2'] = self.th2.get_value()

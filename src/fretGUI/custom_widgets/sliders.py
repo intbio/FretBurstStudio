@@ -358,36 +358,75 @@ class ComboBoxWidgetWrapper(AbstractWidgetWrapper):
         self.combobox_widget.widget_updaeted.connect(
             self.widget_changed_signal.emit)
 
-# class TripleFloatSpinnerWrapper(AbstractWidgetWrapper):
-#     def __init__(self, parent=None, ranges=None, name="Bin/Min/Max"):
-#         self.spinners = []
-#         ranges = ranges or [(0.01, 0.2, 0.01)] * 3
-
-#         row = QtWidgets.QWidget()
-#         layout = QtWidgets.QHBoxLayout(row)
-#         layout.setContentsMargins(0, 0, 0, 0)
-#         layout.setSpacing(6)
-
-#         for start, stop, step in ranges:
-#             s = FloatSliderWidget(None, start=start, stop=stop, step=step)
-#             self.spinners.append(s)
-#             layout.addWidget(s)
-
-#         super().__init__(parent)
-#         self.set_name(name)
-#         self.set_custom_widget(row)
-
-#     def wire_signals(self):
-#         for s in self.sliders:
-#             s.widget_updaeted.connect(self.widget_changed_signal.emit)
-
-#     def get_value(self):
-#         # returns a tuple of the three values
-#         return tuple(s.value() for s in self.sliders)
-
-#     def set_value(self, values):
-#         for s, v in zip(self.sliders, values):
-#             s.setValue(v)
+class HtmlLabelWidget(QtWidgets.QWidget):
+    widget_updaeted = Signal()
+    
+    def __init__(self, parent=None, html_text="", word_wrap=True):
+        super().__init__(None)
         
+        self.label = QtWidgets.QLabel()
+        self.label.setWordWrap(word_wrap)
+        self.label.setTextFormat(QtCore.Qt.RichText)  # Enable HTML rendering
+        self.label.setOpenExternalLinks(True)  # Allow clicking links
         
+        if html_text:
+            self.setHtml(html_text)
         
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.layout.addWidget(self.label)
+        self.layout.setContentsMargins(3, 3, 3, 3)
+    
+    def value(self):
+        """Returns the current HTML text"""
+        return self.label.text()
+    
+    def setValue(self, html_text):
+        """Sets HTML text"""
+        self.setHtml(html_text)
+    
+    def setHtml(self, html_text):
+        """Sets HTML content"""
+        self.label.setText(str(html_text))
+        self.widget_updaeted.emit()
+    
+    def setText(self, plain_text):
+        """Sets plain text (will be escaped for HTML)"""
+        from Qt import QtCore
+        escaped_text = QtCore.Qt.escape(str(plain_text))
+        self.setHtml(escaped_text)
+    
+    def html(self):
+        """Returns the raw HTML text"""
+        return self.label.text()
+
+
+class HtmlLabelWidgetWrapper(AbstractWidgetWrapper):
+    def __init__(self, parent, html_label_widget, min_width=None):
+        self.html_label_widget = html_label_widget
+        super().__init__(parent)
+        
+        self.set_name('HtmlLabel')
+        self.set_custom_widget(self.html_label_widget)
+        
+        # Set minimum width if specified
+        if min_width is not None:
+            self.setMinimumWidth(min_width)
+            # Also set on the custom widget if it's a QWidget
+            if hasattr(self.html_label_widget, 'setMinimumWidth'):
+                self.html_label_widget.setMinimumWidth(min_width)
+    
+    def get_value(self):
+        return self.get_custom_widget().value()
+    
+    def set_value(self, value):
+        self.get_custom_widget().setValue(value)
+    
+    def set_html(self, html_text):
+        """Convenience method to set HTML from wrapper"""
+        self.get_custom_widget().setHtml(html_text)
+    
+    def wire_signals(self):
+        # Labels typically don't emit signals on their own, but we connect
+        # in case the widget's setHtml method emits widget_updaeted
+        self.html_label_widget.widget_updaeted.connect(
+            self.widget_changed_signal.emit)

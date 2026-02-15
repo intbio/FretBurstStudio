@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x14a3cd68230":{
+    "0x284985d4530":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
@@ -36,8 +36,8 @@
       "width":235.0,
       "height":183.4,
       "pos":[
-        351.4963559545247,
-        -6.250343771991112
+        119.99944234928319,
+        139.66951172325585
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -48,7 +48,7 @@
         "Direct ex.":0.0
       }
     },
-    "0x14a3cd68e30":{
+    "0x284985d4f80":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET histogram",
@@ -86,7 +86,7 @@
         "Bin Width":0.05
       }
     },
-    "0x14a3cd6acf0":{
+    "0x28498576d80":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
@@ -111,10 +111,10 @@
       "selected":false,
       "visible":true,
       "width":450,
-      "height":300,
+      "height":307.67999239448665,
       "pos":[
-        -167.29631337898113,
-        287.3648926145458
+        656.6571563723759,
+        56.965120779945266
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -124,7 +124,7 @@
         "File to plot:":"1, #4_M2dCas-NS_09hOct_400x.001"
       }
     },
-    "0x14a3cd6b050":{
+    "0x28498e98bc0":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"Confocor2 RAW",
@@ -149,7 +149,7 @@
       "selected":false,
       "visible":true,
       "width":339.0,
-      "height":235,
+      "height":200,
       "pos":[
         -271.39416945858216,
         -5.491121091390156
@@ -161,12 +161,11 @@
         "File Widget":[
           "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.001",
           "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.002",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.002"
+          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001"
         ]
       }
     },
-    "0x14a3d634c20":{
+    "0x28498e98f80":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearch by BG",
@@ -191,10 +190,10 @@
       "selected":false,
       "visible":true,
       "width":243.0,
-      "height":183.4,
+      "height":233.8,
       "pos":[
-        626.0316941552236,
-        -6.479726201520634
+        375.8833704490861,
+        114.20586856898436
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -202,10 +201,11 @@
       "custom":{
         "m, Photon search window":10,
         "L, Minimal Burst size":20,
-        "F, Min. Burst rate to bg. ratio":6
+        "F, Min. Burst rate to bg. ratio":6,
+        "Channel":"DAem"
       }
     },
-    "0x14a3d635310":{
+    "0x28498e99760":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"Calc.Background",
@@ -232,8 +232,8 @@
       "width":217.0,
       "height":133.0,
       "pos":[
-        90.14291146795219,
-        -5.188300889597738
+        138.41714937615427,
+        -1.8968755776748667
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -243,7 +243,7 @@
         "Min. lag, \u03bcs":1000
       }
     },
-    "0x14a3d636540":{
+    "0x28498e991c0":{
       "type_":"Selectors.BurstSelectorWidthNode",
       "icon":null,
       "name":"Width",
@@ -267,11 +267,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":333.0,
-      "height":149.8,
+      "width":235.0,
+      "height":133.0,
       "pos":[
-        349.4213765392217,
-        190.3280743542679
+        31.25026305334498,
+        341.73363870271953
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -281,7 +281,7 @@
         "Shorter than, ms":10.0
       }
     },
-    "0x14a3d636ea0":{
+    "0x28498e9a6f0":{
       "type_":"Selectors.BurstSelectorSizeNode",
       "icon":null,
       "name":"Size",
@@ -305,11 +305,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":333.0,
-      "height":149.8,
+      "width":235.0,
+      "height":133.0,
       "pos":[
-        722.6966391696055,
-        189.70682345118442
+        68.80014386759652,
+        483.74081798296027
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -323,71 +323,71 @@
   "connections":[
     {
       "in":[
-        "0x14a3cd68230",
+        "0x284985d4530",
         "inport"
       ],
       "out":[
-        "0x14a3d635310",
+        "0x28498e99760",
         "outport"
       ]
     },
     {
       "out":[
-        "0x14a3cd68230",
+        "0x284985d4530",
         "outport"
       ],
       "in":[
-        "0x14a3d634c20",
+        "0x28498e98f80",
         "inport"
-      ]
-    },
-    {
-      "in":[
-        "0x14a3cd68e30",
-        "inport"
-      ],
-      "out":[
-        "0x14a3d636ea0",
-        "outport"
       ]
     },
     {
       "in":[
-        "0x14a3cd6acf0",
+        "0x284985d4f80",
         "inport"
       ],
       "out":[
-        "0x14a3d635310",
+        "0x28498e9a6f0",
+        "outport"
+      ]
+    },
+    {
+      "in":[
+        "0x28498576d80",
+        "inport"
+      ],
+      "out":[
+        "0x28498e99760",
         "outport"
       ]
     },
     {
       "out":[
-        "0x14a3cd6b050",
+        "0x28498e98bc0",
         "out_file"
       ],
       "in":[
-        "0x14a3d635310",
+        "0x28498e99760",
         "inport"
       ]
     },
     {
       "out":[
-        "0x14a3d634c20",
+        "0x28498e98f80",
         "outport"
       ],
       "in":[
-        "0x14a3d636540",
+        "0x28498e991c0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x14a3d636540",
+        "0x28498e991c0",
         "outport"
       ],
       "in":[
-        "0x14a3d636ea0",
+        "0x28498e9a6f0",
         "inport"
       ]
     }
