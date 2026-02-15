@@ -10,7 +10,7 @@ class ResizablePlotNodeItem(NodeItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._width = 350
+        self._width = 500
         self._height = 250
         self._resizing = False
         self._start_pos = None

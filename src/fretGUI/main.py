@@ -1,9 +1,10 @@
 # Essential imports only - these are fast
 import sys
-import os
+import os, json
 import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore, QtGui
+
 
 
 def main():
@@ -318,6 +319,39 @@ def main():
     # those are needed later to apply node theme after copy and paste
     original_paste_nodes = graph.paste_nodes
     original_duplicate_nodes = graph.duplicate_nodes
+
+    def restore_resizable_node_sizes(node,saved_sizes=None):
+        """Restore size for ResizableContentNode instances after loading from JSON."""
+        from custom_nodes.abstract_nodes import ResizableContentNode
+        try:
+            if isinstance(node, ResizableContentNode):
+                node.view._width = saved_sizes[node.name()].get('width')
+                node.view._height = saved_sizes[node.name()].get('height')
+                node.view._emit_resized(node.view._width, node.view._height)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            pass
+
+    original_load_session = graph.load_session
+    def load_session_wrapper(file_path):
+        saved_sizes = {}
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            if 'nodes' in data:
+                for node_id, node_data in data['nodes'].items():
+                    if 'width' in node_data or 'height' in node_data:
+                        saved_sizes[node_data.get('name')] = {
+                            'width': node_data.get('width'),
+                            'height': node_data.get('height')
+                        }
+
+        result = original_load_session(file_path)
+        for node in graph.all_nodes():
+            restore_resizable_node_sizes(node, saved_sizes)
+        return result
+    graph.load_session = load_session_wrapper
+
+
+
     def apply_theme(kind=None):
         global THEME
         if kind is None:
@@ -390,6 +424,7 @@ def main():
         ## a hacky way to apply  theme upon copy paste
         def paste_nodes_wrapper(adjust_graph_style=True):
             nodes_before = set(graph.all_nodes())
+            print(nodes_before)
             result = original_paste_nodes(adjust_graph_style)
             nodes_after = set(graph.all_nodes())
             new_nodes = nodes_after - nodes_before

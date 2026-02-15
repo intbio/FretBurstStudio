@@ -136,6 +136,8 @@ class AbstractRecomputable(AbstractExecutable):
         pool = QThreadPool.globalInstance()
         pool.start(worker)
 
+
+
 class ResizableContentNode(AbstractRecomputable):
     """
     Base class for nodes that have a single main widget
@@ -156,7 +158,6 @@ class ResizableContentNode(AbstractRecomputable):
         self._content_widget_name = widget_name
         self._initial_layout_done = False  # Track if initial layout has been applied
 
-
         # hook up resize callback
         view = self.view            # this is your ResizablePlotNodeItem
         
@@ -164,22 +165,83 @@ class ResizableContentNode(AbstractRecomputable):
         view.MIN_W = self.MIN_WIDTH
         view.MIN_H = self.MIN_HEIGHT
         
-        # Also ensure initial size respects minimums
-        if view._width < self.MIN_WIDTH:
-            view._width = self.MIN_WIDTH
-        if view._height < self.MIN_HEIGHT:
-            view._height = self.MIN_HEIGHT
+        # Check if width/height properties already exist (from JSON loading)
+        # If they do, use those instead of defaults
+        try:
+            node_width = self.get_property('width')
+            node_height = self.get_property('height')
+            
+            if node_width is not None:
+                # Use the property value, ensuring it's at least the minimum
+                view._width = max(self.MIN_WIDTH, float(node_width))
+            elif view._width < self.MIN_WIDTH:
+                # Only set to minimum if no property exists and current is below minimum
+                view._width = self.MIN_WIDTH
+            
+            if node_height is not None:
+                # Use the property value, ensuring it's at least the minimum
+                view._height = max(self.MIN_HEIGHT, float(node_height))
+            elif view._height < self.MIN_HEIGHT:
+                # Only set to minimum if no property exists and current is below minimum
+                view._height = self.MIN_HEIGHT
+        except (AttributeError, KeyError, TypeError, ValueError):
+            # If properties can't be accessed, fall back to ensuring minimums
+            if view._width < self.MIN_WIDTH:
+                view._width = self.MIN_WIDTH
+            if view._height < self.MIN_HEIGHT:
+                view._height = self.MIN_HEIGHT
         
         view.add_resize_callback(self._on_view_resized)
         
         # hook up paint callback to do initial layout on first paint
         view.add_paint_callback(self._on_view_painted)
 
+    def set_property(self, name, value):
+        """Override to intercept width/height property changes and sync to view."""
+        # Call parent first to set the property
+        result = super().set_property(name, value)
+        
+        # If width or height is being set, update the view's internal size
+        # This handles deserialization from JSON and copy/paste
+        if hasattr(self, 'view') and isinstance(self.view, ResizablePlotNodeItem):
+            if name == 'width':
+                # Ensure it's at least the minimum, then update view
+                new_width = max(self.MIN_WIDTH, float(value))
+                if self.view._width != new_width:
+                    self.view.prepareGeometryChange()
+                    self.view._width = new_width
+                    # Trigger resize callback to update widget layouts
+                    self.view._emit_resized(new_width, self.view._height)
+            elif name == 'height':
+                # Ensure it's at least the minimum, then update view
+                new_height = max(self.MIN_HEIGHT, float(value))
+                if self.view._height != new_height:
+                    self.view.prepareGeometryChange()
+                    self.view._height = new_height
+                    # Trigger resize callback to update widget layouts
+                    self.view._emit_resized(self.view._width, new_height)
+        
+        return result
+
     def _on_view_painted(self):
         """Called every time the node is redrawn/painted."""
+        view = self.view
+        
+        # Enforce minimum size on every paint (in case NodeGraphQt recalculated it)
+        # This ensures subclasses' MIN_WIDTH/MIN_HEIGHT are always respected
+        size_changed = False
+        if view._width < self.MIN_WIDTH:
+            view._width = self.MIN_WIDTH
+            size_changed = True
+        if view._height < self.MIN_HEIGHT:
+            view._height = self.MIN_HEIGHT
+            size_changed = True
+        
+        if size_changed:
+            view.prepareGeometryChange()
+        
         # Do initial layout on first paint when widgets are guaranteed to exist
         if not self._initial_layout_done:
-            view = self.view
             # Check if widget exists before applying layout
             if self.get_widget(self._content_widget_name) is not None:
                 self._initial_layout_done = True

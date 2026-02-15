@@ -240,7 +240,6 @@ class CalcBGNode(AbstractRecomputable):
     def __init__(self):
         super().__init__()
         node_builder = NodeBuilder(self)
-        
         self.add_input('inport')
         self.add_output('outport')
         self.time_s_spinbox = node_builder.build_int_spinbox('Period, s', [1, 1000, 10],60, tooltip='Time for BG calculation, s', min_width=80)
@@ -384,6 +383,7 @@ class FuseBurstsNode(AbstractRecomputable):
 class BurstSearchNodeFromBG(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'BurstSearch by BG'
+    fields_width = 100
     
     def __init__(self):
         super().__init__()
@@ -391,21 +391,24 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
         
         self.add_input('inport')
         self.add_output('outport')
-        self.m_slider = node_builder.build_int_slider(
+        self.m_slider = node_builder.build_int_spinbox(
             'm, Photon search window',
              [3, 100, 1],
               10,
-              tooltip='Number of consecutive photons used to compute the photon rate. Typical values 5-20.')
-        self.L_slider = node_builder.build_int_slider(
+              tooltip='Number of consecutive photons used to compute the photon rate. Typical values 5-20.',
+              min_width=self.fields_width)
+        self.L_slider = node_builder.build_int_spinbox(
             'L, Minimal Burst size',
             [3, 100, 1],
             20,
-            tooltip='Minimum number of photons in burst.')
-        self.F_slider = node_builder.build_int_slider(
+            tooltip='Minimum number of photons in burst.',
+            min_width=self.fields_width)
+        self.F_slider = node_builder.build_int_spinbox(
             'F, Min. Burst rate to bg. ratio',
              [1, 20, 1],
               6,
-              tooltip='defines how many times higher than the background rate is the minimum rate used for burst search (min rate = F * bg. rate). Typical values are 3-9.')
+              tooltip='defines how many times higher than the background rate is the minimum rate used for burst search (min rate = F * bg. rate). Typical values are 3-9.',
+              min_width=self.fields_width)
         
     def __burst_search(self, fbdata: str, m: int,L: int,F: int):
         fbdata.data.burst_search(m=m,L=L,F=F)
@@ -506,20 +509,31 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
     TOP_MARGIN = 10
     BOTTOM_MARGIN = 0
     PLOT_NODE = True
-    MIN_WIDTH = 450
-    MIN_HEIGHT = 300
+    MIN_WIDTH = 550
+    MIN_HEIGHT = 250
     PLOT_FUNC = None
     
-    LAST_PLOTTED_DATA_LIST = []
 
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         super().__init__(widget_name, qgraphics_item)
-
         self.node_builder = NodeBuilder(self)
         self.PLOT_KWARGS = {}
 
         self.add_input('inport')
         self.node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)
+
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        toolbar = plot_widget.toolbar
+        
+        save_data_action = QAction('save data', toolbar)
+        save_data_action.triggered.connect(lambda: self.export(export_type='file'))
+        toolbar.addAction(save_data_action)
+        toolbar.widgetForAction(save_data_action).setStyleSheet("border: 1px solid gray;")
+
+        copy_data_action = QAction('copy data', toolbar)
+        copy_data_action.triggered.connect(lambda: self.export(export_type='copy'))
+        toolbar.addAction(copy_data_action)
+        toolbar.widgetForAction(copy_data_action).setStyleSheet("border: 1px solid gray;")
     
     def update_plot_kwargs(self):
         pass
@@ -527,9 +541,8 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
     def _on_refresh_canvas(self):
         plot_widget = self.get_widget('plot_widget').plot_widget
         plot_widget.figure.clf()
-        ax = plot_widget.figure.add_subplot()
-        ax.cla()
-        self.LAST_PLOTTED_DATA_LIST = []
+        self.ax = plot_widget.figure.add_subplot()
+        self.ax.cla()
 
         # Avoid accidental binding and ensure we have a valid plot function
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
@@ -541,25 +554,60 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         self.data_to_plot.sort(key = lambda x: x.id)
 
         for cur_data in self.data_to_plot:
-            print(cur_data.id)
             if not isinstance(cur_data.data, Data):
                 continue
             
             # Call fretbursts.dplot for each item in data_to_plot
-            fretbursts.dplot(cur_data.data, plot_func, ax=ax, **self.PLOT_KWARGS)
-            self.LAST_PLOTTED_DATA_LIST.append(cur_data)
+            fretbursts.dplot(cur_data.data, plot_func, ax=self.ax, **self.PLOT_KWARGS)
 
             # Set label for the last plotted line/bar if available
             name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
-            if ax.lines:
-                ax.lines[-1].set_label(name)
+            if self.ax.lines:
+                self.ax.lines[-1].set_label(name)
 
         # Add legend if multiple files are plotted
         if len(self.data_to_plot) > 1:
-            ax.legend()
-            ax.set_title('')
+            self.ax.legend()
+            self.ax.set_title('')
         
         plot_widget.canvas.draw()
+    def export(self, export_type = 'file'):
+        data_dict = {}
+
+        for line in self.ax.get_lines():
+            label = line.get_label()
+            x_data = line.get_xdata()
+            y_data = line.get_ydata()
+
+            data_dict[f"{label}, X"] = x_data
+            data_dict[f"{label}, Y"] = y_data
+
+        df = pd.DataFrame(data_dict)
+        if not df.empty:
+            df.set_index(df.columns[0], inplace=True)
+            if export_type == 'file':
+                    # Open file save dialog
+                    from Qt.QtWidgets import QApplication
+                    parent_window = QApplication.activeWindow()
+                    filename, selected_filter = QFileDialog.getSaveFileName(
+                        parent_window,
+                        "Save Data to CSV",
+                        os.getcwd(),
+                        "CSV files (*.csv);;All files (*)"
+                    )
+                    
+                    if filename:
+                        try:
+                            df.to_csv(filename, index=False)
+                        except Exception as e:
+                            from Qt.QtWidgets import QMessageBox
+                            QMessageBox.warning(
+                                parent_window if parent_window else self.view,
+                                "Save Error",
+                                f"Failed to save CSV file:\n{str(e)}"
+                            )
+            else:
+                df.to_clipboard()
 
 class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Background Fit'
@@ -598,66 +646,13 @@ class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
 class EHistPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'FRET histogram'
     PLOT_FUNC = staticmethod(fretbursts.hist_fret)
-
-
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize
-        super().__init__(widget_name, qgraphics_item)
-        plot_widget = self.get_widget('plot_widget').plot_widget
-        toolbar = plot_widget.toolbar
-        
-        # Add "save data" button to toolbar
-        save_data_action = QAction('save data', toolbar)
-        save_data_action.triggered.connect(lambda: self.export(export_type='file'))
-        toolbar.addAction(save_data_action)
-        
-        # Add 1px border around the action button
-        toolbar.widgetForAction(save_data_action).setStyleSheet("border: 1px solid gray;")
-
-        copy_data_action = QAction('copy data', toolbar)
-        copy_data_action.triggered.connect(lambda: self.export(export_type='copy'))
-        toolbar.addAction(copy_data_action)
-        toolbar.widgetForAction(copy_data_action).setStyleSheet("border: 1px solid gray;")
-        
-        self.BinWidth_slider = self.node_builder.build_float_slider('Bin Width', [0.01, 0.2, 0.01], 0.03)
-    
+        super().__init__(widget_name, qgraphics_item)        
+        self.BinWidth_slider = self.node_builder.build_float_slider('Bin Width', [0.01, 0.2, 0.01], 0.03)    
+        self.PLOT_KWARGS['hist_style'] = 'line'
     def update_plot_kwargs(self):
-        self.PLOT_KWARGS['binwidth'] = self.BinWidth_slider.get_value()
-        self.PLOT_KWARGS['hist_style'] = 'bar' if len(self.data_to_plot)==1 else 'line'
-
-    def export(self, export_type = 'file'):
-        data_dict = {}
-
-        for cur_data in self.LAST_PLOTTED_DATA_LIST:
-            name = cur_data.data.name 
-            data_dict['PR%']=cur_data.data.E_fitter.hist_axis
-            data_dict[f'PDF {name}']=cur_data.data.E_fitter.hist_pdf[0]
-        df = pd.DataFrame(data_dict)
-        if not df.empty:
-            df.set_index('PR%', inplace=True)
-            if export_type == 'file':
-                    # Open file save dialog
-                    from Qt.QtWidgets import QApplication
-                    parent_window = QApplication.activeWindow()
-                    filename, selected_filter = QFileDialog.getSaveFileName(
-                        parent_window,
-                        "Save Data to CSV",
-                        os.getcwd(),
-                        "CSV files (*.csv);;All files (*)"
-                    )
-                    
-                    if filename:
-                        try:
-                            df.to_csv(filename, index=False)
-                        except Exception as e:
-                            from Qt.QtWidgets import QMessageBox
-                            QMessageBox.warning(
-                                parent_window if parent_window else self.view,
-                                "Save Error",
-                                f"Failed to save CSV file:\n{str(e)}"
-                            )
-            else:
-                df.to_clipboard()
+        self.PLOT_KWARGS['binwidth'] = self.BinWidth_slider.get_value()        
 
 class HistBurstSizeAllPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst Size hist.'
