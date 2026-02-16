@@ -17,6 +17,7 @@ from fretbursts.burstlib import Data
 from collections import Counter
 from misc import enable_legend_toggle
 import pandas as pd
+import seaborn as sns
 
 
 class AbstractLoader(AbstractRecomputable):
@@ -269,7 +270,7 @@ class CorrectionsNode(AbstractRecomputable):
         node_builder = NodeBuilder(self)
         self.add_input('inport')
         p = self.add_output('outport')  
-        p.type_ = lambda: 'no_burst'
+        # p.type_ = lambda: 'no_burst'
         self.gamma_spinbox = node_builder.build_float_spinbox(    
             'Gamma', 
             [0.01, 10, 0.01],
@@ -698,7 +699,114 @@ class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
 
 
     
+class BVAPlotterNode(AbstractContentNode):
+    __identifier__ = 'Plot'
+    NODE_NAME = 'BVA'
+
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 10
+    BOTTOM_MARGIN = 0
+    PLOT_NODE = True
+    MIN_WIDTH = 450
+    MIN_HEIGHT = 300
+
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
+        super().__init__(widget_name, qgraphics_item)
+        self.PLOT_KWARGS = {}
+        self.node_builder = NodeBuilder(self)
+
+        self.add_input('inport')
+        self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
+        self.items_to_plot = self.node_builder.build_combobox(
+            widget_name="File to plot:",
+            items=[],
+            value=None,
+            tooltip="Select an option"
+        )
+
+    def _on_refresh_canvas(self):
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        fig = plot_widget.figure
+        fig.clear()
+        ax = fig.add_subplot()
+
+        map_name_to_data = {}
+        self.data_to_plot.sort(key = lambda x: x.id)
+        for cur_data in self.data_to_plot:
+            fname = os.path.basename(cur_data.data.fname)
+            fbid = cur_data.id
+            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+
+        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        selected_val = self.items_to_plot.get_value()
+        selected_data = map_name_to_data.get(selected_val)
+
+        if selected_data is None or not isinstance(selected_data, Data):
+            plot_widget.canvas.draw()
+            return
+        def bva_sigma_E(n, bursts, DexAem_mask, out=None):
+            """
+            Perform BVA analysis computing std.dev. of E for sub-bursts in each burst.
+            
+            Split each burst in n-photons chunks (sub-bursts), compute E for each sub-burst,
+            then compute std.dev. of E across the sub-bursts.
+
+            For details on BVA see:
+
+            - Torella et al. (2011) Biophys. J. doi.org/10.1016/j.bpj.2011.01.066
+            - Ingargiola et al. (2016) bioRxiv, doi.org/10.1101/039198
+
+            Arguments:
+                n (int): number of photons in each sub-burst
+                bursts (Bursts object): burst-data object with indexes relative 
+                    to the Dex photon stream.
+                DexAem_mask (bool array): mask of A-emitted photons during D-excitation 
+                    periods. It is a boolean array indexing the array of Dex timestamps 
+                    (`Ph_sel(Dex='DAem')`).
+                out (None or list): append the result to the passed list. If None,
+                    creates a new list. This is useful to accumulate data from
+                    different spots in a single list.
+
+            Returns:
+                E_sub_std (1D array): contains for each burst, the standard deviation of 
+                sub-bursts FRET efficiency. Same length of input argument `bursts`.
+            """
+            E_sub_std = [] if out is None else out
+            
+            for burst in bursts:
+                E_sub_bursts = []
+                startlist = range(burst.istart, burst.istop + 2 - n, n)
+                stoplist = [i + n for i in startlist]
+                for start, stop in zip(startlist, stoplist):
+                    A_D = DexAem_mask[start:stop].sum()
+                    assert stop - start == n
+                    E = A_D / n
+                    E_sub_bursts.append(E)
+                E_sub_std.append(np.std(E_sub_bursts))
+                
+            return E_sub_std
+        ds_FRET = selected_data
+        ph_d = ds_FRET.get_ph_times(ph_sel=fretbursts.Ph_sel(Dex='DAem'))
+        bursts = ds_FRET.mburst[0]
+        bursts_d = bursts.recompute_index_reduce(ph_d)
+        Dex_mask = ds_FRET.get_ph_mask(ph_sel=fretbursts.Ph_sel(Dex='DAem'))   
+        DexAem_mask = ds_FRET.get_ph_mask(ph_sel=fretbursts.Ph_sel(Dex='Aem')) 
+        DexAem_mask_d = DexAem_mask[Dex_mask]
+        n = 7
+        E_sub_std = bva_sigma_E(n, bursts_d, DexAem_mask_d)
+
+        x = np.arange(0,1.01,0.01)
+        y = np.sqrt((x*(1-x))/n)
+        ax.plot(x, y, lw=2, color='k', ls='--')
+        im = sns.kdeplot(data={'E':ds_FRET.E[0], 'sigma':np.asfarray(E_sub_std)}, x='E', y='sigma', 
+                        fill=True, cmap='Spectral_r', thresh=0.05, levels=20)
+        ax.set_xlim(0,1)
+        ax.set_ylim(0,np.sqrt(0.5**2/7)*2)
+        ax.set_xlabel('E', fontsize=16)
+        ax.set_ylabel(r'$\sigma_i$', fontsize=16);
         
+        # fig.tight_layout()
+        plot_widget.canvas.draw()    
         
         
         

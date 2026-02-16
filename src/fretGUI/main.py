@@ -142,7 +142,8 @@ def main():
             custom_nodes.HistBurstWidthPlotterNode,
             custom_nodes.HistBurstBrightnessPlotterNode,
             custom_nodes.HistBurstSBRPlotterNode,
-            custom_nodes.HistBurstPhratePlotterNode  
+            custom_nodes.HistBurstPhratePlotterNode,  
+            custom_nodes.BVAPlotterNode
         ]
     )
     
