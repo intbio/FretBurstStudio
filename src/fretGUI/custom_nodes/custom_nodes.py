@@ -461,7 +461,7 @@ class AbstractContentNode(ResizableContentNode):
         self.data_to_plot.clear()
         self.was_executed = False
         
-    def get_inport(self, fbsdata: FBSData) -> NodeGraphQt.Port:
+    def get_input_port(self, fbsdata: FBSData) -> NodeGraphQt.Port:
         """function returns port from which current fbsdata came
 
         Args:
@@ -478,7 +478,7 @@ class AbstractContentNode(ResizableContentNode):
         return None
     
     def execute(self, fbsdata: FBSData=None):
-        inport_name = self.get_inport(fbsdata).name()
+        inport_name = self.get_input_port(fbsdata).name()
         print(inport_name)
         self.was_executed = True
         if fbsdata is not None:
