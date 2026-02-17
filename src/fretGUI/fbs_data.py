@@ -9,6 +9,14 @@ class FBSData():
         self.__path = path if path else ''
         self.__id = id if id else FBSDataIDGenerator().get_next_id()
         self.__checked = checked
+        self.__node_metadata = []
+        
+    def add_node_metadata(self, metadata: dict):
+        self.__node_metadata.append(metadata)
+        
+    @property
+    def node_metadata(self):
+        return self.__node_metadata
         
     def is_checked(self):
         return self.__checked == True
@@ -38,7 +46,7 @@ class FBSData():
         return self.__id
         
     def copy(self):
-        new_obj = FBSData(deepcopy(self.__data), self.__path, id=self.__id, checked=self.__checked)
+        new_obj = FBSData(deepcopy(self.__data), self.__path, id=self.__id, checked=self.__checked, __node_metadata=self.node_metadata)
         return new_obj
     
     def __repr__(self):
