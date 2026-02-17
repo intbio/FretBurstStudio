@@ -74,7 +74,7 @@ class NodeWorker(AbstractNodeWorker):
                 raise error
             else:        
                 for i, cur_data in enumerate(data_container):
-                    cur_data.prev_node = cur_node
+                    cur_data.prev_nodeid = id(cur_node)
                     if i >= 1:
                         self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
                     else:

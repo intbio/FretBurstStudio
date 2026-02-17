@@ -472,8 +472,8 @@ class AbstractContentNode(ResizableContentNode):
         """
         connected_inports = self.connected_input_nodes()
         for port, connected_nodes in connected_inports.items():
-            connected_nodes = set(connected_nodes)
-            if fbsdata.prev_node in connected_nodes:
+            connected_node_ids = set([id(node) for node in connected_nodes])
+            if fbsdata.prev_nodeid in connected_node_ids:
                 return port
         return None
     

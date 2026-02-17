@@ -73,7 +73,7 @@ class EventDebouncer(metaclass=SingletonMeta):
     
 class FBSDataCash(metaclass=SingletonMeta):
     def __init__(self):
-        self.__max_size = 30
+        self.__max_size = 50
         self.__table = dict()
         self.__time_q = queue.PriorityQueue()
         self.mutex = QMutex()
