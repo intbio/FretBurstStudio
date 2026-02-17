@@ -104,69 +104,69 @@ class NodeWorker(AbstractNodeWorker):
 
 
         
-class UpdateWidgetNodeWorker(NodeWorker):
-    def __init__(self, start_node, data=None, node_seq=None, need_fill=True):
-        super().__init__(start_node, data, node_seq, need_fill)
-        self.__need_fill = need_fill
+# class UpdateWidgetNodeWorker(NodeWorker):
+#     def __init__(self, start_node, data=None, node_seq=None, need_fill=True):
+#         super().__init__(start_node, data, node_seq, need_fill)
+#         self.__need_fill = need_fill
         
-    def fill_nodeseq(self):
-        forward_paths = []
-        super()._fill_nodeseq(self.start_node, self.node_seq, forward_paths)
+#     def fill_nodeseq(self):
+#         forward_paths = []
+#         super()._fill_nodeseq(self.start_node, self.node_seq, forward_paths)
             
-        backwards_path = []
-        self._fill_nodeseq_backwards(self.start_node, None, backwards_path)
-        self.__need_fill = False
+#         backwards_path = []
+#         self._fill_nodeseq_backwards(self.start_node, None, backwards_path)
+#         self.__need_fill = False
         
-        for i, (forward_q, backward_q) in enumerate(
-            product(forward_paths, backwards_path)
-            ):
-            new_backward_q = backward_q.copy()
-            new_backward_q.pop()
-            new_backward_q.extend(forward_q.copy())
-            if i == 0:
-                self.node_seq = new_backward_q
-            else:
-                self.run_in_new_thread(self.start_node, self.data, new_backward_q, False)
+#         for i, (forward_q, backward_q) in enumerate(
+#             product(forward_paths, backwards_path)
+#             ):
+#             new_backward_q = backward_q.copy()
+#             new_backward_q.pop()
+#             new_backward_q.extend(forward_q.copy())
+#             if i == 0:
+#                 self.node_seq = new_backward_q
+#             else:
+#                 self.run_in_new_thread(self.start_node, self.data, new_backward_q, False)
   
-    def _fill_nodeseq_backwards(self, node, visited, paths=[]):
-        visited = visited if visited else deque()
-        visited.appendleft(node)
-        parents = list(node.iter_parent_nodes())
-        if len(parents) == 0:
-            paths.append(visited.copy())
-        elif len(parents) == 1:
-            next_node = parents[0]
-            self._fill_nodeseq_backwards(next_node, visited, paths)
-        else:
-            for next_node in parents:
-                self._fill_nodeseq_backwards(next_node, visited.copy(), paths)
+#     def _fill_nodeseq_backwards(self, node, visited, paths=[]):
+#         visited = visited if visited else deque()
+#         visited.appendleft(node)
+#         parents = list(node.iter_parent_nodes())
+#         if len(parents) == 0:
+#             paths.append(visited.copy())
+#         elif len(parents) == 1:
+#             next_node = parents[0]
+#             self._fill_nodeseq_backwards(next_node, visited, paths)
+#         else:
+#             for next_node in parents:
+#                 self._fill_nodeseq_backwards(next_node, visited.copy(), paths)
 
-    def need_fill(self) -> bool:
-        return self.__need_fill
+#     def need_fill(self) -> bool:
+#         return self.__need_fill
     
     
 
 
 
-class PlotCleanerWorker(NodeWorker):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__mutex = QMutex()
+# class PlotCleanerWorker(NodeWorker):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.__mutex = QMutex()
         
-    def _run(self):
-        while len(self.node_seq) != 0:
-            cur_node = self.node_seq.popleft()
-            if isinstance(cur_node, custom_nodes.AbstractContentNode):
-                input_nodes = cur_node.connected_input_nodes()
-                max_connected_nodes = max(input_nodes.items(), key=lambda item: len(item[1]))
-                print(input_nodes, 'MAXNODES', max_connected_nodes)
-                if max_connected_nodes == 0:   
-                    plot_widget = cur_node.get_widget('plot_widget').plot_widget             
-                    fig = plot_widget.figure
-                    fig.clear()
-                    plot_widget.canvas.draw()
+#     def _run(self):
+#         while len(self.node_seq) != 0:
+#             cur_node = self.node_seq.popleft()
+#             if isinstance(cur_node, custom_nodes.AbstractContentNode):
+#                 input_nodes = cur_node.connected_input_nodes()
+#                 max_connected_nodes = max(input_nodes.items(), key=lambda item: len(item[1]))
+#                 print(input_nodes, 'MAXNODES', max_connected_nodes)
+#                 if max_connected_nodes == 0:   
+#                     plot_widget = cur_node.get_widget('plot_widget').plot_widget             
+#                     fig = plot_widget.figure
+#                     fig.clear()
+#                     plot_widget.canvas.draw()
                     
-    def run(self):
-        if self.need_fill():
-            self.fill_nodeseq()
-        self._run()
+#     def run(self):
+#         if self.need_fill():
+#             self.fill_nodeseq()
+#         self._run()

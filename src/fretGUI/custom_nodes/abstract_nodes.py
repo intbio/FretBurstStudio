@@ -2,7 +2,7 @@ from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from NodeGraphQt import BaseNode
 from abc import  abstractmethod, ABC
 from fbs_data import FBSData
-from node_workers import PlotCleanerWorker, UpdateWidgetNodeWorker
+from node_workers import NodeWorker
 from Qt.QtCore import QThreadPool   
 from singletons import ThreadSignalManager, EventDebouncer, NodeStateManager
 from collections import deque
@@ -124,18 +124,16 @@ class AbstractRecomputable(AbstractExecutable):
     
     def on_connection(self, event):
         action, in_port, out_port = event
-        print(f'action: {action}, inport: {type(in_port.node())}, outport: {type(out_port.node())}')
-        if action == 'connect':
-            self.on_widget_triggered(in_port.node())
-        elif action == 'disconnect':
-            self.on_widget_triggered(in_port.node(), PlotCleanerWorker)
+        self.on_widget_triggered(out_port.node(), NodeWorker)
             
     def on_widget_triggered(self, node=None, worker_cls=None):
         node = node if node else self
-        worker_cls = worker_cls if worker_cls else UpdateWidgetNodeWorker
-        worker = worker_cls(node)
-        pool = QThreadPool.globalInstance()
-        pool.start(worker)
+        worker_cls = worker_cls if worker_cls else NodeWorker
+        roots = node.find_roots()
+        for root in roots:
+            worker = worker_cls(root)
+            pool = QThreadPool.globalInstance()
+            pool.start(worker)
 
 
 
