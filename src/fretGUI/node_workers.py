@@ -154,14 +154,17 @@ class PlotCleanerWorker(NodeWorker):
         self.__mutex = QMutex()
         
     def _run(self):
-        print(self.node_seq)
         while len(self.node_seq) != 0:
             cur_node = self.node_seq.popleft()
             if isinstance(cur_node, custom_nodes.AbstractContentNode):
-                plot_widget = cur_node.get_widget('plot_widget').plot_widget
-                fig = plot_widget.figure
-                fig.clear()
-                plot_widget.canvas.draw()
+                input_nodes = cur_node.connected_input_nodes()
+                max_connected_nodes = max(input_nodes.items(), key=lambda item: len(item[1]))
+                print(input_nodes, 'MAXNODES', max_connected_nodes)
+                if max_connected_nodes == 0:   
+                    plot_widget = cur_node.get_widget('plot_widget').plot_widget             
+                    fig = plot_widget.figure
+                    fig.clear()
+                    plot_widget.canvas.draw()
                     
     def run(self):
         if self.need_fill():

@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x76857193d340":{
+    "0x74c775817fb0":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
@@ -48,7 +48,7 @@
         "Direct ex.":0.0
       }
     },
-    "0x76857193dfd0":{
+    "0x74c772031e50":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET histogram",
@@ -72,21 +72,34 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":781.4969136052413,
-      "height":466.3085366605105,
+      "width":790.4656636052413,
+      "height":512.3239634935361,
       "pos":[
-        325.47834065208326,
-        363.64404129129866
+        749.980776573198,
+        516.1097275887143
       ],
       "layout_direction":0,
-      "port_deletion_allowed":false,
+      "port_deletion_allowed":true,
       "subgraph_session":{},
+      "input_ports":[
+        {
+          "name":"inport1",
+          "multi_connection":false,
+          "display_name":true
+        },
+        {
+          "name":"inport2",
+          "multi_connection":false,
+          "display_name":true
+        }
+      ],
+      "output_ports":[],
       "custom":{
         "plot_widget":null,
         "Bin Width":0.05
       }
     },
-    "0x76857193fc50":{
+    "0x74c7720338f0":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
@@ -137,7 +150,7 @@
         "File to plot:":""
       }
     },
-    "0x76857193e480":{
+    "0x74c772033d10":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"Confocor2 RAW",
@@ -174,7 +187,7 @@
         "File Widget":[]
       }
     },
-    "0x7685745a02f0":{
+    "0x74c770d44c20":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearch by BG",
@@ -214,7 +227,7 @@
         "Channel":"DAem"
       }
     },
-    "0x7685745a02c0":{
+    "0x74c770d45eb0":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"Calc.Background",
@@ -252,7 +265,7 @@
         "Min. lag, \u03bcs":1000
       }
     },
-    "0x768570e4a840":{
+    "0x74c770d477d0":{
       "type_":"Selectors.BurstSelectorWidthNode",
       "icon":null,
       "name":"Width",
@@ -290,7 +303,7 @@
         "Shorter than, ms":10.0
       }
     },
-    "0x768570e4b860":{
+    "0x74c770d45c10":{
       "type_":"Selectors.BurstSelectorSizeNode",
       "icon":null,
       "name":"Size",
@@ -317,8 +330,8 @@
       "width":246.78125,
       "height":159.20000000000002,
       "pos":[
-        68.80014386759652,
-        483.74081798296027
+        163.10769618150482,
+        560.0189852956803
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -332,71 +345,71 @@
   "connections":[
     {
       "in":[
-        "0x76857193d340",
+        "0x74c775817fb0",
         "inport"
       ],
       "out":[
-        "0x7685745a02c0",
+        "0x74c770d45eb0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x76857193d340",
+        "0x74c775817fb0",
         "outport"
       ],
       "in":[
-        "0x7685745a02f0",
+        "0x74c770d44c20",
         "inport"
       ]
     },
     {
       "in":[
-        "0x76857193dfd0",
-        "inport"
-      ],
-      "out":[
-        "0x768570e4b860",
-        "outport"
-      ]
-    },
-    {
-      "in":[
-        "0x76857193fc50",
+        "0x74c772031e50",
         "inport1"
       ],
       "out":[
-        "0x7685745a02c0",
+        "0x74c770d45c10",
+        "outport"
+      ]
+    },
+    {
+      "in":[
+        "0x74c7720338f0",
+        "inport1"
+      ],
+      "out":[
+        "0x74c770d45eb0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x76857193e480",
+        "0x74c772033d10",
         "out_file"
       ],
       "in":[
-        "0x7685745a02c0",
+        "0x74c770d45eb0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x7685745a02f0",
+        "0x74c770d44c20",
         "outport"
       ],
       "in":[
-        "0x768570e4a840",
+        "0x74c770d477d0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x768570e4a840",
+        "0x74c770d477d0",
         "outport"
       ],
       "in":[
-        "0x768570e4b860",
+        "0x74c770d45c10",
         "inport"
       ]
     }

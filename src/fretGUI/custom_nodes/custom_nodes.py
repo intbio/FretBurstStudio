@@ -497,6 +497,14 @@ class AbstractContentNode(ResizableContentNode):
                        connected_inputs.items())))
         if nall_inputs - nconnected_inputs == 2:
             plot_node.delete_input(in_port) 
+        
+        if nconnected_inputs == 0:
+            self.__on_plot_data_clear()
+            plot_widget = self.get_widget('plot_widget').plot_widget
+            fig = plot_widget.figure
+            fig.clear()
+            plot_widget.canvas.draw()
+                   
         return super().on_input_disconnected(in_port, out_port)
         
     
@@ -569,8 +577,6 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         super().__init__(widget_name, qgraphics_item)
         self.node_builder = NodeBuilder(self)
         self.PLOT_KWARGS = {}
-
-        p = self.add_input('inport')
         
         self.node_builder.build_plot_widget('plot_widget', mpl_width=4.0, mpl_height=3.0)
 

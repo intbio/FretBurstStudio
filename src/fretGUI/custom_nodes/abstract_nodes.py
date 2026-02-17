@@ -124,6 +124,7 @@ class AbstractRecomputable(AbstractExecutable):
     
     def on_connection(self, event):
         action, in_port, out_port = event
+        print(f'action: {action}, inport: {type(in_port.node())}, outport: {type(out_port.node())}')
         if action == 'connect':
             self.on_widget_triggered(in_port.node())
         elif action == 'disconnect':
