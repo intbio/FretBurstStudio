@@ -3,6 +3,7 @@ import custom_widgets.path_selector as path_selector
 from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
 import fretbursts, os
 from node_builder import NodeBuilder
+import NodeGraphQt
 
 
 from fbs_data import FBSData
@@ -459,8 +460,26 @@ class AbstractContentNode(ResizableContentNode):
     def __on_plot_data_clear(self):
         self.data_to_plot.clear()
         self.was_executed = False
+        
+    def get_inport(self, fbsdata: FBSData) -> NodeGraphQt.Port:
+        """function returns port from which current fbsdata came
+
+        Args:
+            fbsdata (FBSData): data
+
+        Returns:
+            NodeGraphQt.Port: corresponding input port
+        """
+        connected_inports = self.connected_input_nodes()
+        for port, connected_nodes in connected_inports.items():
+            connected_nodes = set(connected_nodes)
+            if fbsdata.prev_node in connected_nodes:
+                return port
+        return None
     
     def execute(self, fbsdata: FBSData=None):
+        inport_name = self.get_inport(fbsdata).name()
+        print(inport_name)
         self.was_executed = True
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)

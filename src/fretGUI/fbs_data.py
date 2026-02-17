@@ -10,6 +10,7 @@ class FBSData():
         self.__id = id if id else FBSDataIDGenerator().get_next_id()
         self.__checked = checked
         self.__node_metadata = node_metadata if node_metadata else []
+        self.prev_node = None        
         
     def add_node_metadata(self, metadata: dict):
         self.__node_metadata.append(metadata)
