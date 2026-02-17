@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x284985d4530":{
+    "0x76857193d340":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
@@ -33,11 +33,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":183.4,
+      "width":246.78125,
+      "height":222.20000000000002,
       "pos":[
-        119.99944234928319,
-        139.66951172325585
+        716.0848252813194,
+        181.01647470120056
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -48,7 +48,7 @@
         "Direct ex.":0.0
       }
     },
-    "0x284985d4f80":{
+    "0x76857193dfd0":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET histogram",
@@ -86,7 +86,7 @@
         "Bin Width":0.05
       }
     },
-    "0x28498576d80":{
+    "0x76857193fc50":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
@@ -110,21 +110,34 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":450,
-      "height":307.67999239448665,
+      "width":493.609375,
+      "height":345.763992014211,
       "pos":[
-        656.6571563723759,
-        56.965120779945266
+        -499.33501688599495,
+        305.04689864761355
       ],
       "layout_direction":0,
-      "port_deletion_allowed":false,
+      "port_deletion_allowed":true,
       "subgraph_session":{},
+      "input_ports":[
+        {
+          "name":"inport1",
+          "multi_connection":false,
+          "display_name":true
+        },
+        {
+          "name":"inport2",
+          "multi_connection":false,
+          "display_name":true
+        }
+      ],
+      "output_ports":[],
       "custom":{
         "plot_widget":null,
-        "File to plot:":"1, #4_M2dCas-NS_09hOct_400x.001"
+        "File to plot:":""
       }
     },
-    "0x28498e98bc0":{
+    "0x76857193e480":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"Confocor2 RAW",
@@ -148,24 +161,20 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":339.0,
-      "height":200,
+      "width":342.3125,
+      "height":138.2,
       "pos":[
-        -271.39416945858216,
-        -5.491121091390156
+        -579.7736016690865,
+        11.736780149420136
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "File Widget":[
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.001",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.002",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001"
-        ]
+        "File Widget":[]
       }
     },
-    "0x28498e98f80":{
+    "0x7685745a02f0":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearch by BG",
@@ -189,11 +198,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":243.0,
-      "height":233.8,
+      "width":255.15625,
+      "height":284.15,
       "pos":[
-        375.8833704490861,
-        114.20586856898436
+        1030.5436175998775,
+        100.42354757633612
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -205,7 +214,7 @@
         "Channel":"DAem"
       }
     },
-    "0x28498e99760":{
+    "0x7685745a02c0":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"Calc.Background",
@@ -229,8 +238,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":217.0,
-      "height":133.0,
+      "width":226.78125,
+      "height":159.20000000000002,
       "pos":[
         138.41714937615427,
         -1.8968755776748667
@@ -243,7 +252,7 @@
         "Min. lag, \u03bcs":1000
       }
     },
-    "0x28498e991c0":{
+    "0x768570e4a840":{
       "type_":"Selectors.BurstSelectorWidthNode",
       "icon":null,
       "name":"Width",
@@ -267,8 +276,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":133.0,
+      "width":246.78125,
+      "height":159.20000000000002,
       "pos":[
         31.25026305334498,
         341.73363870271953
@@ -281,7 +290,7 @@
         "Shorter than, ms":10.0
       }
     },
-    "0x28498e9a6f0":{
+    "0x768570e4b860":{
       "type_":"Selectors.BurstSelectorSizeNode",
       "icon":null,
       "name":"Size",
@@ -305,8 +314,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":133.0,
+      "width":246.78125,
+      "height":159.20000000000002,
       "pos":[
         68.80014386759652,
         483.74081798296027
@@ -323,71 +332,71 @@
   "connections":[
     {
       "in":[
-        "0x284985d4530",
+        "0x76857193d340",
         "inport"
       ],
       "out":[
-        "0x28498e99760",
+        "0x7685745a02c0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x284985d4530",
+        "0x76857193d340",
         "outport"
       ],
       "in":[
-        "0x28498e98f80",
+        "0x7685745a02f0",
         "inport"
-      ]
-    },
-    {
-      "in":[
-        "0x284985d4f80",
-        "inport"
-      ],
-      "out":[
-        "0x28498e9a6f0",
-        "outport"
       ]
     },
     {
       "in":[
-        "0x28498576d80",
+        "0x76857193dfd0",
         "inport"
       ],
       "out":[
-        "0x28498e99760",
+        "0x768570e4b860",
+        "outport"
+      ]
+    },
+    {
+      "in":[
+        "0x76857193fc50",
+        "inport1"
+      ],
+      "out":[
+        "0x7685745a02c0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x28498e98bc0",
+        "0x76857193e480",
         "out_file"
       ],
       "in":[
-        "0x28498e99760",
+        "0x7685745a02c0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x28498e98f80",
+        "0x7685745a02f0",
         "outport"
       ],
       "in":[
-        "0x28498e991c0",
+        "0x768570e4a840",
         "inport"
       ]
     },
     {
       "out":[
-        "0x28498e991c0",
+        "0x768570e4a840",
         "outport"
       ],
       "in":[
-        "0x28498e9a6f0",
+        "0x768570e4b860",
         "inport"
       ]
     }
