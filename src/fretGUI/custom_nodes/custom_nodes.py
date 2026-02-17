@@ -440,6 +440,8 @@ class AbstractContentNode(ResizableContentNode):
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
         self.was_executed = False
+        self.add_input('inport1')
+        self.set_port_deletion_allowed(mode=True)
         
     def on_refresh_canvas(self):
         if self.was_executed:
@@ -458,8 +460,45 @@ class AbstractContentNode(ResizableContentNode):
         self.was_executed = True
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)
-        return [fbsdata]        
+        return [fbsdata] 
     
+    def __get_port_name(self, connected_inputs) -> str:
+        connected_inputs = set(connected_inputs)
+        for i in range(1, len(connected_inputs) + 1):
+            name = f"inport{i}"
+            if name not in connected_inputs:
+                return name
+        return f"inport{i+1}"
+    
+    def on_input_connected(self, in_port, out_port):
+        plot_node = in_port.node()   
+        connected_inputs = plot_node.connected_input_nodes()  
+        all_inputs = plot_node.inputs()
+        nall_inputs = len(all_inputs)
+        if nall_inputs == 0:
+            return super().on_input_connected(in_port, out_port)
+        nconnected_inputs = len(
+            list(
+                filter(lambda item: len(item[1]) != 0,
+                       connected_inputs.items())))
+        if nall_inputs == nconnected_inputs:
+            new_portname = self.__get_port_name(all_inputs)
+            plot_node.add_input(new_portname)
+            plot_node.set_port_deletion_allowed(mode=True)
+        return super().on_input_connected(in_port, out_port)
+    
+    def on_input_disconnected(self, in_port, out_port):
+        plot_node = in_port.node()      
+        connected_inputs = plot_node.connected_input_nodes()  
+        nall_inputs = len(plot_node.inputs())
+        nconnected_inputs = len(
+            list(
+                filter(lambda item: len(item[1]) != 0,
+                       connected_inputs.items())))
+        if nall_inputs - nconnected_inputs == 2:
+            plot_node.delete_input(in_port) 
+        return super().on_input_disconnected(in_port, out_port)
+        
     
 class BaseSingleFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
@@ -478,7 +517,6 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         self.PLOT_KWARGS = {}
         self.node_builder = NodeBuilder(self)
 
-        self.add_input('inport')
         self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
         self.items_to_plot = self.node_builder.build_combobox(
             widget_name="File to plot:",
