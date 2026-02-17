@@ -124,12 +124,18 @@ class AbstractRecomputable(AbstractExecutable):
     
     def on_connection(self, event):
         action, in_port, out_port = event
-        self.on_widget_triggered(out_port.node(), NodeWorker)
+        print(action, type(in_port.node()), type(out_port.node()))
+        if action == 'connect':
+            self.on_widget_triggered(out_port.node(), NodeWorker)
+        elif action == 'disconnect':
+            self.on_widget_triggered(in_port.node(), NodeWorker)
             
     def on_widget_triggered(self, node=None, worker_cls=None):
         node = node if node else self
         worker_cls = worker_cls if worker_cls else NodeWorker
         roots = node.find_roots()
+        if len(roots) == 0:
+            roots = [node]
         for root in roots:
             worker = worker_cls(root)
             pool = QThreadPool.globalInstance()

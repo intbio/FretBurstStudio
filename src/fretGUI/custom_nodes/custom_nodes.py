@@ -443,6 +443,10 @@ class AbstractContentNode(ResizableContentNode):
         self.add_input('inport1')
         self.set_port_deletion_allowed(mode=True)
         
+    @property
+    def plot_widget(self):
+        return self.get_widget('plot_widget').plot_widget
+        
     def on_refresh_canvas(self):
         if self.was_executed:
             self._on_refresh_canvas()

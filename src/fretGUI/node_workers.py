@@ -82,6 +82,10 @@ class NodeWorker(AbstractNodeWorker):
     def fill_nodeseq(self):
         paths = []
         self._fill_nodeseq(self.start_node, self.node_seq, paths)
+        
+        print("start", self.start_node)
+        print("PATHS", paths)
+        
         for i, cur_pathq in enumerate(paths):
             if i == 0:
                 self.node_seq = cur_pathq
