@@ -440,7 +440,7 @@ class AbstractContentNode(ResizableContentNode):
     def __init__(self, widget_name, qgraphics_item=None):
         super().__init__(widget_name, qgraphics_item)
         self.data_to_plot = []
-        ThreadSignalManager().all_thread_finished.connect(self.__on_refresh_canvas)
+        ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
         ThreadSignalManager().all_thread_finished.connect(self.on_check_ports)
         self.was_executed = False
         self.add_input('inport1')
@@ -515,11 +515,11 @@ class AbstractContentNode(ResizableContentNode):
     def on_input_disconnected(self, in_port, out_port):
         status = NodeStateManager().node_status
         if not status:
-            self.__on_check_ports()
+            self.on_check_ports()
         super().on_input_disconnected(in_port, out_port)
         
     
-    def __on_check_ports(self):
+    def on_check_ports(self):
         connected_inputs = self.connected_input_nodes()
         empty_ports = []
         connected_ports = []
@@ -535,7 +535,7 @@ class AbstractContentNode(ResizableContentNode):
                 try:
                     self.delete_input(cur_port)
                 except AttributeError as error:
-                    print(error, 'processed')
+                    print(error)
 
             
             
