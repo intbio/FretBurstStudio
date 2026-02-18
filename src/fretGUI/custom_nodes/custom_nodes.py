@@ -4,6 +4,7 @@ from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNo
 import fretbursts, os
 from node_builder import NodeBuilder
 import NodeGraphQt
+from singletons import NodeStateManager
 
 
 from fbs_data import FBSData
@@ -440,6 +441,7 @@ class AbstractContentNode(ResizableContentNode):
         super().__init__(widget_name, qgraphics_item)
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
+        ThreadSignalManager().all_thread_finished.connect(self.on_check_ports)
         self.was_executed = False
         self.add_input('inport1')
         self.set_port_deletion_allowed(mode=True)
@@ -511,24 +513,32 @@ class AbstractContentNode(ResizableContentNode):
         return super().on_input_connected(in_port, out_port)
     
     def on_input_disconnected(self, in_port, out_port):
-        plot_node = in_port.node()      
-        connected_inputs = plot_node.connected_input_nodes()  
-        nall_inputs = len(plot_node.inputs())
-        nconnected_inputs = len(
-            list(
-                filter(lambda item: len(item[1]) != 0,
-                       connected_inputs.items())))
-        if nall_inputs - nconnected_inputs == 2:
-            plot_node.delete_input(in_port) 
+        status = NodeStateManager().node_status
+        if not status:
+            self.on_check_ports()
+        super().on_input_disconnected(in_port, out_port)
         
-        if nconnected_inputs == 0:
-            self.__on_plot_data_clear()
-            plot_widget = self.get_widget('plot_widget').plot_widget
-            fig = plot_widget.figure
-            fig.clear()
-            plot_widget.canvas.draw()
-                   
-        return super().on_input_disconnected(in_port, out_port)
+    
+    def on_check_ports(self):
+        connected_inputs = self.connected_input_nodes()
+        empty_ports = []
+        connected_ports = []
+        for port, connected_nodes in connected_inputs.items():
+            if len(connected_nodes) == 0:
+                empty_ports.append(port)
+            else:
+                connected_ports.append(port)   
+        
+        if len(empty_ports) >= 2:
+            for i in range(1, len(empty_ports)):
+                cur_port = empty_ports[i]
+                try:
+                    self.delete_input(cur_port)
+                except AttributeError as error:
+                    print(error)
+
+            
+            
         
     
 class BaseSingleFilePlotterNode(AbstractContentNode):
