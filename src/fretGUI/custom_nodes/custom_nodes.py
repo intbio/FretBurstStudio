@@ -454,6 +454,11 @@ class AbstractContentNode(ResizableContentNode):
     
     def has_plot_data(self) -> bool:
         return len(self.data_to_plot) != 0
+    
+    def on_widget_triggered(self, *args, **kwargs):
+        self.__on_plot_data_clear()
+        self.plot_widget.figure.clear()
+        super().on_widget_triggered(*args, **kwargs)
         
     def on_refresh_canvas(self):
         if self.has_plot_data():
