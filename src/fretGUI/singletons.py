@@ -40,7 +40,6 @@ class NodeStateManager(QObject, metaclass=SingletonMeta):
 class EventDebouncer(metaclass=SingletonMeta):
         
     def __init__(self, delay_ms: int, on_triggered: callable):
-        print('________________________init________________-')
         self.timer = QTimer()
         self.timer.setSingleShot(True)  # Важно: таймер должен быть одноразовым
         self.__on_triggered = on_triggered

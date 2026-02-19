@@ -88,7 +88,7 @@ class AbstractRecomputable(AbstractExecutable):
         
         if isinstance(widget, AbstractWidgetWrapper):  
             if connection_status:      
-                widget.widget_changed_signal.connect(self.on_widget_triggered)            
+                widget.debounced_signal.connect(self.on_widget_triggered)            
             self.widget_wrappers.append(widget)  
         super().add_custom_widget(widget, *args, **kwargs)
         
@@ -97,14 +97,14 @@ class AbstractRecomputable(AbstractExecutable):
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
-            widget_wrapper.widget_changed_signal.connect(self.on_widget_triggered)
+            widget_wrapper.debounced_signal.connect(self.on_widget_triggered)
             
     def unwire_wrappers(self):
         self.event_debouncer.disconnect()
         if len(self.widget_wrappers) == 0:
             return None
         for widget_wrapper in self.widget_wrappers:
-            widget_wrapper.widget_changed_signal.disconnect(self.on_widget_triggered)
+            widget_wrapper.debounced_signal.disconnect(self.on_widget_triggered)
             
     def disable_all_node_widgets(self):
         for widget_name, widget in self.widgets().items():
