@@ -444,6 +444,7 @@ class AbstractContentNode(ResizableContentNode):
         ThreadSignalManager().all_thread_finished.connect(self.on_check_ports)
         self.add_input('inport1')
         self.set_port_deletion_allowed(mode=True)
+        self.on_check_ports()
         
     @property
     def plot_widget(self):
@@ -457,7 +458,7 @@ class AbstractContentNode(ResizableContentNode):
             print("WAS EXECUTED", type(self))
             self._on_refresh_canvas()
             self.plot_widget.canvas.draw()
-            self.__on_plot_data_clear()
+            self.data_to_plot.clear()
         else:
             print("WAS NOT EXECUTED", type(self))   
             self.__on_plot_data_clear()
@@ -546,9 +547,6 @@ class AbstractContentNode(ResizableContentNode):
                     print(error)
 
             
-            
-        
-    
 class BaseSingleFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
     NODE_NAME = 'BaseSingleFilePlotterNode'

@@ -143,11 +143,16 @@ class AbstractRecomputable(AbstractExecutable):
         return False
             
     def on_widget_triggered(self, node=None, worker_cls=None):
-        node = node if node else self
         worker_cls = worker_cls if worker_cls else NodeWorker
-        worker = worker_cls(node)
-        pool = QThreadPool.globalInstance()
-        pool.start(worker)
+        if node is None:
+            for root in self.find_roots():
+                worker = worker_cls(root)
+                pool = QThreadPool.globalInstance()
+                pool.start(worker)
+        else:
+            worker = worker_cls(node)
+            pool = QThreadPool.globalInstance()
+            pool.start(worker)
 
 
 
