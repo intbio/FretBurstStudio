@@ -2,7 +2,7 @@ from typing import Any
 import custom_widgets.path_selector as path_selector
 from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
 import fretbursts, os
-from node_builder import NodeBuilder
+from node_builder import NodeBuilder, ConstraintsBuilder
 import NodeGraphQt
 from singletons import NodeStateManager
 
@@ -25,6 +25,8 @@ import seaborn as sns
 class AbstractLoader(AbstractRecomputable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        # ConstraintsBuilder.add_loader_constraints(self) CONSTRAInts EXAMPLE
         
         p = self.add_output('out_file')
         # p.type_ = lambda: 'no_burst'

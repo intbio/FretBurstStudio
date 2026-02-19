@@ -1,5 +1,6 @@
 import custom_widgets.sliders as sliders
 from custom_widgets.plot_widget import TemplatePlotWidgetWtapper
+import custom_nodes.custom_nodes as custom_nodes
 
     
     
@@ -100,9 +101,19 @@ class NodeBuilder():
         plot_widget = TemplatePlotWidgetWtapper(parent=self.node.view, mpl_width=mpl_width, mpl_height=mpl_height)
         plot_widget.set_name(widget_name)
         self.node.add_custom_widget(plot_widget, tab='custom')
-    
+        
 
-     
+class ConstraintsBuilder:
+    
+    @staticmethod
+    def add_loader_constraints(node):
+        rejected_cls = [custom_nodes.CalcBGNode]
+        ConstraintsBuilder.__add_constraints(node, rejected_cls)
+          
+    @staticmethod  
+    def __add_constraints(node, rejected_cls: list):
+        for cls in rejected_cls:
+            node.add_rejected_node(cls)
             
         
 
