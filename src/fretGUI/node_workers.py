@@ -74,6 +74,11 @@ class NodeWorker(AbstractNodeWorker):
                 raise error
             else:        
                 for i, cur_data in enumerate(data_container):
+                    
+                    if cur_data is None:
+                        self.data = cur_data
+                        continue
+                    
                     cur_data.prev_nodeid = id(cur_node)
                     if i >= 1:
                         self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
@@ -83,9 +88,6 @@ class NodeWorker(AbstractNodeWorker):
     def fill_nodeseq(self):
         paths = []
         self._fill_nodeseq(self.start_node, self.node_seq, paths)
-        
-        print("start", self.start_node)
-        print("PATHS", paths)
         
         for i, cur_pathq in enumerate(paths):
             if i == 0:

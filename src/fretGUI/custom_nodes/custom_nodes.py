@@ -442,18 +442,27 @@ class AbstractContentNode(ResizableContentNode):
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
         ThreadSignalManager().all_thread_finished.connect(self.on_check_ports)
-        self.was_executed = False
         self.add_input('inport1')
         self.set_port_deletion_allowed(mode=True)
         
     @property
     def plot_widget(self):
         return self.get_widget('plot_widget').plot_widget
+    
+    def has_plot_data(self) -> bool:
+        return len(self.data_to_plot) != 0
         
     def on_refresh_canvas(self):
-        if self.was_executed:
+        if self.has_plot_data():
+            print("WAS EXECUTED", type(self))
             self._on_refresh_canvas()
+            self.plot_widget.canvas.draw()
             self.__on_plot_data_clear()
+        else:
+            print("WAS NOT EXECUTED", type(self))   
+            self.__on_plot_data_clear()
+            self.plot_widget.canvas.draw()
+
         
     @abstractmethod
     def _on_refresh_canvas(self):
@@ -461,7 +470,7 @@ class AbstractContentNode(ResizableContentNode):
     
     def __on_plot_data_clear(self):
         self.data_to_plot.clear()
-        self.was_executed = False
+        self.plot_widget.figure.clear()
         
     def get_input_port(self, fbsdata: FBSData) -> NodeGraphQt.Port:
         """function returns port from which current fbsdata came
@@ -482,7 +491,6 @@ class AbstractContentNode(ResizableContentNode):
     def execute(self, fbsdata: FBSData=None):
         inport_name = self.get_input_port(fbsdata).name()
         print(inport_name)
-        self.was_executed = True
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)
         return [fbsdata] 

@@ -55,7 +55,7 @@ class AbstractRecomputable(AbstractExecutable):
         super().__init__(*args, **kwargs)
         self.widget_wrappers = []  
         self.__wired = False
-        self.event_debouncer = EventDebouncer(50, self.on_connection)        
+        self.event_debouncer = EventDebouncer(50, self.on_connection)   
         
     def find_roots(self):
         if self.is_root():
@@ -126,20 +126,28 @@ class AbstractRecomputable(AbstractExecutable):
         action, in_port, out_port = event
         print(action, type(in_port.node()), type(out_port.node()))
         if action == 'connect':
-            self.on_widget_triggered(out_port.node(), NodeWorker)
+            for root in out_port.node().find_roots():
+                self.on_widget_triggered(root, NodeWorker)
         elif action == 'disconnect':
-            self.on_widget_triggered(in_port.node(), NodeWorker)
+            for root in out_port.node().find_roots():
+                self.on_widget_triggered(root, NodeWorker)
+            if self.__has_connectivity(in_port.node(), out_port.node()):
+                self.on_widget_triggered(out_port.node(), NodeWorker)
+            
+    def __has_connectivity(self, in_node, out_node):
+        for next_node in out_node.bfs():
+            if next_node == in_node:
+                print("HAS CONNECTIVITY")
+                return True
+        print("HAS NOT CONNECTIVITY")
+        return False
             
     def on_widget_triggered(self, node=None, worker_cls=None):
         node = node if node else self
         worker_cls = worker_cls if worker_cls else NodeWorker
-        roots = node.find_roots()
-        if len(roots) == 0:
-            roots = [node]
-        for root in roots:
-            worker = worker_cls(root)
-            pool = QThreadPool.globalInstance()
-            pool.start(worker)
+        worker = worker_cls(node)
+        pool = QThreadPool.globalInstance()
+        pool.start(worker)
 
 
 
