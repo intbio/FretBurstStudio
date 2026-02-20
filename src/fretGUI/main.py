@@ -4,6 +4,7 @@ import os, json
 import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore, QtGui
+import NodeGraphQt
 
 
 
@@ -388,7 +389,7 @@ def main():
             
                 
         def theme_node(node):
-            
+           
             node.set_property('text_color',color_dict[kind]['text'])
             # update resize handle color if the view supports it
             if hasattr(node, 'view') and hasattr(node.view, 'set_handle_color'):
@@ -398,25 +399,26 @@ def main():
             else:
                 node.set_color( *color_dict[kind]['node'])
 
-            for w in node.widgets().values():
-                box = w.widget()  # this is _NodeGroupBox (a QGroupBox)
-                # Replace the stylesheet completely with your own.
-                box.setStyleSheet(f"""
-                QGroupBox {{
-                    background-color: transparent;
-                    border: 0px;
-                    margin-top: 1px;
-                    padding: 14px 1px 2px 1px;
-                    font-size: 8pt;
-                }}
-                QGroupBox::title {{
-                    subcontrol-origin: margin;
-                    subcontrol-position: top left;
-                    color: rgb(*color_dict[{kind}]['text']); 
-                    padding: 0px;
-                    margin-left: 4px;
-                }}
-                """)
+            if hasattr(node, 'widgets'):
+                for w in node.widgets().values():
+                    box = w.widget()  # this is _NodeGroupBox (a QGroupBox)
+                    # Replace the stylesheet completely with your own.
+                    box.setStyleSheet(f"""
+                    QGroupBox {{
+                        background-color: transparent;
+                        border: 0px;
+                        margin-top: 1px;
+                        padding: 14px 1px 2px 1px;
+                        font-size: 8pt;
+                    }}
+                    QGroupBox::title {{
+                        subcontrol-origin: margin;
+                        subcontrol-position: top left;
+                        color: rgb(*color_dict[{kind}]['text']); 
+                        padding: 0px;
+                        margin-left: 4px;
+                    }}
+                    """)
 
         for n in graph.all_nodes():
             theme_node(n)
