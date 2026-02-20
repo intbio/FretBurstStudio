@@ -28,7 +28,7 @@ class AbstractLoader(AbstractRecomputable):
         
         # ConstraintsBuilder.add_loader_constraints(self) CONSTRAInts EXAMPLE
         
-        p = self.add_output('out_file', color=(0, 0, 255))
+        p = self.add_output('out_file', color=(255, 0, 0))
         # p.type_ = lambda: 'no_burst'
 
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
@@ -230,8 +230,8 @@ class AlexNode(AbstractRecomputable):
     
     def __init__(self):
         super().__init__()
-        self.add_input('inport', color=(0, 0, 255))
-        self.add_output('outport')        
+        self.add_input('inport', color=(255, 0, 0))
+        self.add_output('outport', color=(255, 0, 0))        
     
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData) -> list[FBSData]:
@@ -246,8 +246,8 @@ class CalcBGNode(AbstractRecomputable):
     def __init__(self):
         super().__init__()
         node_builder = NodeBuilder(self)
-        self.add_input('inport', color=(0, 0, 255))
-        p = self.add_output('outport', color=(0, 0, 255))
+        self.add_input('inport', color=(255, 0, 0))
+        p = self.add_output('outport', color=(255,255,0))
         # p.type_ = lambda: 'no_burst'
         self.time_s_spinbox = node_builder.build_int_spinbox('Period, s', [1, 1000, 10],60, tooltip='Time for BG calculation, s', min_width=80)
         self.tail_spinbox = node_builder.build_int_spinbox('Min. lag, μs', [1, 1000, 100], 300,tooltip='Threshold in μs for photon waiting times', min_width=80)
@@ -272,8 +272,8 @@ class CorrectionsNode(AbstractRecomputable):
         self.view.setToolTip("Apply gamma, leakage, and direct excitation corrections to FRET data")
 
         node_builder = NodeBuilder(self)
-        self.add_input('inport', color=(0, 0, 255))
-        p = self.add_output('outport', color=(0, 0, 255))  
+        self.add_input('inport', color=(255,255,0))
+        p = self.add_output('outport', color=(255,255,0))  
         # p.type_ = lambda: 'no_burst'
         self.gamma_spinbox = node_builder.build_float_spinbox(    
             'Gamma', 
@@ -340,7 +340,7 @@ class BurstSearchNodeRate(AbstractRecomputable):
         super().__init__()
         node_builder = NodeBuilder(self)
         
-        self.add_input('inport', color=(0, 0, 255))
+        self.add_input('inport', color=(255,255,0))
         self.add_output('outport')
         self.m_slider = node_builder.build_int_slider(
             'm, Photon search window',
@@ -400,7 +400,7 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
         super().__init__()
         node_builder = NodeBuilder(self)
         
-        self.add_input('inport', color=(0, 0, 255))
+        self.add_input('inport', color=(255,255,0))
         self.add_output('outport')
         self.m_slider = node_builder.build_int_spinbox(
             'm, Photon search window',
@@ -594,8 +594,7 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         )
 
     def _on_refresh_canvas(self):
-        plot_widget = self.get_widget('plot_widget').plot_widget
-        fig = plot_widget.figure
+        fig = self.plot_widget.figure
         fig.clear()
         ax = fig.add_subplot()
 
@@ -613,12 +612,12 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         # Avoid accidental binding and ensure we pass a Data instance.
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None or selected_data is None or not isinstance(selected_data, Data):
-            plot_widget.canvas.draw()
+            self.plot_widget.canvas.draw()
             return
 
         fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
         # fig.tight_layout()
-        plot_widget.canvas.draw()
+        self.plot_widget.canvas.draw()
 
 class BaseMultiFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
@@ -657,15 +656,14 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         pass
 
     def _on_refresh_canvas(self):
-        plot_widget = self.get_widget('plot_widget').plot_widget
-        plot_widget.figure.clf()
-        self.ax = plot_widget.figure.add_subplot()
+        self.plot_widget.figure.clf()
+        self.ax = self.plot_widget.figure.add_subplot()
         self.ax.cla()
 
         # Avoid accidental binding and ensure we have a valid plot function
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
         if plot_func is None:
-            plot_widget.canvas.draw()
+            self.plot_widget.canvas.draw()
             return
         self.update_plot_kwargs()
 
@@ -688,7 +686,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             self.ax.legend()
             self.ax.set_title('')
         
-        plot_widget.canvas.draw()
+        self.plot_widget.canvas.draw()
     def export(self, export_type = 'file'):
         data_dict = {}
 
@@ -732,14 +730,14 @@ class BGFitPlotterNode(BaseSingleFilePlotterNode):
     PLOT_FUNC = staticmethod(fretbursts.hist_bg)
     PLOT_KWARGS = dict(show_fit=True)
     
-    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=(0, 0, 255), enable_multiports=False):
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=(255,255,0), enable_multiports=False):
         super().__init__(widget_name, qgraphics_item, inport_color, enable_multiports=enable_multiports)
 
 class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Background TimeLine'
     PLOT_FUNC = staticmethod(fretbursts.timetrace_bg)
     
-    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=(0, 0, 255), enable_multiports=False):
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=(255,255,0), enable_multiports=False):
         super().__init__(widget_name, qgraphics_item, inport_color, enable_multiports=enable_multiports)
 
 class ScatterWidthSizePlotterNode(BaseSingleFilePlotterNode):
