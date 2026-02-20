@@ -14,7 +14,10 @@ from Qt.QtCore import QTimer  # pyright: ignore[reportMissingModuleSource]
 class AbstractExecutable(BaseNode, ABC):
    
     def __init__(self, *args, **kwargs):
-        BaseNode.__init__(self, *args, **kwargs)     
+        BaseNode.__init__(self, *args, **kwargs)   
+        
+    def are_ports_acceptable(self, inport, outport) -> bool:
+          return inport.color == outport.color
 
     @abstractmethod    
     def execute(self, data: FBSData=None) -> list[FBSData]:
@@ -57,12 +60,6 @@ class AbstractRecomputable(AbstractExecutable):
         self.__wired = False
         self.event_debouncer = EventDebouncer(50, self.on_connection)   
         self.__rejected_nodes = set()
-        
-    def add_rejected_node(self, node_cls):
-        self.__rejected_nodes.add(node_cls.NODE_NAME)
-        
-    def is_node_acceptable(self, node_cls):
-        return node_cls.NODE_NAME not in self.__rejected_nodes
         
     def find_roots(self):
         if self.is_root():
@@ -121,11 +118,13 @@ class AbstractRecomputable(AbstractExecutable):
         for widget_name, widget in self.widgets().items():
             widget.setEnabled(True)
             
-    def on_input_connected(self, in_port, out_port):  
-        if out_port.node().is_node_acceptable(in_port.node()):
+    def on_input_connected(self, in_port, out_port):          
+        if self.are_ports_acceptable(in_port, out_port):
             self.event_debouncer.push_event(('connect', in_port, out_port))
             return super().on_input_connected(in_port, out_port)
+        
         out_port.disconnect_from(in_port, emit_signal=False)
+        
     
     def on_input_disconnected(self, in_port, out_port):
         self.event_debouncer.push_event(('disconnect', in_port, out_port))

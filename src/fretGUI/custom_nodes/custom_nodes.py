@@ -2,7 +2,7 @@ from typing import Any
 import custom_widgets.path_selector as path_selector
 from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
 import fretbursts, os
-from node_builder import NodeBuilder, ConstraintsBuilder
+from node_builder import NodeBuilder
 import NodeGraphQt
 from singletons import NodeStateManager
 
@@ -28,7 +28,7 @@ class AbstractLoader(AbstractRecomputable):
         
         # ConstraintsBuilder.add_loader_constraints(self) CONSTRAInts EXAMPLE
         
-        p = self.add_output('out_file')
+        p = self.add_output('out_file', color=(0, 0, 255))
         # p.type_ = lambda: 'no_burst'
 
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
@@ -230,7 +230,7 @@ class AlexNode(AbstractRecomputable):
     
     def __init__(self):
         super().__init__()
-        self.add_input('inport')
+        self.add_input('inport', color=(0, 0, 255))
         self.add_output('outport')        
     
     @FBSDataCash().fbscash
@@ -246,8 +246,8 @@ class CalcBGNode(AbstractRecomputable):
     def __init__(self):
         super().__init__()
         node_builder = NodeBuilder(self)
-        self.add_input('inport')
-        p = self.add_output('outport')
+        self.add_input('inport', color=(0, 0, 255))
+        p = self.add_output('outport', color=(0, 0, 255))
         # p.type_ = lambda: 'no_burst'
         self.time_s_spinbox = node_builder.build_int_spinbox('Period, s', [1, 1000, 10],60, tooltip='Time for BG calculation, s', min_width=80)
         self.tail_spinbox = node_builder.build_int_spinbox('Min. lag, μs', [1, 1000, 100], 300,tooltip='Threshold in μs for photon waiting times', min_width=80)
@@ -272,8 +272,8 @@ class CorrectionsNode(AbstractRecomputable):
         self.view.setToolTip("Apply gamma, leakage, and direct excitation corrections to FRET data")
 
         node_builder = NodeBuilder(self)
-        self.add_input('inport')
-        p = self.add_output('outport')  
+        self.add_input('inport', color=(0, 0, 255))
+        p = self.add_output('outport', color=(0, 0, 255))  
         # p.type_ = lambda: 'no_burst'
         self.gamma_spinbox = node_builder.build_float_spinbox(    
             'Gamma', 
@@ -340,7 +340,7 @@ class BurstSearchNodeRate(AbstractRecomputable):
         super().__init__()
         node_builder = NodeBuilder(self)
         
-        self.add_input('inport')
+        self.add_input('inport', color=(0, 0, 255))
         self.add_output('outport')
         self.m_slider = node_builder.build_int_slider(
             'm, Photon search window',
@@ -400,7 +400,7 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
         super().__init__()
         node_builder = NodeBuilder(self)
         
-        self.add_input('inport')
+        self.add_input('inport', color=(0, 0, 255))
         self.add_output('outport')
         self.m_slider = node_builder.build_int_spinbox(
             'm, Photon search window',
@@ -439,14 +439,22 @@ class BurstSearchNodeFromBG(AbstractRecomputable):
           
         
 class AbstractContentNode(ResizableContentNode):
-    def __init__(self, widget_name, qgraphics_item=None):
+    def __init__(self, widget_name, qgraphics_item=None, inport_color=None, enable_multiports=True):
         super().__init__(widget_name, qgraphics_item)
+        self.__enable_multiports = enable_multiports
+        self.__inport_color = inport_color
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
         ThreadSignalManager().all_thread_finished.connect(self.on_check_ports)
-        self.add_input('inport1')
+        
+        print(inport_color, "INPORT")
+        
+        self.add_input('inport1', color=inport_color)
         self.set_port_deletion_allowed(mode=True)
         self.on_check_ports()
+        
+    def add_input(self, name, *args, **kwargs):
+        return super().add_input(name, color=self.__inport_color)
         
     @property
     def plot_widget(self):
@@ -512,6 +520,9 @@ class AbstractContentNode(ResizableContentNode):
         return f"inport{i+1}"
     
     def on_input_connected(self, in_port, out_port):
+        if not self.__enable_multiports:
+            return super().on_input_connected(in_port, out_port)
+        
         plot_node = in_port.node()   
         connected_inputs = plot_node.connected_input_nodes()  
         all_inputs = plot_node.inputs()
@@ -536,6 +547,9 @@ class AbstractContentNode(ResizableContentNode):
         
     
     def on_check_ports(self):
+        if not self.__enable_multiports:
+            return 
+        
         connected_inputs = self.connected_input_nodes()
         empty_ports = []
         connected_ports = []
@@ -566,8 +580,8 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
     MIN_HEIGHT = 300
     PLOT_FUNC = None
 
-    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
-        super().__init__(widget_name, qgraphics_item)
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=None, enable_multiports=True):
+        super().__init__(widget_name, qgraphics_item, inport_color=inport_color, enable_multiports=enable_multiports)
         self.PLOT_KWARGS = {}
         self.node_builder = NodeBuilder(self)
 
@@ -619,8 +633,8 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
     PLOT_FUNC = None
     
 
-    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
-        super().__init__(widget_name, qgraphics_item)
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=None, enable_multiports=True):
+        super().__init__(widget_name, qgraphics_item, inport_color=inport_color, enable_multiports=enable_multiports)
         self.node_builder = NodeBuilder(self)
         self.PLOT_KWARGS = {}
         
@@ -717,10 +731,16 @@ class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Background Fit'
     PLOT_FUNC = staticmethod(fretbursts.hist_bg)
     PLOT_KWARGS = dict(show_fit=True)
+    
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=(0, 0, 255), enable_multiports=False):
+        super().__init__(widget_name, qgraphics_item, inport_color, enable_multiports=enable_multiports)
 
 class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Background TimeLine'
     PLOT_FUNC = staticmethod(fretbursts.timetrace_bg)
+    
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=(0, 0, 255), enable_multiports=False):
+        super().__init__(widget_name, qgraphics_item, inport_color, enable_multiports=enable_multiports)
 
 class ScatterWidthSizePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst Width vs Size'

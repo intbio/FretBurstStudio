@@ -9,7 +9,7 @@ class AbstractWidgetWrapper(NodeBaseWidget):
     widget_changed_signal = Signal()
     debounced_signal = Signal()
     
-    def __init__(self, parent=None, emit_time=250):
+    def __init__(self, parent=None, emit_time=500):
         super().__init__(parent)
         self.timer = QTimer(self)
         self.timer.setInterval(emit_time)
