@@ -197,8 +197,8 @@ def main():
                     background-color: #bbdefb;
                 }
             """)
-    run_button.clicked.connect(lambda: on_run_btn_clicked(graph, run_button))
-    run_button.clicked.connect(ThreadSignalManager().run_btn_clicked.emit)
+    ThreadSignalManager().run_btn_clicked.connect(lambda: on_run_btn_clicked(graph, run_button))
+    run_button.clicked.connect(ThreadSignalManager().emit)
     
     toggle_btn = IconToggleButton(parent=graph_widget)
     toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))   

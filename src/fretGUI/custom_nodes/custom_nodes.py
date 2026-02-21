@@ -520,32 +520,16 @@ class AbstractContentNode(ResizableContentNode):
         return f"inport{i+1}"
     
     def on_input_connected(self, in_port, out_port):
-        if not self.__enable_multiports:
-            return super().on_input_connected(in_port, out_port)
-        
-        plot_node = in_port.node()   
-        connected_inputs = plot_node.connected_input_nodes()  
-        all_inputs = plot_node.inputs()
-        nall_inputs = len(all_inputs)
-        if nall_inputs == 0:
-            return super().on_input_connected(in_port, out_port)
-        nconnected_inputs = len(
-            list(
-                filter(lambda item: len(item[1]) != 0,
-                       connected_inputs.items())))
-        if nall_inputs == nconnected_inputs:
-            new_portname = self.__get_port_name(all_inputs)
-            plot_node.add_input(new_portname)
-            plot_node.set_port_deletion_allowed(mode=True)
+        if self.__enable_multiports:
+            self.on_check_ports()
         return super().on_input_connected(in_port, out_port)
     
     def on_input_disconnected(self, in_port, out_port):
         status = NodeStateManager().node_status
         if not status:
             self.on_check_ports()
-        super().on_input_disconnected(in_port, out_port)
+        return super().on_input_disconnected(in_port, out_port)
         
-    
     def on_check_ports(self):
         if not self.__enable_multiports:
             return 
@@ -558,6 +542,11 @@ class AbstractContentNode(ResizableContentNode):
                 empty_ports.append(port)
             else:
                 connected_ports.append(port)   
+                
+        if len(connected_ports) != 0 and len(empty_ports) == 0:
+            new_portname = self.__get_port_name(self.inputs())
+            self.add_input(new_portname)
+            self.set_port_deletion_allowed(mode=True)
         
         if len(empty_ports) >= 2:
             for i in range(1, len(empty_ports)):

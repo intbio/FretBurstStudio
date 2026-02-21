@@ -119,48 +119,18 @@ class AbstractRecomputable(AbstractExecutable):
             widget.setEnabled(True)
             
     def on_input_connected(self, in_port, out_port):          
-        if self.are_ports_acceptable(in_port, out_port):
-            self.event_debouncer.push_event(('connect', in_port, out_port))
-            return super().on_input_connected(in_port, out_port)
-        
-        out_port.disconnect_from(in_port, emit_signal=False)
-        
+        self.event_debouncer.push_event(('connect', in_port, out_port))
+        return super().on_input_connected(in_port, out_port)
     
     def on_input_disconnected(self, in_port, out_port):
         self.event_debouncer.push_event(('disconnect', in_port, out_port))
         return super().on_input_disconnected(in_port, out_port)
     
     def on_connection(self, event):
-        action, in_port, out_port = event
-        print(action, type(in_port.node()), type(out_port.node()))
-        if action == 'connect':
-            for root in out_port.node().find_roots():
-                self.on_widget_triggered(root, NodeWorker)
-        elif action == 'disconnect':
-            for root in out_port.node().find_roots():
-                self.on_widget_triggered(root, NodeWorker)
-            if self.__has_connectivity(in_port.node(), out_port.node()):
-                self.on_widget_triggered(out_port.node(), NodeWorker)
+        self.on_widget_triggered()
             
-    def __has_connectivity(self, in_node, out_node):
-        for next_node in out_node.bfs():
-            if next_node == in_node:
-                print("HAS CONNECTIVITY")
-                return True
-        print("HAS NOT CONNECTIVITY")
-        return False
-            
-    def on_widget_triggered(self, node=None, worker_cls=None):
-        worker_cls = worker_cls if worker_cls else NodeWorker
-        if node is None:
-            for root in self.find_roots():
-                worker = worker_cls(root)
-                pool = QThreadPool.globalInstance()
-                pool.start(worker)
-        else:
-            worker = worker_cls(node)
-            pool = QThreadPool.globalInstance()
-            pool.start(worker)
+    def on_widget_triggered(self):
+        ThreadSignalManager().run_btn_clicked.emit()
 
 
 
