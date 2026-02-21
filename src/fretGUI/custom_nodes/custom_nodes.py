@@ -505,8 +505,8 @@ class AbstractContentNode(ResizableContentNode):
         return None
     
     def execute(self, fbsdata: FBSData=None):
-        inport_name = self.get_input_port(fbsdata).name()
-        print(inport_name)
+        #inport_name = self.get_input_port(fbsdata).name()
+        # print(inport_name)
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)
         return [fbsdata] 
@@ -676,8 +676,12 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             # Call fretbursts.dplot for each item in data_to_plot
             fretbursts.dplot(cur_data.data, plot_func, ax=self.ax, **self.PLOT_KWARGS)
 
-            # Set label for the last plotted line/bar if available
-            name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
+            if len(self.connected_input_nodes())==2:
+                name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
+            else:
+                print(type(cur_data))
+                # inport_name = self.get_input_port(cur_data).name() NOT WORKING
+                name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
             if self.ax.lines:
                 self.ax.lines[-1].set_label(name)
 
