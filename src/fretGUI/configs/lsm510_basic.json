@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x249209f1280":{
+    "0x7ff3e06efd10":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
@@ -31,24 +31,24 @@
         30
       ],
       "disabled":false,
-      "selected":true,
+      "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":183.4,
+      "width":246.78125,
+      "height":222.20000000000002,
       "pos":[
-        80.83974008020664,
-        450.9133502788755
+        716.0848252813194,
+        181.01647470120056
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
         "Gamma":1.0,
-        "Leakage":0.15,
+        "Leakage":0.24,
         "Direct ex.":0.0
       }
     },
-    "0x249209f1b80":{
+    "0x7ff3de2e65a0":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET histogram",
@@ -75,8 +75,8 @@
       "width":790.4656636052413,
       "height":512.3239634935361,
       "pos":[
-        322.0954860232256,
-        307.65279116693284
+        749.980776573198,
+        516.1097275887143
       ],
       "layout_direction":0,
       "port_deletion_allowed":true,
@@ -99,7 +99,7 @@
         "Bin Width":0.05
       }
     },
-    "0x249209f1fa0":{
+    "0x7ff3dcfdc800":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"Confocor2 RAW",
@@ -123,20 +123,22 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":339.0,
-      "height":137.2,
+      "width":342.3125,
+      "height":150,
       "pos":[
-        -268.18533880705536,
-        7.348213066856317
+        -579.7736016690865,
+        11.736780149420136
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "File Widget":[]
+        "File Widget":[
+          "/home/dryabov/Documents/vscode/FretGUI/samle_files/lsm510/L2-dCas-NS_1to500.002"
+        ]
       }
     },
-    "0x249212a8c20":{
+    "0x7ff3dcfde5d0":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearch by BG",
@@ -160,11 +162,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":243.0,
-      "height":233.8,
+      "width":255.15625,
+      "height":284.15,
       "pos":[
-        570.8412157013175,
-        8.263638842495936
+        1030.5436175998775,
+        100.42354757633612
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -176,7 +178,7 @@
         "Channel":"DAem"
       }
     },
-    "0x249212a83e0":{
+    "0x7ff3dcfdeea0":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"Calc.Background",
@@ -200,11 +202,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":217.0,
-      "height":133.0,
+      "width":226.78125,
+      "height":159.20000000000002,
       "pos":[
-        83.56006084410657,
-        316.27423790820194
+        138.41714937615427,
+        -1.8968755776748667
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -214,7 +216,7 @@
         "Min. lag, \u03bcs":1000
       }
     },
-    "0x249212a9940":{
+    "0x7ff3dcfddb20":{
       "type_":"Selectors.BurstSelectorWidthNode",
       "icon":null,
       "name":"Width",
@@ -238,11 +240,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":133.0,
+      "width":246.78125,
+      "height":159.20000000000002,
       "pos":[
-        833.2608973918827,
-        8.202540427869298
+        31.25026305334498,
+        341.73363870271953
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -252,7 +254,7 @@
         "Shorter than, ms":10.0
       }
     },
-    "0x249212a9e50":{
+    "0x7ff3dcfdffe0":{
       "type_":"Selectors.BurstSelectorSizeNode",
       "icon":null,
       "name":"Size",
@@ -276,11 +278,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":133.0,
+      "width":246.78125,
+      "height":159.20000000000002,
       "pos":[
-        834.5584598137691,
-        151.8822466172452
+        163.10769618150482,
+        560.0189852956803
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -290,7 +292,7 @@
         "High Threshold":200
       }
     },
-    "0x249212aa690":{
+    "0x7ff3dcdb82f0":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
@@ -312,13 +314,13 @@
         30
       ],
       "disabled":false,
-      "selected":false,
+      "selected":true,
       "visible":true,
-      "width":474.41509145871805,
-      "height":300,
+      "width":476.609375,
+      "height":447.95000000000005,
       "pos":[
-        84.20953792017531,
-        -2.527290743597961
+        -564.201248528629,
+        348.5580758615077
       ],
       "layout_direction":0,
       "port_deletion_allowed":true,
@@ -333,78 +335,78 @@
       "output_ports":[],
       "custom":{
         "plot_widget":null,
-        "File to plot:":""
+        "File to plot:":"1, L2-dCas-NS_1to500.002"
       }
     }
   },
   "connections":[
     {
       "in":[
-        "0x249209f1280",
+        "0x7ff3e06efd10",
         "inport"
       ],
       "out":[
-        "0x249212a83e0",
+        "0x7ff3dcfdeea0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x249209f1280",
+        "0x7ff3e06efd10",
         "outport"
       ],
       "in":[
-        "0x249212a8c20",
+        "0x7ff3dcfde5d0",
         "inport"
       ]
     },
     {
       "in":[
-        "0x249209f1b80",
+        "0x7ff3de2e65a0",
         "inport1"
       ],
       "out":[
-        "0x249212a9e50",
+        "0x7ff3dcfdffe0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x249209f1fa0",
+        "0x7ff3dcfdc800",
         "out_file"
       ],
       "in":[
-        "0x249212a83e0",
+        "0x7ff3dcfdeea0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x249212a8c20",
+        "0x7ff3dcfde5d0",
         "outport"
       ],
       "in":[
-        "0x249212a9940",
+        "0x7ff3dcfddb20",
         "inport"
       ]
     },
     {
       "out":[
-        "0x249212a83e0",
+        "0x7ff3dcfdeea0",
         "outport"
       ],
       "in":[
-        "0x249212aa690",
+        "0x7ff3dcdb82f0",
         "inport1"
       ]
     },
     {
       "out":[
-        "0x249212a9940",
+        "0x7ff3dcfddb20",
         "outport"
       ],
       "in":[
-        "0x249212a9e50",
+        "0x7ff3dcfdffe0",
         "inport"
       ]
     }
