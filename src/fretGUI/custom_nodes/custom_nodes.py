@@ -504,8 +504,8 @@ class AbstractContentNode(ResizableContentNode):
         return None
     
     def execute(self, fbsdata: FBSData=None):
-        # inport_name = self.get_input_port(fbsdata).name()
-        # print(f"{type(self)} inport_name: {inport_name}")
+        inport_name = self.get_input_port(fbsdata).name()
+        print(f"{type(self)} inport_name: {inport_name}")
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)
         return [fbsdata] 
@@ -675,10 +675,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
                 name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
             else:
                 print(type(cur_data))
-                
-                inport_name = self.get_input_port(cur_data).name()
-                print("INPORT NAME", type(self), inport_name)
-                
+                # inport_name = self.get_input_port(cur_data).name() NOT WORKING
                 name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
             if self.ax.lines:
                 self.ax.lines[-1].set_label(name)
