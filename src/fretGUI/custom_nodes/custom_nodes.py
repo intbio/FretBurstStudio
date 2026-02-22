@@ -446,6 +446,7 @@ class AbstractContentNode(ResizableContentNode):
         self.data_to_plot = []
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
         ThreadSignalManager().all_thread_finished.connect(self.on_check_ports)
+        self.__prevnodeid_data_map = dict()
         
         print(inport_color, "INPORT")
         
@@ -486,6 +487,7 @@ class AbstractContentNode(ResizableContentNode):
     def __on_plot_data_clear(self):
         self.data_to_plot.clear()
         self.plot_widget.figure.clear()
+        self.__prevnodeid_data_map.clear()
         
     def get_input_port(self, fbsdata: FBSData) -> NodeGraphQt.Port:
         """function returns port from which current fbsdata came
@@ -496,16 +498,19 @@ class AbstractContentNode(ResizableContentNode):
         Returns:
             NodeGraphQt.Port: corresponding input port
         """
+        prev_nodeid = self.__prevnodeid_data_map.get(fbsdata)
+        if prev_nodeid is None:
+            return None
+        
         connected_inports = self.connected_input_nodes()
         for port, connected_nodes in connected_inports.items():
             connected_node_ids = set([id(node) for node in connected_nodes])
-            if fbsdata.prev_nodeid in connected_node_ids:
+            if prev_nodeid in connected_node_ids:
                 return port
         return None
     
     def execute(self, fbsdata: FBSData=None):
-        inport_name = self.get_input_port(fbsdata).name()
-        print(f"{type(self)} inport_name: {inport_name}")
+        self.__prevnodeid_data_map[fbsdata] = fbsdata.prev_nodeid
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)
         return [fbsdata] 
@@ -675,7 +680,10 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
                 name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
             else:
                 print(type(cur_data))
-                # inport_name = self.get_input_port(cur_data).name() NOT WORKING
+                
+                inport_name = self.get_input_port(cur_data).name()
+                print(f"INPORT {inport_name}, NODE: {type(self)}")
+                
                 name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
             if self.ax.lines:
                 self.ax.lines[-1].set_label(name)
