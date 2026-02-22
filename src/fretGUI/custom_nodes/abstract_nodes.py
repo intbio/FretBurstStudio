@@ -130,6 +130,7 @@ class AbstractRecomputable(AbstractExecutable):
         self.on_widget_triggered()
             
     def on_widget_triggered(self):
+        print("TRIGGERED", type(self))
         ThreadSignalManager().run_btn_clicked.emit()
 
 

@@ -478,7 +478,6 @@ class AbstractContentNode(ResizableContentNode):
             print("WAS NOT EXECUTED", type(self))   
             self.__on_plot_data_clear()
             self.plot_widget.canvas.draw()
-
         
     @abstractmethod
     def _on_refresh_canvas(self):
@@ -506,7 +505,7 @@ class AbstractContentNode(ResizableContentNode):
     
     def execute(self, fbsdata: FBSData=None):
         inport_name = self.get_input_port(fbsdata).name()
-        print(inport_name)
+        print(f"{type(self)} inport_name: {inport_name}")
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)
         return [fbsdata] 
@@ -569,8 +568,15 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
     MIN_HEIGHT = 300
     PLOT_FUNC = None
 
-    def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=None, enable_multiports=True):
-        super().__init__(widget_name, qgraphics_item, inport_color=inport_color, enable_multiports=enable_multiports)
+    def __init__(self, 
+                 widget_name='plot_widget',
+                 qgraphics_item=None,
+                 inport_color=None,
+                 enable_multiports=True):
+        super().__init__(widget_name,
+                         qgraphics_item,
+                         inport_color=inport_color,
+                         enable_multiports=enable_multiports)
         self.PLOT_KWARGS = {}
         self.node_builder = NodeBuilder(self)
 
