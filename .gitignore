@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 
 *.pyc
 *.pyc
 *.pyc
 src/fretGUI/hotkeys/__pycache__/hotkey_functions.cpython-312.pyc
 
+=======
+>>>>>>> 5540595 (Initial commit)
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -14,8 +17,13 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+<<<<<<< HEAD
 develop-eggs/
 build/
+=======
+build/
+develop-eggs/
+>>>>>>> 5540595 (Initial commit)
 dist/
 downloads/
 eggs/
