@@ -29,7 +29,6 @@ You can run FretBurstStudio from source or use the provided scripts to build an 
     ```bash
     git clone https://github.com/intbio/FretBurstStudio.git
     cd FretBurstStudio
-    python3 src/fretGUI/main.py 
     ```
 2.  **Set up the environment:**
     It is recommended to use conda with the provided `environment.yml` file:
@@ -48,7 +47,6 @@ To build a standalone Windows executable, navigate to the `pyinstaller` director
 
 ## Usage
 
-After installation, you can run the application by executing the main script from the `src` directory. (Note: The exact entry point may need clarification, but likely involves running a main Python file from `fretGUI`).
-
+After installation, you can run the application by executing the main script from the `src` directory.
 ```bash
-python -m fretGUI.main
+python3 src/fretGUI/main.py
