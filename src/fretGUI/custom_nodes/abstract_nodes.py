@@ -51,6 +51,9 @@ class AbstractExecutable(BaseNode, ABC):
                 visited.add(nextnode)
                 yield nextnode
                 
+    def are_ports_acceptable(self, inport, outport) -> bool:
+        return inport.color == outport.color
+                
                                   
 class AbstractRecomputable(AbstractExecutable):
    
@@ -119,8 +122,10 @@ class AbstractRecomputable(AbstractExecutable):
             widget.setEnabled(True)
             
     def on_input_connected(self, in_port, out_port):          
-        self.event_debouncer.push_event(('connect', in_port, out_port))
-        return super().on_input_connected(in_port, out_port)
+        if self.are_ports_acceptable(in_port, out_port):
+            self.event_debouncer.push_event(('connect', in_port, out_port))
+            return super().on_input_connected(in_port, out_port)
+        out_port.disconnect_from(in_port, emit_signal=False)
     
     def on_input_disconnected(self, in_port, out_port):
         self.event_debouncer.push_event(('disconnect', in_port, out_port))
