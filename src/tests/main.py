@@ -2,7 +2,7 @@ import sys
 
 import unittest
 import NodeGraphQt
-from Qt import QtWidgets
+from Qt import QtWidgets, QtCore
 from unittest.mock import MagicMock
 from pathlib import Path
 
@@ -10,6 +10,10 @@ import fretGUI.custom_nodes.custom_nodes as custom_nodes
 import fretGUI.custom_nodes.selector_nodes as selector_nodes
 from fretGUI.singletons import ThreadSignalManager
 from fretGUI.node_workers import NodeWorker
+
+from PySide6.QtTest import QSignalSpy
+
+
 
 app = QtWidgets.QApplication(sys.argv)
 
@@ -103,15 +107,15 @@ class TestGraph(unittest.TestCase):
             
 class TestWidgets(unittest.TestCase):
     def test_run_btn(self):
-        graph = BaseUtils.init_graph()
-        btn = RunButton('runbttn', graph)
         signal_manager = ThreadSignalManager()
         mock_listener = MagicMock()
         
         signal_manager.run_btn_clicked.connect(mock_listener)
-        btn.clicked.emit()
+        signal_manager.run_btn_clicked.emit()
         
         mock_listener.assert_called_once()
+    
+        
         
         
 class TestWorkers(unittest.TestCase):
@@ -123,9 +127,9 @@ class TestWorkers(unittest.TestCase):
         template_path = str(self.config_path / template_path)
         graph = BaseUtils.init_graph()
         graph.load_session(template_path)
-        return graph
+        return graph        
         
-    def test_test1(self):
+    def test_path1(self):
         graph = self.__load_template("test1.json")
         lsm_node = graph.get_node_by_name('Confocor2 RAW')
         worker = NodeWorker(lsm_node)
@@ -139,8 +143,18 @@ class TestWorkers(unittest.TestCase):
         ]
         self.assertEqual(len(paths), len(propper_path), "wrong lengths of paths")
         self.assertEqual(paths, propper_path)
+
+    def test_worker_signals(self):
+        graph = self.__load_template("test1.json")
+        lsm_node = graph.get_node_by_name('Confocor2 RAW')
+        worker = NodeWorker(lsm_node)
+        signal_manager = ThreadSignalManager()
+        spy = QSignalSpy(signal_manager.thread_started)
+        worker.run()
+        self.assertTrue(spy.wait(5000), "thread_started was not obtained")
+        self.assertEqual(spy.count() , 2, "is should be 2 emitions of thread started signal")
         
-    def test_test2(self):
+    def test_path2(self):
         graph = self.__load_template("test2.json")
         loader1 = graph.get_node_by_name('Confocor2 RAW')
         answer1 = [['Confocor2 RAW', 'Calc.Background', 'Corrections', 'BurstSearch by BG', 'FRET histogram']]
