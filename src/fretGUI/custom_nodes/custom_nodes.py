@@ -1,25 +1,24 @@
-from typing import Any
-import custom_widgets.path_selector as path_selector
-from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
-import fretbursts, os
-from node_builder import NodeBuilder
-import NodeGraphQt
-from singletons import NodeStateManager
-
-
-from fbs_data import FBSData
-from singletons import FBSDataCash
-from Qt.QtCore import Signal  # pyright: ignore[reportMissingModuleSource]
-from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingModuleSource]
-from singletons import ThreadSignalManager
+import os
 from abc import abstractmethod
-from NodeGraphQt import BaseNode
-import numpy as np
-from fretbursts.burstlib import Data
 from collections import Counter
-from misc import enable_legend_toggle
+
+import numpy as np
 import pandas as pd
 import seaborn as sns
+
+import fretbursts
+from fretbursts.burstlib import Data
+
+import NodeGraphQt
+
+from Qt.QtWidgets import QAction, QFileDialog
+
+import fretGUI.custom_widgets.path_selector as path_selector
+from fretGUI.custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
+from fretGUI.fbs_data import FBSData
+from fretGUI.misc import enable_legend_toggle
+from fretGUI.node_builder import NodeBuilder
+from fretGUI.singletons import FBSDataCash, NodeStateManager, ThreadSignalManager
 
 
 class AbstractLoader(AbstractRecomputable):
