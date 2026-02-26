@@ -1,13 +1,16 @@
-from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from abc import ABC, abstractmethod
+from collections import deque
+
+from Qt.QtCore import QThreadPool, QTimer  # pyright: ignore[reportMissingModuleSource]
+
 from NodeGraphQt import BaseNode
-from abc import  abstractmethod, ABC
+
+from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from fbs_data import FBSData
 from node_workers import NodeWorker
-from Qt.QtCore import QThreadPool   
-from singletons import ThreadSignalManager, EventDebouncer, NodeStateManager
-from collections import deque
+from singletons import EventDebouncer, NodeStateManager, ThreadSignalManager
+
 from .resizable_node_item import ResizablePlotNodeItem
-from Qt.QtCore import QTimer  # pyright: ignore[reportMissingModuleSource]
             
             
             
