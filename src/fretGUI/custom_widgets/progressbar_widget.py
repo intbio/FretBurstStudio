@@ -1,8 +1,7 @@
 from Qt import QtWidgets
 from Qt.QtWidgets import QVBoxLayout, QProgressBar
 from Qt.QtCore import QTimer, Signal
-import Qt
-from singletons import ThreadSignalManager
+from fretGUI.singletons import ThreadSignalManager
 
 
 class ProgressBar(QtWidgets.QWidget):

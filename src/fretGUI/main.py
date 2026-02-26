@@ -1,10 +1,18 @@
 # Essential imports only - these are fast
 import sys
-import os, json
+import json
 import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore, QtGui
-import NodeGraphQt
+import fretGUI.custom_nodes.custom_nodes as custom_nodes
+import fretGUI.custom_nodes.selector_nodes as selector_nodes
+import fretGUI.graph_engene as graph_engene
+from fretGUI.custom_widgets.toogle_widget import IconToggleButton
+from fretGUI.singletons import ThreadSignalManager, NodeStateManager
+from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
+from fretGUI.node_workers import NodeWorker
+from Qt.QtCore import QThreadPool
+from NodeGraphQt import NodeGraph, NodesPaletteWidget, PropertiesBinWidget
 
 
 
@@ -54,18 +62,6 @@ def main():
     # Now import heavy modules while splash is showing
     splash.showMessage("Loading modules...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
     app.processEvents()
-    
-    import custom_nodes.custom_nodes as custom_nodes
-    import custom_nodes.selector_nodes as selector_nodes
-    import graph_engene
-    from custom_widgets.toogle_widget import IconToggleButton
-    from singletons import ThreadSignalManager, NodeStateManager
-    from custom_widgets.progressbar_widget import ProgressBar, ProgressBar2
-    from custom_nodes.custom_nodes import PhHDF5Node
-    from node_workers import NodeWorker
-    from Qt.QtCore import QThreadPool
-    from NodeGraphQt import NodeGraph, NodesPaletteWidget, constants
-    from NodeGraphQt import PropertiesBinWidget
     
     splash.showMessage("Initializing graph...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
     app.processEvents()

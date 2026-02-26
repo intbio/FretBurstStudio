@@ -1,16 +1,13 @@
 from abc import ABC, abstractmethod
 from collections import deque
 
-from Qt.QtCore import QThreadPool, QTimer  # pyright: ignore[reportMissingModuleSource]
-
 from NodeGraphQt import BaseNode
 
-from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
-from fbs_data import FBSData
-from node_workers import NodeWorker
-from singletons import EventDebouncer, NodeStateManager, ThreadSignalManager
+from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from fretGUI.fbs_data import FBSData
+from fretGUI.singletons import EventDebouncer, NodeStateManager, ThreadSignalManager
 
-from .resizable_node_item import ResizablePlotNodeItem
+from fretGUI.custom_nodes.resizable_node_item import ResizablePlotNodeItem
             
             
             

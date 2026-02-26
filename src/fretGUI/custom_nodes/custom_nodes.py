@@ -1,23 +1,17 @@
-from typing import Any
-import custom_widgets.path_selector as path_selector
-from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
+import fretGUI.custom_widgets.path_selector as path_selector
+from fretGUI.custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
 import fretbursts, os
-from node_builder import NodeBuilder
+from fretGUI.node_builder import NodeBuilder
 import NodeGraphQt
-from singletons import NodeStateManager
+from fretGUI.singletons import NodeStateManager
 
 
-from fbs_data import FBSData
-from singletons import FBSDataCash
-from Qt.QtCore import Signal  # pyright: ignore[reportMissingModuleSource]
+from fretGUI.fbs_data import FBSData
+from fretGUI.singletons import FBSDataCash, ThreadSignalManager
 from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingModuleSource]
-from singletons import ThreadSignalManager
 from abc import abstractmethod
-from NodeGraphQt import BaseNode
 import numpy as np
 from fretbursts.burstlib import Data
-from collections import Counter
-from misc import enable_legend_toggle
 import pandas as pd
 import seaborn as sns
 
@@ -195,7 +189,7 @@ class PhHDF5Node(AbstractLoader):
         
         
 class LSM510Node(AbstractLoader):
-    from misc.fcsfiles import ConfoCor2Raw
+    from fretGUI.misc.fcsfiles import ConfoCor2Raw
     __identifier__ = 'Loaders'
     NODE_NAME  = 'Confocor2 RAW'
 

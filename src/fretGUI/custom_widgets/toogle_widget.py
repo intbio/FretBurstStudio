@@ -1,6 +1,6 @@
 from Qt.QtWidgets import QPushButton
 from Qt.QtCore import QSize, Signal
-from singletons import NodeStateManager
+from fretGUI.singletons import NodeStateManager
 
 
 class IconToggleButton(QPushButton):
