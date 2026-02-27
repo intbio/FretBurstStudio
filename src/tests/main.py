@@ -10,6 +10,7 @@ import fretGUI.custom_nodes.custom_nodes as custom_nodes
 import fretGUI.custom_nodes.selector_nodes as selector_nodes
 from fretGUI.singletons import ThreadSignalManager
 from fretGUI.node_workers import NodeWorker
+from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
 
 from PySide6.QtTest import QSignalSpy
 
@@ -144,15 +145,39 @@ class TestWorkers(unittest.TestCase):
         self.assertEqual(len(paths), len(propper_path), "wrong lengths of paths")
         self.assertEqual(paths, propper_path)
 
-    def test_worker_signals(self):
+    def test_worker_thread_started_signals(self):
         graph = self.__load_template("test1.json")
         lsm_node = graph.get_node_by_name('Confocor2 RAW')
         worker = NodeWorker(lsm_node)
         signal_manager = ThreadSignalManager()
         spy = QSignalSpy(signal_manager.thread_started)
         worker.run()
-        self.assertTrue(spy.wait(5000), "thread_started was not obtained")
-        self.assertEqual(spy.count() , 2, "is should be 2 emitions of thread started signal")
+        self.assertTrue(spy.wait(5000), "thread_started signal was not obtained")
+        self.assertEqual(spy.count() , 2, "it should be 2 emitions of thread_started signal")
+        
+    def test_worker_thread_finished_signals(self):
+        graph = self.__load_template("test1.json")
+        lsm_node = graph.get_node_by_name('Confocor2 RAW')
+        worker = NodeWorker(lsm_node)
+        signal_manager = ThreadSignalManager()
+        spy = QSignalSpy(signal_manager.thread_finished)
+        worker.run()
+        self.assertTrue(spy.wait(5000), "thread_finished signal was not obtained")
+        self.assertEqual(spy.count() , 2, "it should be 2 emitions of thread_finished signal")
+        
+    def test_worker_all_thread_finished(self):
+        graph = self.__load_template("test1.json")
+        progress_bar = ProgressBar2()
+        ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
+        ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
+        ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
+        lsm_node = graph.get_node_by_name('Confocor2 RAW')
+        worker = NodeWorker(lsm_node)
+        signal_manager = ThreadSignalManager()
+        spy = QSignalSpy(signal_manager.all_thread_finished)
+        worker.run()
+        self.assertTrue(spy.wait(5000), "all_thread_finished signal was not obtained")
+        self.assertEqual(spy.count() , 1, "it should be 1 emition of all_thread_finished signal")
         
     def test_path2(self):
         graph = self.__load_template("test2.json")
