@@ -80,7 +80,6 @@ class TestGraph(unittest.TestCase):
     def test_create_nodes(self):
         graph = BaseUtils.init_graph()
         for i, node_name in enumerate(graph.registered_nodes()):
-            print(f"{i + 1}: {node_name}")
             graph.create_node(node_name)
             
     def test_connections(self):
