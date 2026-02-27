@@ -11,3 +11,4 @@ dependencies:
   - NumPy < 2.0.0
   - pip:
     - NodeGraphQt
+    - -e .
