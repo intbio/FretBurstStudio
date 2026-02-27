@@ -15,6 +15,37 @@ from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, NodesPaletteWidget, PropertiesBinWidget
 
 
+def on_run_btn_clicked(graph, btn):
+    engene = graph_engene.GraphEngene(graph)
+    roots = engene.find_root_nodes()
+    pool = QThreadPool.globalInstance()
+    for root_node in roots:
+        new_worker = NodeWorker(root_node)
+        pool.start(new_worker)
+
+def on_toogle_clicked(graph, toggle_btn):
+    engene = graph_engene.GraphEngene(graph)
+    toggle_state = toggle_btn.isChecked()
+    if not toggle_state:
+        print('static')
+        engene.make_nodes_static()
+    else:
+        print('auto')
+        engene.make_nodes_dinamic()
+        on_run_btn_clicked(graph, toggle_btn)
+
+
+def on_block_ui(graph):
+    pass
+    # for node in graph.all_nodes():
+    #     node.disable_all_node_widgets()
+
+def on_release_ui(graph):
+    pass
+    # for node in graph.all_nodes():
+    #     node.enable_all_node_widgets()
+
+
 
 def main():
     THEME = 'light'
@@ -148,35 +179,6 @@ def main():
     app.processEvents()
     
     # Define helper functions that are needed for the UI
-    def on_run_btn_clicked(graph, btn):
-        engene = graph_engene.GraphEngene(graph)
-        roots = engene.find_root_nodes()
-        pool = QThreadPool.globalInstance()
-        for root_node in roots:
-            new_worker = NodeWorker(root_node)
-            pool.start(new_worker)
-    
-    def on_toogle_clicked(graph, toggle_btn):
-        engene = graph_engene.GraphEngene(graph)
-        toggle_state = toggle_btn.isChecked()
-        if not toggle_state:
-            print('static')
-            engene.make_nodes_static()
-        else:
-            print('auto')
-            engene.make_nodes_dinamic()
-            on_run_btn_clicked(graph, toggle_btn)
-
-    
-    def on_block_ui(graph):
-        pass
-        # for node in graph.all_nodes():
-        #     node.disable_all_node_widgets()
-    
-    def on_release_ui(graph):
-        pass
-        # for node in graph.all_nodes():
-        #     node.enable_all_node_widgets()
     
     run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
     # run_button.setFixedSize(50, 50)    

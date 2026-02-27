@@ -14,6 +14,7 @@ import numpy as np
 from fretbursts.burstlib import Data
 import pandas as pd
 import seaborn as sns
+from fretGUI.singletons import FBSDataIDGenerator
 
 
 class AbstractLoader(AbstractRecomputable):
@@ -115,7 +116,6 @@ class AbstractLoader(AbstractRecomputable):
         self.__delete_closed_files(selected_paths)
         
         # Ensure all selected paths have IDs assigned
-        from singletons import FBSDataIDGenerator
         for path in selected_paths:
             if path not in self.path_to_id:
                 # Assign ID if somehow missing (shouldn't happen, but safety check)

@@ -1,7 +1,6 @@
 from Qt.QtCore import Signal
 from Qt.QtCore import QObject
 from Qt.QtCore import QMutex, QMutexLocker, QTimer
-from copy import deepcopy
 import time
 import queue
 import pickle
