@@ -2,6 +2,7 @@ from Qt import QtWidgets
 from Qt.QtWidgets import QVBoxLayout, QProgressBar
 from Qt.QtCore import QTimer, Signal
 from fretGUI.singletons import ThreadSignalManager
+from fretGUI.custom_widgets.abstract_widget_wrapper import debounce 
 
 
 class ProgressBar(QtWidgets.QWidget):
@@ -88,8 +89,12 @@ class ProgressBar2(QtWidgets.QWidget):
         self.progress_bar.setValue(self.total_current)
         
         if len(self.workers) == 0:
-            self.release_ui.emit()
-            QTimer.singleShot(500, self.hide)  # Hide after delay when all done
+            self.on_all_thread_finished()
+           
+    @debounce(500) 
+    def on_all_thread_finished(self):
+        self.release_ui.emit()
+        self.hide()
     
     def on_thread_processed(self, uid: str):
         if uid in self.workers:

@@ -210,7 +210,6 @@ def main():
     progress_bar.block_ui.connect(lambda: on_block_ui(graph))
     progress_bar.release_ui.connect(lambda: run_button.setDisabled(False))
     progress_bar.release_ui.connect(lambda: on_release_ui(graph))
-    # progress_bar.show()
 
     
     
@@ -230,59 +229,12 @@ def main():
     
     graph_widget.show()
     
-    
-    # file_node = graph.create_node(
-    #     'Loaders.PhHDF5Node')
-    # file_node.set_disabled(False)
-    
-    # # photon_node = graph.create_node(
-    # #     'nodes.custom.PhotonNode', text_color='#feab20')
-    # # photon_node.set_disabled(False)
-    
-    # alex_node = graph.create_node(
-    #     'Analysis.AlexNode')
-    # alex_node.set_disabled(False)
-    
-    # calc_bgnode = graph.create_node(
-    #     'Analysis.CalcBGNode')
-    # calc_bgnode.set_disabled(False)
-    
-    # search_node = graph.create_node(
-    #     'Analysis.BurstSearchNodeFromBG')
-    # search_node.set_disabled(False)
-    
-    # plot_node = graph.create_node(
-    #     'Plot.BGPlotterNode')
-    # plot_node.set_disabled(False)
-    
-
-    
-    # file_node.set_output(0, alex_node.input(0))
-    # # photon_node.set_output(0, alex_node.input(0))
-    # alex_node.set_output(0, calc_bgnode.input(0))
-    # calc_bgnode.set_output(0, search_node.input(0))
-    # search_node.set_output(0, plot_node.input(0))
-    
-    
-    # graph.auto_layout_nodes()
-    # graph.clear_selection()
-    # graph.fit_to_selection()
-    # graph.reset_zoom()
 
     graph.set_zoom(zoom=-0.9)
         
 
     properties_bin = PropertiesBinWidget(node_graph=graph, parent=graph_widget)
     properties_bin.setWindowFlags(QtCore.Qt.Tool)
-    
-    
-    # nodes_tree = NodesTreeWidget(node_graph=graph)
-    # nodes_tree.set_category_label('nodeGraphQt.nodes', 'Builtin Nodes')
-    # nodes_tree.set_category_label('nodes.custom.ports', 'Custom Port Nodes')
-    # nodes_tree.set_category_label('nodes.widget', 'Widget Nodes')
-    # nodes_tree.set_category_label('nodes.basic', 'Basic Nodes')
-    # nodes_tree.set_category_label('nodes.group', 'Group Nodes')
-    # nodes_tree.show()
 
 
     
