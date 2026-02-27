@@ -150,9 +150,14 @@ class TestWorkers(unittest.TestCase):
         lsm_node = graph.get_node_by_name('Confocor2 RAW')
         worker = NodeWorker(lsm_node)
         spy = QSignalSpy(ThreadSignalManager().thread_started)
+        all_thread_finished_spy = QSignalSpy(ThreadSignalManager().all_thread_finished)
+        progress_bar = ProgressBar2()
+        ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
+        ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
+        ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
         worker.run()
-        self.assertTrue(spy.wait(10000), "thread_started signal was not obtained")
-        self.assertEqual(spy.count() , 2, "it should be 2 emitions of thread_started signal")
+        self.assertTrue(all_thread_finished_spy.wait(10000), "thread_started signal was not obtained")
+        self.assertEqual(spy.count(), 2, "it should be 2 emitions of thread_started signal")
         
     def test_worker_thread_finished_signals(self):
         ThreadSignalManager().disconnect()
@@ -160,8 +165,13 @@ class TestWorkers(unittest.TestCase):
         lsm_node = graph.get_node_by_name('Confocor2 RAW')
         worker = NodeWorker(lsm_node)
         spy = QSignalSpy(ThreadSignalManager().thread_finished)
+        all_thread_finished_spy = QSignalSpy(ThreadSignalManager().all_thread_finished)
+        progress_bar = ProgressBar2()
+        ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
+        ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
+        ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
         worker.run()
-        self.assertTrue(spy.wait(10000), "thread_finished signal was not obtained")
+        self.assertTrue(all_thread_finished_spy.wait(10000))
         self.assertEqual(spy.count(), 2, "it should be 2 emitions of thread_finished signal")
         
     def test_worker_all_thread_finished(self):
