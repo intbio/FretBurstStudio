@@ -15,13 +15,30 @@ def main():
     
     # Create QApplication immediately
     app = QtWidgets.QApplication(sys.argv)
+
+    # ---- In-application console logger ----
+    class EmittingStream(QtCore.QObject):
+        """
+        Redirects sys.stdout/sys.stderr into a Qt signal so we can display
+        prints and tracebacks inside the GUI.
+        """
+        text_written = QtCore.Signal(str)
+
+        def write(self, text):
+            if not text:
+                return
+            self.text_written.emit(str(text))
+
+        def flush(self):
+            # Needed for file-like compatibility; no-op is fine here.
+            pass
     
     # Show splash screen ASAP
     BASE_PATH = Path(__file__).parent.resolve()
     
     # Load logo image
     logo_path = BASE_PATH / 'static' / 'fb_logo.png'
-    
+    app.setWindowIcon(QtGui.QIcon(str(logo_path)))
     if logo_path.exists():
         # Use the logo as the base pixmap
         splash_pixmap = QtGui.QPixmap(str(logo_path))
@@ -45,14 +62,14 @@ def main():
     
     splash.showMessage(
         "FRETBursts Studio Loading...",
-        QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom,
+        QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter,
         QtGui.QColor(30, 30, 30)
     )
     splash.show()
     app.processEvents()
     
     # Now import heavy modules while splash is showing
-    splash.showMessage("Loading modules...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
+    splash.showMessage("Loading modules...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter, QtGui.QColor(30, 30, 30))
     app.processEvents()
     
     import custom_nodes.custom_nodes as custom_nodes
@@ -67,7 +84,7 @@ def main():
     from NodeGraphQt import NodeGraph, NodesPaletteWidget, constants
     from NodeGraphQt import PropertiesBinWidget
     
-    splash.showMessage("Initializing graph...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
+    splash.showMessage("Initializing graph...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter, QtGui.QColor(30, 30, 30))
     app.processEvents()
     
     # create graph controller.
@@ -78,15 +95,63 @@ def main():
     main_layout = QtWidgets.QVBoxLayout(graph_widget)
     main_layout.setContentsMargins(2, 2, 2, 2)
     
-    
+    # --- Top toolbar layout (run button, toggle, progress bar) ---
     top_layout = QtWidgets.QHBoxLayout()
     top_layout.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignTop)
+
+    # --- Log / console output window (separate window) ---
+    log_window = QtWidgets.QDialog(graph_widget)
+    log_window.setWindowTitle("Console Output")
+    log_window.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowCloseButtonHint | QtCore.Qt.WindowMinMaxButtonsHint)
+    log_window.resize(800, 400)
+    
+    log_widget = QtWidgets.QPlainTextEdit(log_window)
+    log_widget.setReadOnly(True)
+    log_widget.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
+    log_widget.setStyleSheet(
+        """
+        QPlainTextEdit {
+            background-color: #111111;
+            color: #EEEEEE;
+            font-family: Consolas, monospace;
+            font-size: 9pt;
+            border: 1px solid #333333;
+        }
+        """
+    )
+    
+    # Add clear button
+    clear_button = QtWidgets.QPushButton("Clear", log_window)
+    clear_button.clicked.connect(log_widget.clear)
+    
+    log_layout = QtWidgets.QVBoxLayout(log_window)
+    log_layout.setContentsMargins(4, 4, 4, 4)
+    log_layout.setSpacing(4)
+    button_layout = QtWidgets.QHBoxLayout()
+    button_layout.addStretch()
+    button_layout.addWidget(clear_button)
+    log_layout.addLayout(button_layout)
+    log_layout.addWidget(log_widget)
+    
+    # Connect stdout/stderr to the log widget
+    log_stream = EmittingStream()
+    log_stream.text_written.connect(lambda text: log_widget.appendPlainText(text.rstrip()))
+    sys.stdout = sys.stderr = log_stream
+    
+    # Function to toggle log window visibility
+    def toggle_log_window():
+        if log_window.isVisible():
+            log_window.hide()
+        else:
+            log_window.show()
+            log_window.raise_()
+            log_window.activateWindow()
     
     # set up context menu for the node graph.
     hotkey_path = Path(BASE_PATH, 'hotkeys', 'hotkeys.json')
     graph.set_context_menu_from_file(hotkey_path, 'graph')
     
-    splash.showMessage("Loading nodes...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
+    splash.showMessage("Loading nodes...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter, QtGui.QColor(30, 30, 30))
     app.processEvents()
     
     # registered example nodes.
@@ -148,7 +213,7 @@ def main():
         ]
     )
     
-    splash.showMessage("Initializing UI...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
+    splash.showMessage("Initializing UI...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter, QtGui.QColor(30, 30, 30))
     app.processEvents()
     
     # Define helper functions that are needed for the UI
@@ -216,9 +281,11 @@ def main():
 
     
     
+  
     top_layout.addWidget(progress_bar)
     top_layout.addWidget(run_button)
     top_layout.addWidget(toggle_btn)
+
     
     main_layout.addLayout(top_layout)
     run_button.show()
@@ -526,6 +593,9 @@ def main():
         no_templates_action = templates_menu.addAction("Configs folder not found")
         no_templates_action.setEnabled(False)
 
+    log_menu = menu_bar.addMenu("Log")
+    log_menu.addAction("Show Console").triggered.connect(toggle_log_window)
+    
     about_menu = menu_bar.addMenu("About")
     about_menu.addAction("About").triggered.connect(show_about)
 

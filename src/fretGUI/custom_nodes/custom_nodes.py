@@ -450,7 +450,7 @@ class AbstractContentNode(ResizableContentNode):
         
         print(inport_color, "INPORT")
         
-        self.add_input('inport1', color=inport_color)
+        self.add_input('port1', color=inport_color)
         self.set_port_deletion_allowed(mode=True)
         self.on_check_ports()
         
@@ -513,10 +513,10 @@ class AbstractContentNode(ResizableContentNode):
     def __get_port_name(self, connected_inputs) -> str:
         connected_inputs = set(connected_inputs)
         for i in range(1, len(connected_inputs) + 1):
-            name = f"inport{i}"
+            name = f"port{i}"
             if name not in connected_inputs:
                 return name
-        return f"inport{i+1}"
+        return f"port{i+1}"
     
     def on_input_connected(self, in_port, out_port):
         if self.__enable_multiports:
@@ -597,8 +597,10 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         self.data_to_plot.sort(key = lambda x: x.id)
         for cur_data in self.data_to_plot:
             fname = os.path.basename(cur_data.data.fname)
+            inport_name = self.get_input_port(cur_data).name()
+            
             fbid = cur_data.id
-            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+            map_name_to_data[f'{inport_name}:{fbid}, {fname}'] = cur_data.data
 
         self.items_to_plot.set_items(list(map_name_to_data.keys()))
         selected_val = self.items_to_plot.get_value()
@@ -674,12 +676,8 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             if len(self.connected_input_nodes())==2:
                 name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
             else:
-                print(type(cur_data))
-                
                 inport_name = self.get_input_port(cur_data).name()
-                print(f"INPORT {inport_name}, NODE: {type(self)}")
-                
-                name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
+                name = f'{inport_name}: {cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
             if self.ax.lines:
                 self.ax.lines[-1].set_label(name)
 
