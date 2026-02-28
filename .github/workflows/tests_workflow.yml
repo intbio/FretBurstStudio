@@ -3,8 +3,8 @@ name: learn-github-actions
 on: [push]
 
 jobs:
-  test:
-    name: Run tests
+  test_linux:
+    name: Run linux build
     runs-on: ubuntu-latest
 
     steps:
@@ -30,6 +30,26 @@ jobs:
 
     - name: run tests
       run: xvfb-run -a conda run -n FBSTUDIO python3 src/tests/main.py
-        
+
+
+  test_windows:
+    strategy:
+      matrix:
+        os: [windows-2019, windows-2022]
+        build_options: ['build.bat',
+         '.\build.ps1',
+          'python -m PyInstaller FretBurstStudio.spec --clean --noconfirm']
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Build project
+      run: |
+        cd build
+        ${{ matrix.build_options }}
+
 
 
