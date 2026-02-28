@@ -204,16 +204,7 @@ class TestWorkers(unittest.TestCase):
         worker._fill_nodeseq(worker.start_node, worker.node_seq, paths)
         paths = [list(map(lambda x: x.name(), seq)) for seq in paths]
         self.assertEqual(paths, answer, "paths are not equal")
-        
-        
-            
-        
-        
-
-        
-        
-        
-        
+          
             
         
 if __name__ == '__main__':
