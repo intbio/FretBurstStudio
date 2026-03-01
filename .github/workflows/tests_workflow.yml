@@ -63,7 +63,7 @@ jobs:
         cd pyinstaller
         ${{ matrix.build_options }}
         cd dist
-        conda run -n FBSTUDIO.\FretBurstStudio.exe
+        conda run -n FBSTUDIO .\FretBurstStudio.exe
 
 
 
