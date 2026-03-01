@@ -35,7 +35,7 @@ jobs:
   test_windows:
     strategy:
       matrix:
-        os: [windows-2019, windows-2022]
+        os: [windows-2022]
         build_options: ['.\build.bat',
          '.\build.ps1',
           'python -m PyInstaller FretBurstStudio.spec --clean --noconfirm']
