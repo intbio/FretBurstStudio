@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   test_linux:
-    name: Run linux build
+    name: Run linux tests
     runs-on: ubuntu-latest
 
     steps:
@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-2019, windows-2022]
-        build_options: ['build.bat',
+        build_options: ['.\build.bat',
          '.\build.ps1',
           'python -m PyInstaller FretBurstStudio.spec --clean --noconfirm']
     runs-on: ${{ matrix.os }}
