@@ -46,10 +46,24 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: install conda
+      uses: s-weigand/setup-conda@v1
+      with:
+        update-conda: true  
+    - run: conda --version
+    - run: which python
+    - run: conda env create -f environment.yml
+    - run: conda env list
+
+    - name: install pyinstaller
+      run: pip install pyinstaller
+
     - name: Build project
       run: |
-        cd build
+        cd pyinstaller
         ${{ matrix.build_options }}
+        cd dist
+        .\FretBurstStudio.exe
 
 
 
