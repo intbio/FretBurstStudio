@@ -63,7 +63,18 @@ jobs:
         cd pyinstaller
         ${{ matrix.build_options }}
         cd dist
-        conda run -n FBSTUDIO .\FretBurstStudio.exe
+        start-job { .\FretBurstStudio.exe } | out-null
+        Start-Sleep -Seconds 10
+        $process = Get-Process -Name "FretBurstStudio" -ErrorAction SilentlyContinue
+        if ($process) {
+            Write-Host "✅ Приложение успешно запущено. PID: $($process.Id)"
+            Stop-Process -Id $process.Id -Force
+            Write-Host "✅ Приложение остановлено"
+        } else {
+            Write-Host "❌ Приложение не запустилось"
+            exit 1
+        }
+      shell: powershell
 
 
 
