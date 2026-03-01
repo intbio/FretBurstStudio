@@ -63,18 +63,15 @@ jobs:
         cd pyinstaller
         ${{ matrix.build_options }}
         cd dist
-        start-job { .\FretBurstStudio.exe } | out-null
+        $process = Start-Process -FilePath ".\FretBurstStudio.exe" -PassThru
         Start-Sleep -Seconds 10
-        $process = Get-Process -Name "FretBurstStudio" -ErrorAction SilentlyContinue
-        if ($process) {
-            Write-Host "✅ Приложение успешно запущено. PID: $($process.Id)"
+        if (!$process.HasExited) {
             Stop-Process -Id $process.Id -Force
-            Write-Host "✅ Приложение остановлено"
+            Write-Host "✅ Приложение работало 10 секунд и было остановлено"
         } else {
-            Write-Host "❌ Приложение не запустилось"
+            Write-Host "❌ Приложение завершилось раньше 10 секунд"
             exit 1
         }
-      shell: powershell
 
 
 
