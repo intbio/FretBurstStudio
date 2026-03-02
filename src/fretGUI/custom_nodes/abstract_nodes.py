@@ -127,17 +127,18 @@ class AbstractRecomputable(AbstractExecutable):
         for widget_name, widget in self.widgets().items():
             widget.setEnabled(True)
             
-    def on_input_connected(self, in_port, out_port):          
+    def on_input_connected(self, in_port, out_port):    
+        logging.debug(f"nodes {out_port.node().name()} and {in_port.node().name()} were connected")      
         if self.are_ports_acceptable(in_port, out_port):
             self.event_debouncer.push_event(('connect', in_port, out_port))
-            logging.debug(f"nodes {out_port.node().name()} and {in_port.node().name()} were connected")
             return super().on_input_connected(in_port, out_port)
         logging.debug(f"nodes {out_port.node().name()} and {in_port.node().name()} have different port properties. disconnect")
         out_port.disconnect_from(in_port, emit_signal=False)
     
     def on_input_disconnected(self, in_port, out_port):
-        logging.debug(f"nodes {out_port.node().name()} and {in_port.node().name()} were disconnected")
-        self.event_debouncer.push_event(('disconnect', in_port, out_port))
+        if in_port.node() and out_port.node():
+            logging.debug(f"nodes {out_port.node().name()} and {in_port.node().name()} were disconnected")
+            self.event_debouncer.push_event(('disconnect', in_port, out_port))
         return super().on_input_disconnected(in_port, out_port)
     
     def on_connection(self, event):
