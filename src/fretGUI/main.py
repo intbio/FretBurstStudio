@@ -13,9 +13,22 @@ from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
 from fretGUI.node_workers import NodeWorker
 from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, NodesPaletteWidget, PropertiesBinWidget
+import logging
+
+
+LEVEL = logging.DEBUG
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=LEVEL,
+                    format='%(asctime)s - %(module)s - %(funcName)s - %(levelname)s - %(message)s',
+                    handlers=[
+                        logging.FileHandler('fbstudio.log'),
+                        logging.StreamHandler(sys.stdout)
+                        ]
+                    )
 
 
 def on_run_btn_clicked(graph, btn):
+    logging.debug("run button clicked")
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
     pool = QThreadPool.globalInstance()
@@ -26,6 +39,7 @@ def on_run_btn_clicked(graph, btn):
 def on_toogle_clicked(graph, toggle_btn):
     engene = graph_engene.GraphEngene(graph)
     toggle_state = toggle_btn.isChecked()
+    logging.debug(f"toogle clicked, current state is {toggle_state}")
     if not toggle_state:
         print('static')
         engene.make_nodes_static()
@@ -36,41 +50,45 @@ def on_toogle_clicked(graph, toggle_btn):
 
 
 def on_block_ui(graph):
+    logging.debug("block UI was called")
     pass
     # for node in graph.all_nodes():
     #     node.disable_all_node_widgets()
 
 def on_release_ui(graph):
+    logging.debug("release UI was called")
     pass
     # for node in graph.all_nodes():
     #     node.enable_all_node_widgets()
+    
+    
+    # ---- In-application console logger ----
+class EmittingStream(QtCore.QObject):
+    """
+    Redirects sys.stdout/sys.stderr into a Qt signal so we can display
+    prints and tracebacks inside the GUI.
+    """
+    text_written = QtCore.Signal(str)
+
+    def write(self, text):
+        if not text:
+            return
+        self.text_written.emit(str(text))
+
+    def flush(self):
+        # Needed for file-like compatibility; no-op is fine here.
+        pass
 
 
 
 def main():
+    
     THEME = 'light'
     # handle SIGINT to make the app terminate on CTRL+C
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     
     # Create QApplication immediately
     app = QtWidgets.QApplication(sys.argv)
-
-    # ---- In-application console logger ----
-    class EmittingStream(QtCore.QObject):
-        """
-        Redirects sys.stdout/sys.stderr into a Qt signal so we can display
-        prints and tracebacks inside the GUI.
-        """
-        text_written = QtCore.Signal(str)
-
-        def write(self, text):
-            if not text:
-                return
-            self.text_written.emit(str(text))
-
-        def flush(self):
-            # Needed for file-like compatibility; no-op is fine here.
-            pass
     
     # Show splash screen ASAP
     BASE_PATH = Path(__file__).parent.resolve()
