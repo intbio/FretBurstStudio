@@ -23,14 +23,12 @@ class ProgressBar(QtWidgets.QWidget):
     def on_thread_started(self, uid: str, max_values: int):
         if len(self.bars) == 0:
             self.block_ui.emit()
-        print('worker started', uid)
         new_pbar = QProgressBar()
         new_pbar.setRange(0, max_values)
         self.layout.addWidget(new_pbar)
         self.bars[uid] = new_pbar
         
     def on_thread_finished(self, uid: str):
-        print("worker finished", uid)
         pbar = self.bars.pop(uid)
         if len(self.bars) == 0:
             self.release_ui.emit()
@@ -42,7 +40,7 @@ class ProgressBar(QtWidgets.QWidget):
         pbar.setValue(cur_value + 1)
         
     def on_thread_error(self, uid: str):
-        print("worker error", uid)
+        pass
         
     def __del_pbar(self, pbar):
         self.layout.removeWidget(pbar)
@@ -75,13 +73,11 @@ class ProgressBar2(QtWidgets.QWidget):
             self.block_ui.emit()
             self.show()  # Show when first worker starts
         
-        print('worker started', uid)
         self.workers[uid] = {'max': max_values, 'current': 0}
         self.total_max += max_values
         self.progress_bar.setRange(0, self.total_max)
     
     def on_thread_finished(self, uid: str):
-        print("worker finished", uid)
         worker_info = self.workers.pop(uid)
         # Ensure we account for any remaining progress from this worker
         remaining = worker_info['max'] - worker_info['current']
@@ -96,14 +92,14 @@ class ProgressBar2(QtWidgets.QWidget):
         self.release_ui.emit()
         self.hide()
     
-    def on_thread_processed(self, uid: str):
+    def on_thread_processed(self, event):
+        uid, _ = event
         if uid in self.workers:
             self.workers[uid]['current'] += 1
             self.total_current += 1
             self.progress_bar.setValue(self.total_current)
         
     def on_thread_error(self, uid: str):
-        print("worker error", uid)
         # On error, treat it as finished to clean up
         if uid in self.workers:
             worker_info = self.workers.pop(uid)

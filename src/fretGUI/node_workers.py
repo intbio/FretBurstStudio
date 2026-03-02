@@ -5,7 +5,11 @@ from fretGUI.singletons import ThreadSignalManager
 from abc import abstractmethod
 from collections import deque
 from copy import deepcopy
+import logging
 
+
+
+logger = logging.getLogger(__name__)  
 
 
 class AbstractNodeWorker(QRunnable):
@@ -14,7 +18,7 @@ class AbstractNodeWorker(QRunnable):
         self.start_node = start_node
         self.data = data
         self.node_seq = node_seq if node_seq else deque()
-        self.uid = uuid.uuid4().hex
+        self.uid = uuid.uuid4().hex[:16]
         
     @abstractmethod
     def fill_nodeseq(self):
@@ -44,6 +48,7 @@ class AbstractNodeWorker(QRunnable):
     def run_in_new_thread(self, node, data, q, *args, **kwargs):
         new_worker = type(self)(node, deepcopy(data), q, *args, **kwargs)
         pool = QThreadPool.globalInstance()
+        logging.debug(f"thread {self.uid} was forked. New id is {new_worker.uid}")
         pool.start(new_worker)
 
 
@@ -57,8 +62,8 @@ class NodeWorker(AbstractNodeWorker):
         
     def _run(self):
         while len(self.node_seq) != 0:
-            ThreadSignalManager().thread_progress.emit(self.uid)
             cur_node = self.node_seq.popleft()
+            ThreadSignalManager().thread_progress.emit((self.uid, cur_node))
             try:
                 data_container = cur_node.execute(self.data)
             except AttributeError as error:

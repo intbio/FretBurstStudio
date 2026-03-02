@@ -5,6 +5,10 @@ import time
 import queue
 import pickle
 import hashlib
+import logging
+
+
+logging.getLogger(__name__)
 
 
 class SingletonMeta(type(QObject)):
@@ -20,11 +24,23 @@ class SingletonMeta(type(QObject)):
 class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     thread_started = Signal((str, int))
     thread_finished = Signal(str)
-    thread_progress = Signal(str)
+    thread_progress = Signal(tuple)
     thread_error = Signal(str)
     all_thread_finished = Signal()
     run_btn_clicked = Signal()
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.wire_signals()
+    
+    def wire_signals(self):
+        self.thread_started.connect(self.__on_thread_started)
+        self.thread_finished.connect(self.__on_thread_finished)
+        self.thread_progress.connect(self.__on_thread_progress)
+        self.thread_error.connect(self.__on_thread_error)
+        self.all_thread_finished.connect(self.__on_all_thread_finished)
+        self.run_btn_clicked.connect(self.__on_run_btn_clicked)
+        
     def disconnect(self):
         self.thread_started.disconnect()
         self.thread_finished.disconnect()
@@ -32,6 +48,27 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
         self.thread_error.disconnect()
         self.all_thread_finished.disconnect()
         self.run_btn_clicked.disconnect()
+       
+    def __on_thread_started(self, worker_uid: str, length: int):
+        logging.debug(f"thread {worker_uid} was started with {length} nodes")
+        
+    def __on_thread_finished(self, worker_uid: str):
+        logging.debug(f"thread {worker_uid} was finished")
+        
+    def __on_thread_progress(self, event):
+        worker_uid, node = event
+        logging.debug(f"thread {worker_uid} executed node {node}")
+        
+    def __on_thread_error(self, worker_uid: str):
+        logging.error(f" ERROR in {worker_uid}")
+        
+    def __on_all_thread_finished(self):
+        logging.debug(f"all thread are finished")
+        
+    def __on_run_btn_clicked(self):
+        logging.debug(f"run btm clicked signal was")
+    
+
         
     
     

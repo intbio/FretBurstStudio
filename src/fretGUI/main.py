@@ -16,52 +16,6 @@ from NodeGraphQt import NodeGraph, NodesPaletteWidget, PropertiesBinWidget
 import logging
 
 
-LEVEL = logging.DEBUG
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=LEVEL,
-                    format='%(asctime)s - %(module)s - %(funcName)s - %(levelname)s - %(message)s',
-                    handlers=[
-                        logging.FileHandler('fbstudio.log'),
-                        logging.StreamHandler(sys.stdout)
-                        ]
-                    )
-
-
-def on_run_btn_clicked(graph, btn):
-    logging.debug("run button clicked")
-    engene = graph_engene.GraphEngene(graph)
-    roots = engene.find_root_nodes()
-    pool = QThreadPool.globalInstance()
-    for root_node in roots:
-        new_worker = NodeWorker(root_node)
-        pool.start(new_worker)
-
-def on_toogle_clicked(graph, toggle_btn):
-    engene = graph_engene.GraphEngene(graph)
-    toggle_state = toggle_btn.isChecked()
-    logging.debug(f"toogle clicked, current state is {toggle_state}")
-    if not toggle_state:
-        print('static')
-        engene.make_nodes_static()
-    else:
-        print('auto')
-        engene.make_nodes_dinamic()
-        on_run_btn_clicked(graph, toggle_btn)
-
-
-def on_block_ui(graph):
-    logging.debug("block UI was called")
-    pass
-    # for node in graph.all_nodes():
-    #     node.disable_all_node_widgets()
-
-def on_release_ui(graph):
-    logging.debug("release UI was called")
-    pass
-    # for node in graph.all_nodes():
-    #     node.enable_all_node_widgets()
-    
-    
     # ---- In-application console logger ----
 class EmittingStream(QtCore.QObject):
     """
@@ -78,10 +32,73 @@ class EmittingStream(QtCore.QObject):
     def flush(self):
         # Needed for file-like compatibility; no-op is fine here.
         pass
+    
+    
+class QtLogHandler(logging.Handler):
+    def __init__(self, emitting_stream):
+        super().__init__()
+        self.emitting_stream = emitting_stream
+        
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.emitting_stream.write(msg + '\n')
+        except Exception:
+            self.handleError(record)
+
+
+def init_logger():
+    LEVEL = logging.DEBUG
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(level=LEVEL,
+                        format='%(asctime)s - %(module)s - %(funcName)s - %(levelname)s - %(message)s',
+                        handlers=[
+                            logging.FileHandler('fbstudio.log'),
+                            logging.StreamHandler(sys.stdout),
+                            ]
+                        )
+
+    for name in logging.root.manager.loggerDict:
+        if not name.startswith(__name__):
+            logging.getLogger(name).setLevel(logging.WARNING)
+
+
+def on_run_btn_clicked(graph, btn):
+    logging.debug("run button clicked")
+    engene = graph_engene.GraphEngene(graph)
+    roots = engene.find_root_nodes()
+    pool = QThreadPool.globalInstance()
+    for root_node in roots:
+        new_worker = NodeWorker(root_node)
+        pool.start(new_worker)
+
+def on_toogle_clicked(graph, toggle_btn):
+    engene = graph_engene.GraphEngene(graph)
+    toggle_state = toggle_btn.isChecked()
+    logging.debug(f"toogle clicked, current state is {toggle_state}")
+    if not toggle_state:
+        engene.make_nodes_static()
+    else:
+        engene.make_nodes_dinamic()
+        on_run_btn_clicked(graph, toggle_btn)
+
+
+def on_block_ui(graph):
+    logging.debug("block UI was called")
+    pass
+
+def on_release_ui(graph):
+    logging.debug("release UI was called")
+    pass
+    
+    
+
 
 
 
 def main():
+    
+    init_logger()
     
     THEME = 'light'
     # handle SIGINT to make the app terminate on CTRL+C
@@ -180,8 +197,10 @@ def main():
     
     # Connect stdout/stderr to the log widget
     log_stream = EmittingStream()
+    qtloghandler = QtLogHandler(log_stream)
     log_stream.text_written.connect(lambda text: log_widget.appendPlainText(text.rstrip()))
-    sys.stdout = sys.stderr = log_stream
+    logging.getLogger().addHandler(qtloghandler)
+     
     
     # Function to toggle log window visibility
     def toggle_log_window():
@@ -462,7 +481,6 @@ def main():
         ## a hacky way to apply  theme upon copy paste
         def paste_nodes_wrapper(adjust_graph_style=True):
             nodes_before = set(graph.all_nodes())
-            print(nodes_before)
             result = original_paste_nodes(adjust_graph_style)
             nodes_after = set(graph.all_nodes())
             new_nodes = nodes_after - nodes_before

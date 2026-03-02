@@ -1,5 +1,7 @@
+import sys
 from abc import ABC, abstractmethod
 from collections import deque
+import logging
 
 from NodeGraphQt import BaseNode
 
@@ -8,7 +10,9 @@ from fretGUI.fbs_data import FBSData
 from fretGUI.singletons import EventDebouncer, NodeStateManager, ThreadSignalManager
 
 from fretGUI.custom_nodes.resizable_node_item import ResizablePlotNodeItem
-            
+
+
+logger = logging.getLogger(__name__)          
             
             
 class AbstractExecutable(BaseNode, ABC):
@@ -100,6 +104,7 @@ class AbstractRecomputable(AbstractExecutable):
         super().add_custom_widget(widget, *args, **kwargs)
         
     def wire_wrappers(self):
+        logging.debug(f"node: {self.name()} was wired")
         self.event_debouncer.connect(self.on_connection)
         if len(self.widget_wrappers) == 0:
             return None
@@ -107,6 +112,7 @@ class AbstractRecomputable(AbstractExecutable):
             widget_wrapper.debounced_signal.connect(self.on_widget_triggered)
             
     def unwire_wrappers(self):
+        logging.debug(f"node: {self.name()} was unwired")
         self.event_debouncer.disconnect()
         if len(self.widget_wrappers) == 0:
             return None
@@ -124,10 +130,13 @@ class AbstractRecomputable(AbstractExecutable):
     def on_input_connected(self, in_port, out_port):          
         if self.are_ports_acceptable(in_port, out_port):
             self.event_debouncer.push_event(('connect', in_port, out_port))
+            logging.debug(f"nodes {out_port.node().name()} and {in_port.node().name()} were connected")
             return super().on_input_connected(in_port, out_port)
+        logging.debug(f"nodes {out_port.node().name()} and {in_port.node().name()} have different port properties. disconnect")
         out_port.disconnect_from(in_port, emit_signal=False)
     
     def on_input_disconnected(self, in_port, out_port):
+        logging.debug(f"nodes {out_port.node().name()} and {in_port.node().name()} were disconnected")
         self.event_debouncer.push_event(('disconnect', in_port, out_port))
         return super().on_input_disconnected(in_port, out_port)
     
@@ -135,7 +144,7 @@ class AbstractRecomputable(AbstractExecutable):
         self.on_widget_triggered()
             
     def on_widget_triggered(self):
-        print("TRIGGERED", type(self))
+        logging.debug(f"node: {self.name()} was triggered")
         ThreadSignalManager().run_btn_clicked.emit()
 
 
