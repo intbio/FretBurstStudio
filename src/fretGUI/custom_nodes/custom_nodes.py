@@ -3,9 +3,11 @@ from fretGUI.custom_nodes.abstract_nodes import AbstractRecomputable, ResizableC
 import fretbursts, os
 from fretGUI.node_builder import NodeBuilder
 import NodeGraphQt
+from Qt.QtCore import Qt
+
+import logging
+
 from fretGUI.singletons import NodeStateManager
-
-
 from fretGUI.fbs_data import FBSData
 from fretGUI.singletons import FBSDataCash, ThreadSignalManager
 from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingModuleSource]
@@ -15,6 +17,9 @@ from fretbursts.burstlib import Data
 import pandas as pd
 import seaborn as sns
 from fretGUI.singletons import FBSDataIDGenerator
+
+
+logger = logging.getLogger(__name__)  
 
 
 class AbstractLoader(AbstractRecomputable):
@@ -33,7 +38,6 @@ class AbstractLoader(AbstractRecomputable):
         self.path_to_id = dict()    # path -> id mapping
         
         # Connect to paths_added signal to assign IDs immediately (use DirectConnection for synchronous execution)
-        from Qt.QtCore import Qt
         self.file_widget.paths_added.connect(self.on_paths_added, Qt.DirectConnection)
         
     def on_paths_added(self, paths):
@@ -461,14 +465,15 @@ class AbstractContentNode(ResizableContentNode):
         
     def on_refresh_canvas(self):
         if not self.was_executed:
+            logging.debug(f"node: {self.name()} was not executed and has nothing to plot")
             return
         if self.has_plot_data():
-            print("WAS EXECUTED", type(self))
+            logging.debug(f"node: {self.name()} has data to plot and was refreshed")
             self._on_refresh_canvas()
             self.plot_widget.canvas.draw()
             self.data_to_plot.clear()
         else:
-            print("WAS NOT EXECUTED", type(self))   
+            logging.debug(f"node: {self.name()} has no data to plot. Cleared") 
             self.__on_plot_data_clear()
             self.plot_widget.canvas.draw()
         
