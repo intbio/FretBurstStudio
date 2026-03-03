@@ -39,9 +39,8 @@ class AbstractNodeWorker(QRunnable):
         ThreadSignalManager().thread_started.emit(self.uid, len(self.node_seq) - 1)
         try:
             self._run()
-        except AttributeError as error:
-            ThreadSignalManager().thread_error.emit(self.uid)
-            raise error
+        except Exception as error:
+            ThreadSignalManager().thread_error.emit((self.uid, error))
         finally:
             ThreadSignalManager().thread_finished.emit(self.uid)
             

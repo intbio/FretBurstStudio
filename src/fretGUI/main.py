@@ -25,8 +25,6 @@ class EmittingStream(QtCore.QObject):
     text_written = QtCore.Signal(str)
 
     def write(self, text):
-        if not text:
-            return
         self.text_written.emit(str(text))
 
     def flush(self):
@@ -199,6 +197,8 @@ def main():
     log_stream = EmittingStream()
     qtloghandler = QtLogHandler(log_stream)
     log_stream.text_written.connect(lambda text: log_widget.appendPlainText(text.rstrip()))
+    # sys.stdout = log_stream
+    # sys.stderr = log_stream
     logging.getLogger().addHandler(qtloghandler)
      
     

@@ -25,7 +25,7 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     thread_started = Signal((str, int))
     thread_finished = Signal(str)
     thread_progress = Signal(tuple)
-    thread_error = Signal(str)
+    thread_error = Signal(tuple)
     all_thread_finished = Signal()
     run_btn_clicked = Signal()
     
@@ -59,8 +59,10 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
         worker_uid, node = event
         logging.debug(f"thread {worker_uid} executed node {node}")
         
-    def __on_thread_error(self, worker_uid: str):
-        logging.error(f" ERROR in {worker_uid}")
+    def __on_thread_error(self, event):
+        worker_uid, error = event
+        logging.exception(f" ERROR: {str(error)} in {worker_uid}")
+        raise error
         
     def __on_all_thread_finished(self):
         logging.debug(f"all thread are finished")

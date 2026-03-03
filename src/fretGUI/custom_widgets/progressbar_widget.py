@@ -99,8 +99,9 @@ class ProgressBar2(QtWidgets.QWidget):
             self.total_current += 1
             self.progress_bar.setValue(self.total_current)
         
-    def on_thread_error(self, uid: str):
+    def on_thread_error(self, event):
         # On error, treat it as finished to clean up
+        uid, error = event
         if uid in self.workers:
             worker_info = self.workers.pop(uid)
             remaining = worker_info['max'] - worker_info['current']
