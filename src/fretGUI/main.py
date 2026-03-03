@@ -36,6 +36,9 @@ class QtLogHandler(logging.Handler):
     def __init__(self, emitting_stream):
         super().__init__()
         self.emitting_stream = emitting_stream
+        self.custom_format = '%(asctime)s - %(module)s - %(funcName)s - %(levelname)s - %(message)s'
+        self.formatter = logging.Formatter(self.custom_format)
+        self.setFormatter(self.formatter)
         
     def emit(self, record):
         try:
@@ -197,8 +200,6 @@ def main():
     log_stream = EmittingStream()
     qtloghandler = QtLogHandler(log_stream)
     log_stream.text_written.connect(lambda text: log_widget.appendPlainText(text.rstrip()))
-    # sys.stdout = log_stream
-    # sys.stderr = log_stream
     logging.getLogger().addHandler(qtloghandler)
      
     
