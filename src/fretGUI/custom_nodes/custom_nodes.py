@@ -20,6 +20,10 @@ from collections import Counter
 from misc import enable_legend_toggle
 import pandas as pd
 import seaborn as sns
+from custom_widgets.timetrace_explorer import (
+    OpenExplorerButtonWrapper,
+    TimetraceExplorerWindow,
+)
 
 
 class AbstractLoader(AbstractRecomputable):
@@ -916,12 +920,146 @@ class BVAPlotterNode(AbstractContentNode):
         # fig.tight_layout()
         plot_widget.canvas.draw()    
         
+    class InterBurstPlotterNode(BaseSingleFilePlotterNode):
+        NODE_NAME = 'Burst FRET vs Width'
+        PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
+
+class InterBurstPlotterNode(AbstractContentNode):
+    __identifier__ = 'Plot'
+    NODE_NAME = 'InterBurstDelay'
+
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 10
+    BOTTOM_MARGIN = 0
+    PLOT_NODE = True
+    MIN_WIDTH = 450
+    MIN_HEIGHT = 300
+
+    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
+        super().__init__(widget_name, qgraphics_item)
+        self.PLOT_KWARGS = {}
+        self.node_builder = NodeBuilder(self)
+
+        self.add_input('inport')
+        self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
+        self.items_to_plot = self.node_builder.build_combobox(
+            widget_name="File to plot:",
+            items=[],
+            value=None,
+            tooltip="Select an option"
+        )
+
+    def _on_refresh_canvas(self):
+        plot_widget = self.get_widget('plot_widget').plot_widget
+        fig = plot_widget.figure
+        fig.clear()
+        ax = fig.add_subplot()
+
+        map_name_to_data = {}
+        self.data_to_plot.sort(key = lambda x: x.id)
+        for cur_data in self.data_to_plot:
+            fname = os.path.basename(cur_data.data.fname)
+            fbid = cur_data.id
+            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+
+        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        selected_val = self.items_to_plot.get_value()
+        selected_data = map_name_to_data.get(selected_val)
+
+        if selected_data is None or not isinstance(selected_data, Data):
+            plot_widget.canvas.draw()
+            return
         
+        ds_FRET = selected_data
+        df_bursts = fretbursts.bext.burst_data(ds_FRET)
+        burst_starts = df_bursts['t_start']
+        burst_ends = df_bursts['t_stop']
+        inter_burst_intervals = burst_starts.values[1:] - burst_ends.values[:-1]
+        ax.hist(inter_burst_intervals, bins=100, log=True, histtype='step')
+        ax.set_xlabel('Time, s', fontsize=16)
+        ax.set_ylabel('N', fontsize=16);
         
-    
-    
-    
-    
-        
-            
-            
+        # fig.tight_layout()
+        plot_widget.canvas.draw()
+
+
+class TimetraceExplorerNode(AbstractContentNode):
+    """Plot node that opens a separate window for fast burst timetrace exploration."""
+
+    __identifier__ = 'Plot'
+    NODE_NAME = 'Timetrace Explorer'
+
+    LEFT_RIGHT_MARGIN = 67
+    TOP_MARGIN = 10
+    BOTTOM_MARGIN = 0
+    PLOT_NODE = True
+    MIN_WIDTH = 280
+    MIN_HEIGHT = 120
+
+    def __init__(self, widget_name='open_btn', qgraphics_item=None):
+        super().__init__(widget_name, qgraphics_item)
+        self.node_builder = NodeBuilder(self)
+        self._map_name_to_data = {}
+        self._explorer_window = None
+
+        self.open_btn = OpenExplorerButtonWrapper(parent=self.view)
+        self.open_btn.set_name('open_btn')
+        self.add_custom_widget(self.open_btn, tab='custom')
+        self.open_btn.clicked.connect(self._on_open_explorer)
+
+        self.items_to_plot = self.node_builder.build_combobox(
+            widget_name="File to plot:",
+            items=[],
+            value=None,
+            tooltip="Select a file to explore"
+        )
+
+    def on_refresh_canvas(self):
+        """Update file list / open window; no embedded plot widget."""
+        if self.has_plot_data():
+            self._on_refresh_canvas()
+            self.data_to_plot.clear()
+        else:
+            self.data_to_plot.clear()
+            self._map_name_to_data.clear()
+
+    def _on_refresh_canvas(self):
+        map_name_to_data = {}
+        self.data_to_plot.sort(key=lambda x: x.id)
+        for cur_data in self.data_to_plot:
+            fname = os.path.basename(cur_data.data.fname)
+            inport = self.get_input_port(cur_data)
+            inport_name = inport.name() if inport is not None else "port"
+            fbid = cur_data.id
+            map_name_to_data[f'{inport_name}:{fbid}, {fname}'] = cur_data.data
+
+        self._map_name_to_data = map_name_to_data
+        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        self._sync_open_window()
+
+    def _selected_data(self):
+        selected_val = self.items_to_plot.get_value()
+        selected_data = self._map_name_to_data.get(selected_val)
+        if selected_data is not None and isinstance(selected_data, Data):
+            return selected_data
+        return None
+
+    def _sync_open_window(self):
+        if self._explorer_window is None or not self._explorer_window.isVisible():
+            return
+        self._explorer_window.set_data(self._selected_data(), preserve_view=True)
+
+    def _on_open_explorer(self):
+        data = self._selected_data()
+        if self._explorer_window is None:
+            parent = None
+            try:
+                parent = self.graph.widget.window()
+            except Exception:
+                parent = None
+            self._explorer_window = TimetraceExplorerWindow(parent=parent)
+        self._explorer_window.set_data(data)
+        self._explorer_window.show()
+        self._explorer_window.raise_()
+        self._explorer_window.activateWindow()
+
