@@ -1,4 +1,12 @@
+from PyInstaller.utils.hooks import collect_submodules
 block_cipher = None
+
+hidden_local = (
+    collect_submodules('custom_nodes') +
+    collect_submodules('custom_widgets') +
+    collect_submodules('misc') +
+    collect_submodules('hotkeys')
+)
 
 a = Analysis(
     ['../src/fretGUI/main.py'],
@@ -28,31 +36,7 @@ a = Analysis(
         'PySide6.QtSvg',
         'PySide6.QtSvgWidgets',
         
-        # Local application modules
-        'custom_nodes',
-        'custom_nodes.custom_nodes',
-        'custom_nodes.selector_nodes',
-        'custom_nodes.abstract_nodes',
-        'custom_nodes.plotter_nodes',
-        'custom_nodes.resizable_node_item',
-        'custom_widgets',
-        'custom_widgets.toogle_widget',
-        'custom_widgets.progressbar_widget',
-        'custom_widgets.path_selector',
-        'custom_widgets.plot_widget',
-        'custom_widgets.sliders',
-        'custom_widgets.abstract_widget_wrapper',
-        'singletons',
-        'graph_engene',
-        'node_workers',
-        'node_builder',
-        'fbs_data',
-        'misc',
-        'misc.plot_utils',
-        'misc.fcsfiles',
-        'hotkeys',
-        'hotkeys.hotkey_functions',
-    ],
+    ]  + hidden_local,
     hookspath=['hooks'],      # you already have hook-PyQt6.py there
     runtime_hooks=[],
     excludes=['PyQt6', 'PyQt6.QtCore', 'PyQt6.QtGui', 'PyQt6.QtWidgets'],

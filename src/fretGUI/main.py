@@ -59,18 +59,33 @@ def main():
     class EmittingStream(QtCore.QObject):
         """
         Redirects sys.stdout/sys.stderr into a Qt signal so we can display
-        prints and tracebacks inside the GUI.
+        prints and tracebacks inside the GUI, while also mirroring to the
+        original terminal stream when one is available.
         """
         text_written = QtCore.Signal(str)
+
+        def __init__(self, original_stream=None, parent=None):
+            super().__init__(parent)
+            self._original_stream = original_stream
 
         def write(self, text):
             if not text:
                 return
-            self.text_written.emit(str(text))
+            text = str(text)
+            if self._original_stream is not None:
+                try:
+                    self._original_stream.write(text)
+                    self._original_stream.flush()
+                except Exception:
+                    pass
+            self.text_written.emit(text)
 
         def flush(self):
-            # Needed for file-like compatibility; no-op is fine here.
-            pass
+            if self._original_stream is not None:
+                try:
+                    self._original_stream.flush()
+                except Exception:
+                    pass
     
     # Show splash screen ASAP
     BASE_PATH = Path(__file__).parent.resolve()
@@ -160,10 +175,15 @@ def main():
     log_layout.addLayout(button_layout)
     log_layout.addWidget(log_widget)
     
-    # Connect stdout/stderr to the log widget
-    log_stream = EmittingStream()
-    log_stream.text_written.connect(lambda text: log_widget.appendPlainText(text.rstrip()))
-    sys.stdout = sys.stderr = log_stream
+    # Connect stdout/stderr to the log widget, mirroring to the terminal too
+    original_stdout = sys.__stdout__ or sys.stdout
+    original_stderr = sys.__stderr__ or sys.stderr
+    stdout_stream = EmittingStream(original_stdout)
+    stderr_stream = EmittingStream(original_stderr)
+    stdout_stream.text_written.connect(lambda text: log_widget.appendPlainText(text.rstrip()))
+    stderr_stream.text_written.connect(lambda text: log_widget.appendPlainText(text.rstrip()))
+    sys.stdout = stdout_stream
+    sys.stderr = stderr_stream
     
     # Function to toggle log window visibility
     def toggle_log_window():
@@ -236,7 +256,9 @@ def main():
             custom_nodes.HistBurstBrightnessPlotterNode,
             custom_nodes.HistBurstSBRPlotterNode,
             custom_nodes.HistBurstPhratePlotterNode,  
-            custom_nodes.BVAPlotterNode
+            custom_nodes.BVAPlotterNode,
+            custom_nodes.InterBurstPlotterNode,
+            custom_nodes.TimetraceExplorerNode,
         ]
     )
     
