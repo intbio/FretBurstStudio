@@ -14,7 +14,7 @@ import numpy as np
 from fretbursts.burstlib import Data
 import pandas as pd
 import seaborn as sns
-from custom_widgets.timetrace_explorer import (
+from fretGUI.custom_widgets.timetrace_explorer import (
     OpenExplorerButtonWrapper,
     TimetraceExplorerWindow,
 )
