@@ -1,26 +1,20 @@
-from typing import Any
-import custom_widgets.path_selector as path_selector
-from custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
+import fretGUI.custom_widgets.path_selector as path_selector
+from fretGUI.custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
 import fretbursts, os
-from node_builder import NodeBuilder
+from fretGUI.node_builder import NodeBuilder
 import NodeGraphQt
-from singletons import NodeStateManager
+from fretGUI.singletons import NodeStateManager
 
 
-from fbs_data import FBSData
-from singletons import FBSDataCash
-from Qt.QtCore import Signal  # pyright: ignore[reportMissingModuleSource]
+from fretGUI.fbs_data import FBSData
+from fretGUI.singletons import FBSDataCash, ThreadSignalManager
 from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingModuleSource]
-from singletons import ThreadSignalManager
 from abc import abstractmethod
-from NodeGraphQt import BaseNode
 import numpy as np
 from fretbursts.burstlib import Data
-from collections import Counter
-from misc import enable_legend_toggle
 import pandas as pd
 import seaborn as sns
-from custom_widgets.timetrace_explorer import (
+from fretGUI.custom_widgets.timetrace_explorer import (
     OpenExplorerButtonWrapper,
     TimetraceExplorerWindow,
 )
@@ -125,7 +119,6 @@ class AbstractLoader(AbstractRecomputable):
         self.__delete_closed_files(selected_paths)
         
         # Ensure all selected paths have IDs assigned
-        from singletons import FBSDataIDGenerator
         for path in selected_paths:
             if path not in self.path_to_id:
                 # Assign ID if somehow missing (shouldn't happen, but safety check)
@@ -199,7 +192,7 @@ class PhHDF5Node(AbstractLoader):
         
         
 class LSM510Node(AbstractLoader):
-    from misc.fcsfiles import ConfoCor2Raw
+    from fretGUI.misc.fcsfiles import ConfoCor2Raw
     __identifier__ = 'Loaders'
     NODE_NAME  = 'Confocor2 RAW'
 
@@ -451,6 +444,7 @@ class AbstractContentNode(ResizableContentNode):
         ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
         ThreadSignalManager().all_thread_finished.connect(self.on_check_ports)
         self.__prevnodeid_data_map = dict()
+        self.was_executed = False
         
         print(inport_color, "INPORT")
         
@@ -469,6 +463,8 @@ class AbstractContentNode(ResizableContentNode):
         return len(self.data_to_plot) != 0
         
     def on_refresh_canvas(self):
+        if not self.was_executed:
+            return
         if self.has_plot_data():
             print("WAS EXECUTED", type(self))
             self._on_refresh_canvas()
@@ -487,6 +483,7 @@ class AbstractContentNode(ResizableContentNode):
         self.data_to_plot.clear()
         self.plot_widget.figure.clear()
         self.__prevnodeid_data_map.clear()
+        self.was_executed = False
         
     def get_input_port(self, fbsdata: FBSData) -> NodeGraphQt.Port:
         """function returns port from which current fbsdata came
@@ -509,6 +506,7 @@ class AbstractContentNode(ResizableContentNode):
         return None
     
     def execute(self, fbsdata: FBSData=None):
+        self.was_executed = True
         self.__prevnodeid_data_map[fbsdata] = fbsdata.prev_nodeid
         if fbsdata is not None:
             self.data_to_plot.append(fbsdata)

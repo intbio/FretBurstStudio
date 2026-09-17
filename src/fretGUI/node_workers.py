@@ -1,7 +1,7 @@
 
 from Qt.QtCore import QRunnable, QThreadPool
 import uuid
-from singletons import ThreadSignalManager
+from fretGUI.singletons import ThreadSignalManager
 from abc import abstractmethod
 from collections import deque
 from copy import deepcopy

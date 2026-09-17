@@ -1,8 +1,8 @@
-from custom_nodes.abstract_nodes import AbstractRecomputable
+from fretGUI.custom_nodes.abstract_nodes import AbstractRecomputable
 import fretbursts
-from node_builder import NodeBuilder
-from fbs_data import FBSData
-from singletons import FBSDataCash
+from fretGUI.node_builder import NodeBuilder
+from fretGUI.fbs_data import FBSData
+from fretGUI.singletons import FBSDataCash
 
 
 

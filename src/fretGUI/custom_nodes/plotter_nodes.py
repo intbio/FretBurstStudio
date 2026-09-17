@@ -1,10 +1,6 @@
-from custom_nodes.abstract_nodes import AbstractContentNode
+from fretGUI.custom_nodes.abstract_nodes import AbstractContentNode
 import fretbursts
-from node_builder import NodeBuilder
-
-from fbs_data import FBSData
-from singletons import ThreadSignalManager
-from abc import abstractmethod
+from fretGUI.node_builder import NodeBuilder
 
 
 

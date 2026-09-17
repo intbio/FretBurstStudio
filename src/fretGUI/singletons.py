@@ -1,7 +1,6 @@
 from Qt.QtCore import Signal
 from Qt.QtCore import QObject
 from Qt.QtCore import QMutex, QMutexLocker, QTimer
-from copy import deepcopy
 import time
 import queue
 import pickle
@@ -25,6 +24,15 @@ class ThreadSignalManager(QObject, metaclass=SingletonMeta):
     thread_error = Signal(str)
     all_thread_finished = Signal()
     run_btn_clicked = Signal()
+    
+    def disconnect(self):
+        self.thread_started.disconnect()
+        self.thread_finished.disconnect()
+        self.thread_progress.disconnect()
+        self.thread_error.disconnect()
+        self.all_thread_finished.disconnect()
+        self.run_btn_clicked.disconnect()
+        
     
     
 class NodeStateManager(QObject, metaclass=SingletonMeta):

@@ -1,10 +1,49 @@
 # Essential imports only - these are fast
 import sys
-import os, json
+import json
 import signal
 from pathlib import Path
 from Qt import QtWidgets, QtCore, QtGui
-import NodeGraphQt
+import fretGUI.custom_nodes.custom_nodes as custom_nodes
+import fretGUI.custom_nodes.selector_nodes as selector_nodes
+import fretGUI.graph_engene as graph_engene
+from fretGUI.custom_widgets.toogle_widget import IconToggleButton
+from fretGUI.singletons import ThreadSignalManager, NodeStateManager
+from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
+from fretGUI.node_workers import NodeWorker
+from Qt.QtCore import QThreadPool
+from NodeGraphQt import NodeGraph, NodesPaletteWidget, PropertiesBinWidget
+
+
+def on_run_btn_clicked(graph, btn):
+    engene = graph_engene.GraphEngene(graph)
+    roots = engene.find_root_nodes()
+    pool = QThreadPool.globalInstance()
+    for root_node in roots:
+        new_worker = NodeWorker(root_node)
+        pool.start(new_worker)
+
+def on_toogle_clicked(graph, toggle_btn):
+    engene = graph_engene.GraphEngene(graph)
+    toggle_state = toggle_btn.isChecked()
+    if not toggle_state:
+        print('static')
+        engene.make_nodes_static()
+    else:
+        print('auto')
+        engene.make_nodes_dinamic()
+        on_run_btn_clicked(graph, toggle_btn)
+
+
+def on_block_ui(graph):
+    pass
+    # for node in graph.all_nodes():
+    #     node.disable_all_node_widgets()
+
+def on_release_ui(graph):
+    pass
+    # for node in graph.all_nodes():
+    #     node.enable_all_node_widgets()
 
 
 
@@ -87,19 +126,7 @@ def main():
     splash.showMessage("Loading modules...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter, QtGui.QColor(30, 30, 30))
     app.processEvents()
     
-    import custom_nodes.custom_nodes as custom_nodes
-    import custom_nodes.selector_nodes as selector_nodes
-    import graph_engene
-    from custom_widgets.toogle_widget import IconToggleButton
-    from singletons import ThreadSignalManager, NodeStateManager
-    from custom_widgets.progressbar_widget import ProgressBar, ProgressBar2
-    from custom_nodes.custom_nodes import PhHDF5Node
-    from node_workers import NodeWorker
-    from Qt.QtCore import QThreadPool
-    from NodeGraphQt import NodeGraph, NodesPaletteWidget, constants
-    from NodeGraphQt import PropertiesBinWidget
-    
-    splash.showMessage("Initializing graph...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter, QtGui.QColor(30, 30, 30))
+    splash.showMessage("Initializing graph...", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtGui.QColor(30, 30, 30))
     app.processEvents()
     
     # create graph controller.
@@ -239,35 +266,6 @@ def main():
     app.processEvents()
     
     # Define helper functions that are needed for the UI
-    def on_run_btn_clicked(graph, btn):
-        engene = graph_engene.GraphEngene(graph)
-        roots = engene.find_root_nodes()
-        pool = QThreadPool.globalInstance()
-        for root_node in roots:
-            new_worker = NodeWorker(root_node)
-            pool.start(new_worker)
-    
-    def on_toogle_clicked(graph, toggle_btn):
-        engene = graph_engene.GraphEngene(graph)
-        toggle_state = toggle_btn.isChecked()
-        if not toggle_state:
-            print('static')
-            engene.make_nodes_static()
-        else:
-            print('auto')
-            engene.make_nodes_dinamic()
-            on_run_btn_clicked(graph, toggle_btn)
-
-    
-    def on_block_ui(graph):
-        pass
-        # for node in graph.all_nodes():
-        #     node.disable_all_node_widgets()
-    
-    def on_release_ui(graph):
-        pass
-        # for node in graph.all_nodes():
-        #     node.enable_all_node_widgets()
     
     run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
     # run_button.setFixedSize(50, 50)    
@@ -299,7 +297,6 @@ def main():
     progress_bar.block_ui.connect(lambda: on_block_ui(graph))
     progress_bar.release_ui.connect(lambda: run_button.setDisabled(False))
     progress_bar.release_ui.connect(lambda: on_release_ui(graph))
-    # progress_bar.show()
 
     
     
@@ -321,59 +318,12 @@ def main():
     
     graph_widget.show()
     
-    
-    # file_node = graph.create_node(
-    #     'Loaders.PhHDF5Node')
-    # file_node.set_disabled(False)
-    
-    # # photon_node = graph.create_node(
-    # #     'nodes.custom.PhotonNode', text_color='#feab20')
-    # # photon_node.set_disabled(False)
-    
-    # alex_node = graph.create_node(
-    #     'Analysis.AlexNode')
-    # alex_node.set_disabled(False)
-    
-    # calc_bgnode = graph.create_node(
-    #     'Analysis.CalcBGNode')
-    # calc_bgnode.set_disabled(False)
-    
-    # search_node = graph.create_node(
-    #     'Analysis.BurstSearchNodeFromBG')
-    # search_node.set_disabled(False)
-    
-    # plot_node = graph.create_node(
-    #     'Plot.BGPlotterNode')
-    # plot_node.set_disabled(False)
-    
-
-    
-    # file_node.set_output(0, alex_node.input(0))
-    # # photon_node.set_output(0, alex_node.input(0))
-    # alex_node.set_output(0, calc_bgnode.input(0))
-    # calc_bgnode.set_output(0, search_node.input(0))
-    # search_node.set_output(0, plot_node.input(0))
-    
-    
-    # graph.auto_layout_nodes()
-    # graph.clear_selection()
-    # graph.fit_to_selection()
-    # graph.reset_zoom()
 
     graph.set_zoom(zoom=-0.9)
         
 
     properties_bin = PropertiesBinWidget(node_graph=graph, parent=graph_widget)
     properties_bin.setWindowFlags(QtCore.Qt.Tool)
-    
-    
-    # nodes_tree = NodesTreeWidget(node_graph=graph)
-    # nodes_tree.set_category_label('nodeGraphQt.nodes', 'Builtin Nodes')
-    # nodes_tree.set_category_label('nodes.custom.ports', 'Custom Port Nodes')
-    # nodes_tree.set_category_label('nodes.widget', 'Widget Nodes')
-    # nodes_tree.set_category_label('nodes.basic', 'Basic Nodes')
-    # nodes_tree.set_category_label('nodes.group', 'Group Nodes')
-    # nodes_tree.show()
 
 
     

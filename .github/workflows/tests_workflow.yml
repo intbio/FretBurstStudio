@@ -1,0 +1,77 @@
+name: learn-github-actions
+
+on: [push]
+
+jobs:
+  test_linux:
+    name: Run linux tests
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Init Bash
+      shell: bash -l {0}
+      run: python --version
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: install conda
+      uses: s-weigand/setup-conda@v1
+      with:
+        update-conda: true  
+    - run: conda --version
+    - run: which python
+    - run: conda env create -f environment.yml
+    - run: conda env list
+
+    - name: Install xvfb
+      run: sudo apt-get update && sudo apt-get install -y xvfb
+
+    - name: run tests
+      run: xvfb-run -a conda run -n FBSTUDIO python3 src/tests/main.py
+
+
+  test_windows:
+    strategy:
+      matrix:
+        os: [windows-2022]
+        build_options: ['.\build.bat',
+         '.\build.ps1',
+          'python -m PyInstaller FretBurstStudio.spec --clean --noconfirm']
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: install conda
+      uses: s-weigand/setup-conda@v1
+      with:
+        update-conda: true  
+    - run: conda --version
+    - run: which python
+    - run: conda env create -f environment.yml
+    - run: conda env list
+
+    - name: install pyinstaller
+      run: pip install pyinstaller
+
+    - name: Build project
+      run: |
+        cd pyinstaller
+        ${{ matrix.build_options }}
+        cd dist
+        $process = Start-Process -FilePath ".\FretBurstStudio.exe" -PassThru
+        Start-Sleep -Seconds 10
+        if (!$process.HasExited) {
+            Stop-Process -Id $process.Id -Force
+            Write-Host "✅ Приложение работало 10 секунд и было остановлено"
+        } else {
+            Write-Host "❌ Приложение завершилось раньше 10 секунд"
+            exit 1
+        }
+
+
+

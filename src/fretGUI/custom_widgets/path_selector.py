@@ -1,6 +1,6 @@
 from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import Signal
-from custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from Qt.QtWidgets import QCheckBox
 import os
 

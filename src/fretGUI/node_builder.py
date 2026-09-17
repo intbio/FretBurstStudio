@@ -1,6 +1,5 @@
-import custom_widgets.sliders as sliders
-from custom_widgets.plot_widget import TemplatePlotWidgetWtapper
-import custom_nodes.custom_nodes as custom_nodes
+import fretGUI.custom_widgets.sliders as sliders
+from fretGUI.custom_widgets.plot_widget import TemplatePlotWidgetWtapper
 
     
     

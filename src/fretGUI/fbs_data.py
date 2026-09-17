@@ -1,6 +1,6 @@
 from fretbursts.burstlib import Data
 from copy import deepcopy
-from singletons import FBSDataIDGenerator
+from fretGUI.singletons import FBSDataIDGenerator
 
 
 class FBSData():

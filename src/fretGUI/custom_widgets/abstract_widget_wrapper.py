@@ -2,7 +2,6 @@ from Qt.QtCore import Signal, QTimer
 from abc import abstractmethod
 from NodeGraphQt import NodeBaseWidget
 from abc import abstractmethod    
-from singletons import ThreadSignalManager
 from functools import wraps
 
 
