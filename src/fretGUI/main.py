@@ -14,10 +14,11 @@ from fretGUI.singletons import (
     ThreadSignalManager,
 )
 from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
+from fretGUI.custom_widgets.node_sidebar import NodeSidebar
 from fretGUI.custom_widgets.plot_widget import set_matplotlib_theme
 from fretGUI.node_workers import NodeWorker
 from Qt.QtCore import QThreadPool
-from NodeGraphQt import NodeGraph, NodesPaletteWidget, PropertiesBinWidget
+from NodeGraphQt import NodeGraph, PropertiesBinWidget
 
 
 THEME = 'light'
@@ -266,18 +267,17 @@ def main():
     # create graph controller.
     graph = NodeGraph()  
     
-    graph_widget = graph.widget 
-    graph_widget.setObjectName('nodeGraphRoot')
-    
-    main_layout = QtWidgets.QVBoxLayout(graph_widget)
-    main_layout.setContentsMargins(2, 2, 2, 2)
-    
-    # --- Top toolbar layout (run button, toggle, progress bar) ---
-    top_layout = QtWidgets.QHBoxLayout()
-    top_layout.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignTop)
+    graph_widget = graph.widget
+    app_window = QtWidgets.QMainWindow()
+    app_window.setObjectName('nodeGraphRoot')
+    central_widget = QtWidgets.QWidget(app_window)
+    main_layout = QtWidgets.QHBoxLayout(central_widget)
+    main_layout.setContentsMargins(0, 0, 0, 0)
+    main_layout.setSpacing(0)
+    app_window.setCentralWidget(central_widget)
 
     # --- Log / console output window (separate window) ---
-    log_window = QtWidgets.QDialog(graph_widget)
+    log_window = QtWidgets.QDialog(app_window)
     log_window.setWindowTitle("Console Output")
     log_window.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowCloseButtonHint | QtCore.Qt.WindowMinMaxButtonsHint)
     log_window.resize(800, 400)
@@ -402,7 +402,7 @@ def main():
     
     # Define helper functions that are needed for the UI
     
-    run_button = QtWidgets.QPushButton("Run", parent=graph_widget)
+    run_button = QtWidgets.QPushButton("Run", parent=app_window)
     # run_button.setFixedSize(50, 50)    
     run_button.setStyleSheet("""
         QPushButton {
@@ -430,11 +430,11 @@ def main():
     coordinator.busy_changed.connect(run_button.setDisabled)
     run_button.clicked.connect(ThreadSignalManager().run_btn_clicked.emit)
     
-    toggle_btn = IconToggleButton(parent=graph_widget)
+    toggle_btn = IconToggleButton(parent=app_window)
     toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))   
     toggle_btn.toggled.connect(NodeStateManager().on_change_node_state) 
     
-    progress_bar = ProgressBar2(parent=graph_widget)
+    progress_bar = ProgressBar2(parent=app_window)
     ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
     ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
     ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
@@ -444,62 +444,30 @@ def main():
     progress_bar.block_ui.connect(lambda: on_block_ui(graph))
     progress_bar.release_ui.connect(lambda: on_release_ui(graph))
 
-    
-    
-  
-    top_layout.addWidget(progress_bar)
-    top_layout.addWidget(run_button)
-    top_layout.addWidget(toggle_btn)
+    sidebar = NodeSidebar(
+        graph,
+        run_button,
+        toggle_btn,
+        progress_bar,
+        parent=central_widget,
+    )
+    main_layout.addWidget(sidebar)
+    main_layout.addWidget(graph_widget, stretch=1)
 
-    
-    main_layout.addLayout(top_layout)
-    run_button.show()
-    
-    
-    graph_widget.resize(1280, 800)
-    graph_widget.setWindowTitle("FretBurstsStudio")
-    
+    app_window.resize(1280, 800)
+    app_window.setWindowTitle("FretBurstsStudio")
+
     # Close splash screen before showing main window
-    splash.finish(graph_widget)
-    
-    graph_widget.show()
+    splash.finish(app_window)
+
+    app_window.show()
     
 
     graph.set_zoom(zoom=-0.9)
         
 
-    properties_bin = PropertiesBinWidget(node_graph=graph, parent=graph_widget)
+    properties_bin = PropertiesBinWidget(node_graph=graph, parent=app_window)
     properties_bin.setWindowFlags(QtCore.Qt.Tool)
-
-
-    
-    nodes_palette = NodesPaletteWidget(node_graph=graph)
-    nodes_palette.set_category_label('nodeGraphQt.nodes', 'Builtin Nodes')
-    nodes_palette.set_category_label('nodes.custom.ports', 'Custom Port Nodes')
-    nodes_palette.set_category_label('nodes.widget', 'Widget Nodes')
-    nodes_palette.set_category_label('nodes.basic', 'Basic Nodes')
-    nodes_palette.set_category_label('nodes.group', 'Group Nodes')
-    
-    #moving builtin to the last
-    tabs = nodes_palette.tab_widget()
-
-    w = tabs.widget(0)
-    icon = tabs.tabIcon(0)
-    text = tabs.tabText(0)
-    tabs.removeTab(0)
-    tabs.addTab(w, icon, text)
-    
-    sidebar_layout = QtWidgets.QVBoxLayout()
-    sidebar_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
-    sidebar_layout.setSpacing(0)  # Remove spacing
-    sidebar_layout.addStretch()
-    sidebar_layout.addWidget(nodes_palette)
-    sidebar_widget = QtWidgets.QWidget()
-    # Keep the sidebar chrome light/transparent so no dark strip shows
-    sidebar_widget.setStyleSheet("background: transparent;")
-    sidebar_widget.setLayout(sidebar_layout)
-    sidebar_widget.setFixedSize(500, 200)
-    main_layout.addWidget(sidebar_widget)
 
 
 #styling
@@ -557,7 +525,7 @@ def main():
         graph.set_grid_color(*colors['grid'])
         # Also tint the top-level widget so the app background matches the theme
         bg = colors['background']
-        graph_widget.setStyleSheet(
+        app_window.setStyleSheet(
             f"""
             QWidget#nodeGraphRoot {{
                 background-color: rgb{bg};
@@ -580,6 +548,7 @@ def main():
             }}
         """)
         toggle_btn.set_theme(kind, colors)
+        sidebar.set_theme(colors)
             
                 
         def theme_node(node):
@@ -660,33 +629,6 @@ def main():
         graph.paste_nodes = paste_nodes_wrapper
         graph.duplicate_nodes = duplicate_nodes_wrapper
         
-        nodes_palette.setStyleSheet(f"""
-            background-color: rgb{colors['background']};
-            color: rgb{colors['text']};
-        """)
-
-        # Style tab headers separately from the palette background
-        tabs.setStyleSheet(f"""
-            QTabBar::tab    {{
-                background: rgb{colors['background']};
-                color: rgb{colors['text']};
-                padding: 6px 10px;
-                border: 1px solid rgb{colors['grid']};
-                border-bottom: 0px;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-                margin-right: 2px;
-            }}
-            QTabBar::tab:selected {{
-                background: rgb{colors['node']};
-                border-color: rgb{colors['grid']};
-            }}   
-            QTabWidget::pane {{
-                background: rgb{colors['background']}; /* match palette body instead of black */
-                border: 1px solid rgb{colors['grid']};
-                top: -1px;
-            }}
-        """)
         app.processEvents()
         if theme_changed:
             QtCore.QTimer.singleShot(
@@ -696,13 +638,13 @@ def main():
        
     # ----- menu bar -----
     def open_file():
-        path = QtWidgets.QFileDialog.getOpenFileName(graph_widget, "Open File",filter="*.json")
+        path = QtWidgets.QFileDialog.getOpenFileName(app_window, "Open File",filter="*.json")
         if path:
             graph.load_session(path[0])
             apply_theme()
 
     def save_file():
-        path = QtWidgets.QFileDialog.getSaveFileName(graph_widget, "Save File",filter="*.json")
+        path = QtWidgets.QFileDialog.getSaveFileName(app_window, "Save File",filter="*.json")
         if path[0]:
             graph.save_session(path[0])
 
@@ -710,7 +652,7 @@ def main():
         app.quit()
 
     def show_about():
-        QtWidgets.QMessageBox.information(graph_widget, "About", "FretBurstStudio based on FretBursts library<br><br>Version 0.0.1 <br><br>Developed by: Dmitry Ryabov and Grigory Armeev")
+        QtWidgets.QMessageBox.information(app_window, "About", "FretBurstStudio based on FretBursts library<br><br>Version 0.0.1 <br><br>Developed by: Dmitry Ryabov and Grigory Armeev")
 
     def load_template(template_path):
         """Load a template session from the configs folder."""
@@ -718,7 +660,7 @@ def main():
             graph.load_session(template_path)
             apply_theme()
 
-    menu_bar = QtWidgets.QMenuBar(graph_widget)
+    menu_bar = app_window.menuBar()
     file_menu = menu_bar.addMenu("File")
     file_menu.addAction("Open").triggered.connect(open_file)
     file_menu.addAction("Save").triggered.connect(save_file)
@@ -750,8 +692,6 @@ def main():
     
     about_menu = menu_bar.addMenu("About")
     about_menu.addAction("About").triggered.connect(show_about)
-
-    main_layout.setMenuBar(menu_bar)
 
     apply_theme('light')
     app.exec()

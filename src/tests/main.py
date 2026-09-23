@@ -2,6 +2,7 @@ import sys
 
 import unittest
 import NodeGraphQt
+from NodeGraphQt.constants import MIME_TYPE
 from Qt import QtWidgets, QtCore, QtGui
 from unittest.mock import MagicMock
 from pathlib import Path
@@ -20,6 +21,11 @@ from fretGUI.singletons import (
 from fretGUI.node_workers import NodeWorker
 from fretGUI.fbs_data import FBSData
 from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
+from fretGUI.custom_widgets.node_sidebar import (
+    CATEGORY_ROLE,
+    NODE_TYPE_ROLE,
+    NodeSidebar,
+)
 from fretGUI.custom_widgets.plot_widget import (
     TemplatePlotWidget,
     set_matplotlib_theme,
@@ -120,6 +126,71 @@ class TestGraph(unittest.TestCase):
          
             
 class TestWidgets(unittest.TestCase):
+    def test_node_sidebar_groups_nodes_and_has_fixed_width(self):
+        graph = BaseUtils.init_graph()
+        run_button = QtWidgets.QPushButton('Run')
+        auto_toggle = QtWidgets.QPushButton('Auto Run')
+        progress_bar = ProgressBar2()
+        sidebar = NodeSidebar(
+            graph,
+            run_button,
+            auto_toggle,
+            progress_bar,
+        )
+
+        self.assertEqual(sidebar.minimumWidth(), NodeSidebar.WIDTH)
+        self.assertEqual(sidebar.maximumWidth(), NodeSidebar.WIDTH)
+        self.assertEqual(sidebar.node_tree.indentation(), 6)
+        self.assertFalse(sidebar.node_tree.rootIsDecorated())
+        self.assertEqual(
+            sidebar.node_tree.selectionMode(),
+            QtWidgets.QAbstractItemView.NoSelection,
+        )
+
+        categories = {
+            sidebar.node_tree.topLevelItem(index).data(0, CATEGORY_ROLE):
+            sidebar.node_tree.topLevelItem(index)
+            for index in range(sidebar.node_tree.topLevelItemCount())
+        }
+        self.assertIn('Loaders', categories)
+        self.assertIn('Analysis', categories)
+        self.assertIn('Selectors', categories)
+        self.assertIn('Plot', categories)
+        self.assertNotIn('nodeGraphQt.nodes', categories)
+        self.assertGreater(categories['Analysis'].childCount(), 0)
+
+        categories['Analysis'].setExpanded(False)
+        self.assertFalse(categories['Analysis'].isExpanded())
+        categories['Analysis'].setExpanded(True)
+        self.assertTrue(categories['Analysis'].isExpanded())
+
+    def test_node_sidebar_drag_uses_nodegraphqt_mime_data(self):
+        graph = BaseUtils.init_graph()
+        sidebar = NodeSidebar(
+            graph,
+            QtWidgets.QPushButton('Run'),
+            QtWidgets.QPushButton('Auto Run'),
+            ProgressBar2(),
+        )
+        tree = sidebar.node_tree
+        analysis = next(
+            tree.topLevelItem(index)
+            for index in range(tree.topLevelItemCount())
+            if tree.topLevelItem(index).data(0, CATEGORY_ROLE) == 'Analysis'
+        )
+        node_item = analysis.child(0)
+
+        mime_data = tree.mimeData([node_item])
+        payload = bytes(mime_data.data(MIME_TYPE)).decode()
+
+        self.assertTrue(mime_data.hasFormat(MIME_TYPE))
+        self.assertEqual(
+            payload,
+            'nodegraphqt::node:{}'.format(
+                node_item.data(0, NODE_TYPE_ROLE)
+            ),
+        )
+
     def test_run_btn(self):
         signal_manager = ThreadSignalManager()
         mock_listener = MagicMock()

@@ -485,7 +485,7 @@ class FuseBurstsNode(AbstractRecomputable):
         p = self.add_input('inport')
         # p.add_reject_port_type(None,'no_burst',None)
         self.add_output('outport')
-        self.delay_slider = node_builder.build_float_slider(
+        self.delay_spinbox = node_builder.build_float_spinbox(
             'Delay, ms', 
             [0, 10, 0.1], 
             0,
@@ -494,7 +494,7 @@ class FuseBurstsNode(AbstractRecomputable):
        
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
-        fbsdata.data = fbsdata.data.fuse_bursts(ms=self.delay_slider.get_value())
+        fbsdata.data = fbsdata.data.fuse_bursts(ms=self.delay_spinbox.get_value())
         return [fbsdata]
         
 class BurstSearchNodeFromBG(AbstractRecomputable):
