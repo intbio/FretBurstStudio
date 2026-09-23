@@ -6,6 +6,16 @@ class CompactNodeItem(NodeItem):
 
     PORT_WIDGET_GAP = 3
 
+    def set_description_tooltip(self, description):
+        self._description_tooltip = description
+        self.setToolTip(description)
+
+    def draw_node(self):
+        super().draw_node()
+        description = getattr(self, '_description_tooltip', '')
+        if description:
+            self.setToolTip(description)
+
     def _calc_size_horizontal(self):
         _, height = super()._calc_size_horizontal()
 

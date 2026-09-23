@@ -30,7 +30,7 @@ class BaseSelectorNode(AbstractRecomputable):
 
 class BurstSelectorSizeNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Size'
+    NODE_NAME = 'Burst Size'
     DESCRIPTION = 'Keep bursts whose photon count is between the selected lower and upper thresholds.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.size)
     def __init__(self):
@@ -43,7 +43,7 @@ class BurstSelectorSizeNode(BaseSelectorNode):
 
 class BurstSelectorENode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'FRET'
+    NODE_NAME = 'FRET Efficiency'
     DESCRIPTION = 'Keep bursts whose corrected FRET efficiency (E) is within the selected range.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.E)
     def __init__(self):
@@ -57,7 +57,7 @@ class BurstSelectorENode(BaseSelectorNode):
 
 class BurstSelectorBrightnessNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Brightness'
+    NODE_NAME = 'Burst Brightness'
     DESCRIPTION = 'Keep bursts whose brightness (burst size divided by width) is within the selected cps range.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.brightness)
     def __init__(self):
@@ -70,7 +70,7 @@ class BurstSelectorBrightnessNode(BaseSelectorNode):
 
 class BurstSelectorConsecutiveNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Consecutive?'
+    NODE_NAME = 'Consecutive Bursts'
     DESCRIPTION = 'Keep consecutive bursts separated by a time within the selected range in seconds.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.consecutive)
     def __init__(self):
@@ -83,7 +83,7 @@ class BurstSelectorConsecutiveNode(BaseSelectorNode):
 
 class BurstSelectorNANode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'N Acceptor'
+    NODE_NAME = 'Acceptor Photon Count'
     DESCRIPTION = 'Keep bursts whose acceptor-channel photon count is within the selected range.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.na)
     def __init__(self):
@@ -96,7 +96,7 @@ class BurstSelectorNANode(BaseSelectorNode):
 
 class BurstSelectorNABGNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'N Acc. to Bg'
+    NODE_NAME = 'Acceptor Count vs Background'
     DESCRIPTION = 'Keep bursts whose acceptor photon count is at least F times the acceptor background.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.na_bg)
     def __init__(self):
@@ -107,7 +107,7 @@ class BurstSelectorNABGNode(BaseSelectorNode):
 
 class BurstSelectorNDNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'N Donor'
+    NODE_NAME = 'Donor Photon Count'
     DESCRIPTION = 'Keep bursts whose donor-channel photon count is within the selected range.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.nd)
     def __init__(self):
@@ -120,7 +120,7 @@ class BurstSelectorNDNode(BaseSelectorNode):
 
 class BurstSelectorNDBGNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'N Don. to Bg'
+    NODE_NAME = 'Donor Count vs Background'
     DESCRIPTION = 'Keep bursts whose donor photon count is at least F times the donor background.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.nd_bg)
     def __init__(self):
@@ -131,7 +131,7 @@ class BurstSelectorNDBGNode(BaseSelectorNode):
 
 class BurstSelectorPeakPhrateNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Peak Phrate'
+    NODE_NAME = 'Peak Photon Rate'
     DESCRIPTION = 'Keep bursts whose peak photon rate is within the selected counts-per-second range.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.peak_phrate)
     def __init__(self):
@@ -144,7 +144,7 @@ class BurstSelectorPeakPhrateNode(BaseSelectorNode):
 
 class BurstSelectorPeriodNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Period?'
+    NODE_NAME = 'Background Period'
     DESCRIPTION = 'Keep bursts detected between the selected background-period indices, inclusive.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.period)
     def __init__(self):
@@ -157,7 +157,7 @@ class BurstSelectorPeriodNode(BaseSelectorNode):
 
 class BurstSelectorSBRNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Signal to BG ratio'
+    NODE_NAME = 'Signal-to-Background Ratio'
     DESCRIPTION = 'Keep bursts whose signal-to-background ratio is within the selected range.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.sbr)
     def __init__(self):
@@ -170,7 +170,7 @@ class BurstSelectorSBRNode(BaseSelectorNode):
 
 class BurstSelectorSingleNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Distant bursts'
+    NODE_NAME = 'Isolated Bursts'
     DESCRIPTION = 'Keep isolated bursts that are at least the selected number of milliseconds from other bursts.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.single)
     def __init__(self):
@@ -181,7 +181,7 @@ class BurstSelectorSingleNode(BaseSelectorNode):
 
 class BurstSelectorTimeNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Experiment Time'
+    NODE_NAME = 'Experiment Time Range'
     DESCRIPTION = 'Keep bursts whose start time falls within the selected experiment-time range in seconds.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.time)
     def __init__(self):
@@ -194,7 +194,7 @@ class BurstSelectorTimeNode(BaseSelectorNode):
 
 class BurstSelectorTopNMaxRateNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Top N by Max.Rate'
+    NODE_NAME = 'Top N by Peak Rate'
     DESCRIPTION = 'Keep the selected number of bursts with the highest maximum photon rate.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.topN_max_rate)
     def __init__(self):
@@ -216,7 +216,7 @@ class BurstSelectorTopNNDANode(BaseSelectorNode):
 
 class BurstSelectorTopNSBRNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Top N by S.BG.Rat.'
+    NODE_NAME = 'Top N by Signal-to-Background'
     DESCRIPTION = 'Keep the selected number of bursts with the highest signal-to-background ratio.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.topN_sbr)
     def __init__(self):
@@ -227,7 +227,7 @@ class BurstSelectorTopNSBRNode(BaseSelectorNode):
 
 class BurstSelectorWidthNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
-    NODE_NAME = 'Width'
+    NODE_NAME = 'Burst Duration'
     DESCRIPTION = 'Keep bursts whose duration is within the selected range in milliseconds.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.width)
     def __init__(self):

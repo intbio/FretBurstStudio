@@ -21,7 +21,25 @@ class AbstractExecutable(BaseNode, ABC):
    
     def __init__(self, *args, **kwargs):
         kwargs.setdefault('qgraphics_item', CompactNodeItem)
-        BaseNode.__init__(self, *args, **kwargs)   
+        BaseNode.__init__(self, *args, **kwargs)
+        self._apply_description_tooltip()
+
+    def _apply_description_tooltip(self):
+        description = getattr(type(self), 'DESCRIPTION', '')
+        if description:
+            set_description = getattr(
+                self.view,
+                'set_description_tooltip',
+                None,
+            )
+            if callable(set_description):
+                set_description(description)
+            else:
+                self.view.setToolTip(description)
+
+    def update(self):
+        super().update()
+        self._apply_description_tooltip()
 
     def add_input(self, name='input', *args, **kwargs):
         port = super().add_input(name, *args, **kwargs)

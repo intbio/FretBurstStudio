@@ -65,6 +65,16 @@ class ResizablePlotNodeItem(NodeItem):
         self._resize_handle = _ResizeHandleItem(self)
         self._position_resize_handle()
 
+    def set_description_tooltip(self, description):
+        self._description_tooltip = description
+        self.setToolTip(description)
+
+    def draw_node(self):
+        super().draw_node()
+        description = getattr(self, '_description_tooltip', '')
+        if description:
+            self.setToolTip(description)
+
     # ---- public API for BGPlotterNode ---------------------------------
 
     def add_resize_callback(self, func):

@@ -107,7 +107,10 @@ class TestGraph(unittest.TestCase):
     def test_create_nodes(self):
         graph = BaseUtils.init_graph()
         for i, node_name in enumerate(graph.registered_nodes()):
-            graph.create_node(node_name)
+            node = graph.create_node(node_name)
+            description = getattr(type(node), 'DESCRIPTION', '')
+            if description:
+                self.assertEqual(node.view.toolTip(), description)
             
     def test_connections(self):
         graph = BaseUtils.init_graph()

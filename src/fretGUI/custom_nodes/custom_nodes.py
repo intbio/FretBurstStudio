@@ -304,7 +304,7 @@ class PhHDF5Node(AbstractLoader):
 class LSM510Node(AbstractLoader):
     from fretGUI.misc.fcsfiles import ConfoCor2Raw
     __identifier__ = 'Loaders'
-    NODE_NAME  = 'Confocor2 RAW'
+    NODE_NAME  = 'ConfoCor2 RAW'
     DESCRIPTION = 'Import donor and acceptor photon timestamps from a ConfoCor2 RAW measurement as single-spot smFRET data.'
 
     def __init__(self):
@@ -334,7 +334,7 @@ class LSM510Node(AbstractLoader):
     
 class AlexNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'AlexNode'
+    NODE_NAME = 'Apply ALEX Periods'
     DESCRIPTION = 'Apply the configured excitation alternation periods to an ALEX photon stream.'
     
     def __init__(self):
@@ -350,7 +350,7 @@ class AlexNode(AbstractRecomputable):
     
 class CalcBGNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'Calc.Background'
+    NODE_NAME = 'Calculate Background'
     DESCRIPTION = 'Estimate time-dependent background rates by fitting exponential photon waiting-time tails.'
 
     def __init__(self):
@@ -374,13 +374,12 @@ class CalcBGNode(AbstractRecomputable):
 
 class CorrectionsNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'Corrections'
+    NODE_NAME = 'Apply Corrections'
     DESCRIPTION = 'Apply gamma, donor leakage, and direct acceptor-excitation corrections and recalculate FRET efficiency.'
     fields_width = 100
     
     def __init__(self):
         super().__init__()
-        self.view.setToolTip("Apply gamma, leakage, and direct excitation corrections to FRET data")
 
         node_builder = NodeBuilder(self)
         self.add_input('inport', color=(255,255,0))
@@ -419,7 +418,7 @@ class CorrectionsNode(AbstractRecomputable):
     
 class DitherNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'Dither'
+    NODE_NAME = 'Dither Burst Counts'
     DESCRIPTION = 'Add uniform random dithering to integer burst photon counts to reduce quantization artifacts.'
     fields_width = 100
     
@@ -446,7 +445,7 @@ class DitherNode(AbstractRecomputable):
     
 class BurstSearchNodeRate(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'BurstSearch by Rate'
+    NODE_NAME = 'Burst Search: Fixed Rate'
     DESCRIPTION = 'Detect bursts when the m-photon local rate exceeds a fixed threshold, requiring at least L photons.'
     
     def __init__(self):
@@ -483,7 +482,7 @@ class BurstSearchNodeRate(AbstractRecomputable):
 
 class FuseBurstsNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'FuseBursts'
+    NODE_NAME = 'Fuse Bursts'
     DESCRIPTION = 'Merge neighboring bursts separated by less than the selected delay in milliseconds.'
     
     def __init__(self):
@@ -507,7 +506,7 @@ class FuseBurstsNode(AbstractRecomputable):
         
 class BurstSearchNodeFromBG(AbstractRecomputable):
     __identifier__ = 'Analysis'
-    NODE_NAME = 'BurstSearch by BG'
+    NODE_NAME = 'Burst Search: Background'
     DESCRIPTION = 'Detect bursts at rates above F times the measured background using the selected photon stream.'
     fields_width = 100
     
@@ -1039,7 +1038,7 @@ class BGFitPlotterNode(BaseSingleFilePlotterNode):
         super().__init__(widget_name, qgraphics_item, inport_color, enable_multiports=enable_multiports)
 
 class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'Background TimeLine'
+    NODE_NAME = 'Background Timeline'
     DESCRIPTION = 'Plot the estimated background rate over time for a selected measurement.'
     PLOT_FUNC = staticmethod(fretbursts.timetrace_bg)
     USE_FILE_COLOR = False
@@ -1048,37 +1047,37 @@ class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
         super().__init__(widget_name, qgraphics_item, inport_color, enable_multiports=enable_multiports)
 
 class ScatterWidthSizePlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'Burst Width vs Size'
+    NODE_NAME = 'Burst Duration vs Size'
     DESCRIPTION = 'Scatter-plot burst duration against burst photon count, including FRETbursts model guide lines.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_width_size)
     # Already draws model (m/T, BG) lines; skip extra regression by default.
 
 class ScatterDaPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'B.Donor vs Acc Size'
+    NODE_NAME = 'Donor vs Acceptor Burst Size'
     DESCRIPTION = 'Scatter-plot donor versus acceptor burst photon counts, with an optional linear fit.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_da)
     SHOW_REGRESSION = True
 
 class ScatterRateDaPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'B.Donor vs Acc Rate'
+    NODE_NAME = 'Donor vs Acceptor Burst Rate'
     DESCRIPTION = 'Scatter-plot donor versus acceptor burst count rates, with an optional linear fit.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_rate_da)
     SHOW_REGRESSION = True
 
 class ScatterFretSizePlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'Burst FRET vs Size'
+    NODE_NAME = 'FRET Efficiency vs Burst Size'
     DESCRIPTION = 'Scatter-plot burst FRET efficiency against burst photon count, with an optional linear fit.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_size)
     SHOW_REGRESSION = True
 
 class ScatterFretNdNaPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'B. FRET vs Corr.Size'
+    NODE_NAME = 'FRET Efficiency vs Corrected Size'
     DESCRIPTION = 'Scatter-plot burst FRET efficiency against corrected donor-plus-acceptor burst size.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_nd_na)
     SHOW_REGRESSION = True
 
 class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'Burst FRET vs Width'
+    NODE_NAME = 'FRET Efficiency vs Burst Duration'
     DESCRIPTION = 'Scatter-plot burst FRET efficiency against burst duration, with an optional linear fit.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
     SHOW_REGRESSION = True
@@ -1086,7 +1085,7 @@ class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
        
     
 class EHistPlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'FRET histogram'
+    NODE_NAME = 'FRET Efficiency Histogram'
     DESCRIPTION = 'Compare FRET-efficiency histograms from one or more measurements using an adjustable bin width.'
     PLOT_FUNC = staticmethod(fretbursts.hist_fret)
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
@@ -1098,13 +1097,13 @@ class EHistPlotterNode(BaseMultiFilePlotterNode):
         self.PLOT_KWARGS['binwidth'] = self.BinWidth_slider.get_value()        
 
 class HistBurstSizeAllPlotterNode(BaseSingleFilePlotterNode):
-    NODE_NAME = 'Burst Size hist.'
+    NODE_NAME = 'Burst Size Histogram'
     DESCRIPTION = 'Plot the distribution of total photon counts per burst for a selected measurement.'
     PLOT_FUNC = staticmethod(fretbursts.hist_size_all)
     USE_FILE_COLOR = False
 
 class HistBurstWidthPlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'Burst Width hist'
+    NODE_NAME = 'Burst Duration Histogram'
     DESCRIPTION = 'Compare burst-duration histograms from one or more measurements using adjustable bins.'
     PLOT_FUNC = staticmethod(fretbursts.hist_width)
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
@@ -1116,17 +1115,17 @@ class HistBurstWidthPlotterNode(BaseMultiFilePlotterNode):
 
 
 class HistBurstBrightnessPlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'Burst Brightness hist.'
+    NODE_NAME = 'Burst Brightness Histogram'
     DESCRIPTION = 'Compare distributions of burst brightness (size divided by duration) across measurements.'
     PLOT_FUNC = staticmethod(fretbursts.hist_brightness)
 
 class HistBurstSBRPlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'Burst Sig.Bg.Rat. Hist.'
+    NODE_NAME = 'Signal-to-Background Histogram'
     DESCRIPTION = 'Compare signal-to-background-ratio distributions across one or more measurements.'
     PLOT_FUNC = staticmethod(fretbursts.hist_sbr)
 
 class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
-    NODE_NAME = 'Burst Max.Rate Hist.'
+    NODE_NAME = 'Peak Photon Rate Histogram'
     DESCRIPTION = 'Compare distributions of maximum photon rate within bursts across measurements.'
     PLOT_FUNC = staticmethod(fretbursts.hist_burst_phrate)
 
@@ -1136,7 +1135,7 @@ class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
     
 class BVAPlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
-    NODE_NAME = 'BVA'
+    NODE_NAME = 'Burst Variance Analysis (BVA)'
     DESCRIPTION = 'Perform burst variance analysis by plotting sub-burst FRET-efficiency variation against burst FRET efficiency.'
 
     LEFT_RIGHT_MARGIN = 3
@@ -1260,7 +1259,7 @@ class BVAPlotterNode(AbstractContentNode):
 
 class InterBurstPlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
-    NODE_NAME = 'InterBurstDelay'
+    NODE_NAME = 'Inter-Burst Delay Histogram'
     DESCRIPTION = 'Plot a logarithmic histogram of waiting times between the end of one burst and the start of the next.'
 
     LEFT_RIGHT_MARGIN = 3
