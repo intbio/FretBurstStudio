@@ -4,9 +4,13 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 import matplotlib.pyplot as plt
 from NodeGraphQt import NodeBaseWidget
 import matplotlib
-matplotlib.rcParams['figure.dpi'] = 96
-matplotlib.rcParams['savefig.dpi'] = 96
 import os
+
+# Default for saves when a figure has not synced yet; live figures set DPI per widget.
+matplotlib.rcParams['savefig.dpi'] = 150
+
+# Absolute margins for labels/ticks (in inches)
+_ABS_MARGINS_IN = dict(left=0.8, right=0.25, bottom=0.5, top=0.25)
 
 
 class TemplatePlotWidget(QtWidgets.QWidget):
@@ -81,28 +85,54 @@ class TemplatePlotWidget(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Fixed
         )
 
-        # Absolute margins for labels/ticks (in inches); tweak to taste
-        ABS_MARGINS_IN = dict(left=0.8, right=0.25, bottom=0.5, top=0.25)
-
-        def _apply_absolute_margins(fig):
-            w, h = fig.get_size_inches()
-            w = max(w, 0.01)
-            h = max(h, 0.01)
-            left   = ABS_MARGINS_IN['left']   / w
-            right  = 1 - ABS_MARGINS_IN['right'] / w
-            bottom = ABS_MARGINS_IN['bottom'] / h
-            top    = 1 - ABS_MARGINS_IN['top'] / h
-            fig.subplots_adjust(left=left, right=right, bottom=bottom, top=top)
-
-        # Apply once now and on every canvas resize
-        _apply_absolute_margins(self.figure)
-        self.canvas.mpl_connect(
-            "resize_event",
-            lambda evt: (_apply_absolute_margins(evt.canvas.figure), evt.canvas.draw_idle())
-        )
+        self._apply_absolute_margins()
+        self.canvas.mpl_connect("resize_event", self._on_canvas_resize)
 
         self.mainLayout.addWidget(self.toolbar)
         self.mainLayout.addWidget(self.canvas)
+
+    def _resolve_dpi(self):
+        screen = self.screen()
+        if screen is None:
+            app = QtWidgets.QApplication.instance()
+            screen = app.primaryScreen() if app is not None else None
+        if screen is not None:
+            return max(float(screen.logicalDotsPerInch()), 1.0)
+        return max(96.0 * float(self.devicePixelRatioF()), 1.0)
+
+    def _apply_absolute_margins(self):
+        w, h = self.figure.get_size_inches()
+        w = max(w, 0.01)
+        h = max(h, 0.01)
+        left = _ABS_MARGINS_IN['left'] / w
+        right = 1 - _ABS_MARGINS_IN['right'] / w
+        bottom = _ABS_MARGINS_IN['bottom'] / h
+        top = 1 - _ABS_MARGINS_IN['top'] / h
+        # Avoid inverted margins on tiny canvases
+        if left >= right or bottom >= top:
+            return
+        self.figure.subplots_adjust(left=left, right=right, bottom=bottom, top=top)
+
+    def _sync_figure_geometry(self):
+        """Match figure DPI and inch size to the canvas pixel size."""
+        width = max(self.canvas.width(), 1)
+        height = max(self.canvas.height(), 1)
+        dpi = self._resolve_dpi()
+        self.figure.set_dpi(dpi)
+        self.figure.set_size_inches(width / dpi, height / dpi, forward=False)
+        self._apply_absolute_margins()
+
+    def _on_canvas_resize(self, event):
+        self._sync_figure_geometry()
+        event.canvas.draw_idle()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._sync_figure_geometry()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._sync_figure_geometry()
         
     
     def _custom_save_figure(self, *args, **kwargs):

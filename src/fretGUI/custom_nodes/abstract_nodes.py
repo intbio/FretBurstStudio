@@ -230,7 +230,6 @@ class ResizableContentNode(AbstractRecomputable):
         view = self.view
         
         # Enforce minimum size on every paint (in case NodeGraphQt recalculated it)
-        # This ensures subclasses' MIN_WIDTH/MIN_HEIGHT are always respected
         size_changed = False
         if view._width < self.MIN_WIDTH:
             view._width = self.MIN_WIDTH
@@ -241,10 +240,13 @@ class ResizableContentNode(AbstractRecomputable):
         
         if size_changed:
             view.prepareGeometryChange()
-        
-        # Do initial layout on first paint when widgets are guaranteed to exist
+            self._on_view_resized(view._width, view._height)
+            self._initial_layout_done = True
+            return
+
+        # Safety net: first paint when widgets exist (draw_node → align_widgets
+        # normally re-layouts after checkbox/port changes).
         if not self._initial_layout_done:
-            # Check if widget exists before applying layout
             if self.get_widget(self._content_widget_name) is not None:
                 self._initial_layout_done = True
                 self._on_view_resized(view._width, view._height)

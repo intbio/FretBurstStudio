@@ -569,6 +569,8 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
     MIN_WIDTH = 450
     MIN_HEIGHT = 300
     PLOT_FUNC = None
+    # Opt-in: overlay a linear regression of plotted points (does not change fretbursts).
+    SHOW_REGRESSION = False
 
     def __init__(self, 
                  widget_name='plot_widget',
@@ -581,6 +583,7 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
                          enable_multiports=enable_multiports)
         self.PLOT_KWARGS = {}
         self.node_builder = NodeBuilder(self)
+        self._plot_cache = {}  # file label -> fretbursts Data
 
         self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
         self.items_to_plot = self.node_builder.build_combobox(
@@ -589,6 +592,90 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
             value=None,
             tooltip="Select an option"
         )
+        if self.SHOW_REGRESSION:
+            self.add_checkbox(
+                'show_regression',
+                label='Regression',
+                text='Show fit',
+                state=True,
+                tooltip='Linear fit of plotted points via np.polyfit',
+                tab='custom',
+            )
+            # Native NodeGraphQt checkbox is not an AbstractWidgetWrapper; wire it
+            # into auto-recalc and instant plot refresh ourselves.
+            regression_widget = self.get_widget('show_regression')
+            if regression_widget is not None:
+                regression_widget.value_changed.connect(self._on_regression_toggled)
+
+    def _on_regression_toggled(self, *args):
+        """Refresh fit overlay; kick auto-run only when dynamic mode is on."""
+        self._redraw_from_cache()
+        if NodeStateManager().node_status:
+            self.on_widget_triggered()
+
+    def _redraw_from_cache(self):
+        """Re-plot from last executed data without waiting for a full graph run."""
+        if not self._plot_cache:
+            return
+        selected_val = self.items_to_plot.get_value()
+        selected_data = self._plot_cache.get(selected_val)
+        plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
+        if plot_func is None or selected_data is None or not isinstance(selected_data, Data):
+            return
+        fig = self.plot_widget.figure
+        fig.clear()
+        ax = fig.add_subplot()
+        fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
+        if self.SHOW_REGRESSION and self.get_property('show_regression'):
+            self._add_regression_line(ax)
+        self.plot_widget.canvas.draw()
+
+    @staticmethod
+    def _extract_xy_from_ax(ax):
+        """Collect scatter/marker point coordinates from an axes (not fit/guide lines)."""
+        xs, ys = [], []
+        for coll in ax.collections:
+            if not hasattr(coll, 'get_offsets'):
+                continue
+            offsets = np.asarray(coll.get_offsets())
+            if offsets.ndim == 2 and offsets.shape[1] == 2 and len(offsets):
+                xs.append(offsets[:, 0].astype(float))
+                ys.append(offsets[:, 1].astype(float))
+        if not xs:
+            for line in ax.lines:
+                ls = line.get_linestyle()
+                if ls not in ('None', 'none', '', ' '):
+                    continue
+                marker = line.get_marker()
+                if marker in (None, 'None', 'none', ''):
+                    continue
+                xs.append(np.asarray(line.get_xdata(), dtype=float))
+                ys.append(np.asarray(line.get_ydata(), dtype=float))
+        if not xs:
+            return None, None
+        x = np.concatenate(xs)
+        y = np.concatenate(ys)
+        mask = np.isfinite(x) & np.isfinite(y)
+        return x[mask], y[mask]
+
+    def _add_regression_line(self, ax, degree=1):
+        x, y = self._extract_xy_from_ax(ax)
+        if x is None or len(x) < degree + 1:
+            return
+        coeffs = np.polyfit(x, y, degree)
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        x_fit = np.linspace(xlim[0], xlim[1], 200)
+        y_fit = np.polyval(coeffs, x_fit)
+        if degree == 1:
+            slope, intercept = coeffs
+            label = f'fit: y = {slope:.3g}x {intercept:+.3g}'
+        else:
+            label = f'poly fit (deg={degree})'
+        ax.plot(x_fit, y_fit, '-', color='C3', lw=2, label=label, zorder=5)
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.legend()
 
     def _on_refresh_canvas(self):
         fig = self.plot_widget.figure
@@ -604,6 +691,7 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
             fbid = cur_data.id
             map_name_to_data[f'{inport_name}:{fbid}, {fname}'] = cur_data.data
 
+        self._plot_cache = map_name_to_data
         self.items_to_plot.set_items(list(map_name_to_data.keys()))
         selected_val = self.items_to_plot.get_value()
         selected_data = map_name_to_data.get(selected_val)
@@ -615,6 +703,8 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
             return
 
         fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
+        if self.SHOW_REGRESSION and self.get_property('show_regression'):
+            self._add_regression_line(ax)
         # fig.tight_layout()
         self.plot_widget.canvas.draw()
 
@@ -745,26 +835,33 @@ class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
 class ScatterWidthSizePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst Width vs Size'
     PLOT_FUNC = staticmethod(fretbursts.scatter_width_size)
+    # Already draws model (m/T, BG) lines; skip extra regression by default.
 
 class ScatterDaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'B.Donor vs Acc Size'
     PLOT_FUNC = staticmethod(fretbursts.scatter_da)
+    SHOW_REGRESSION = True
 
 class ScatterRateDaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'B.Donor vs Acc Rate'
     PLOT_FUNC = staticmethod(fretbursts.scatter_rate_da)
+    SHOW_REGRESSION = True
 
 class ScatterFretSizePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst FRET vs Size'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_size)
+    SHOW_REGRESSION = True
 
 class ScatterFretNdNaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'B. FRET vs Corr.Size'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_nd_na)
+    SHOW_REGRESSION = True
 
 class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst FRET vs Width'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
+    SHOW_REGRESSION = True
+
        
     
 class EHistPlotterNode(BaseMultiFilePlotterNode):

@@ -52,6 +52,18 @@ class ResizablePlotNodeItem(NodeItem):
             except Exception:
                 pass  # don't crash the view on user callback errors
 
+    # ---- NodeGraphQt layout overrides ---------------------------------
+
+    def _set_base_size(self, add_w=0.0, add_h=0.0):
+        # Manual resize / width-height properties own size.
+        # Ignoring calc_size avoids feedback with large plot widgets.
+        self._width = max(float(self._width), self.MIN_W)
+        self._height = max(float(self._height), self.MIN_H)
+
+    def align_widgets(self, v_offset=0.0):
+        """Skip NodeGraphQt centering; keep geometry from _on_view_resized / resize handle."""
+        return
+
     # ---- geometry / drawing -------------------------------------------
 
     def boundingRect(self):

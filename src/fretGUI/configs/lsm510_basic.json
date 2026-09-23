@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x169b71bb770":{
+    "0x78e8061a9280":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
@@ -33,22 +33,22 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":183.4,
+      "width":246.78125,
+      "height":222.20000000000002,
       "pos":[
-        343.05662326339484,
-        -8.789051619684585
+        316.79192356460095,
+        -12.072139082033821
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
         "Gamma":1.0,
-        "Leakage":0.15,
+        "Leakage":0.24,
         "Direct ex.":0.0
       }
     },
-    "0x16996de6360":{
+    "0x78e806547230":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"Confocor2 RAW",
@@ -72,8 +72,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":339.0,
-      "height":150,
+      "width":342.3125,
+      "height":138.2,
       "pos":[
         -270.3796223483374,
         -11.303197034039897
@@ -82,12 +82,10 @@
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "File Widget":[
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.001"
-        ]
+        "File Widget":[]
       }
     },
-    "0x169b71eca70":{
+    "0x78e8061daab0":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearch by BG",
@@ -111,23 +109,23 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":243.0,
-      "height":233.8,
+      "width":255.15625,
+      "height":284.15,
       "pos":[
-        599.3669017379818,
-        -8.19348771711843
+        571.1087413057858,
+        -13.860564395864365
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "m, Photon search window":10,
+        "m, Photon search window":20,
         "L, Minimal Burst size":20,
         "F, Min. Burst rate to bg. ratio":6,
         "Channel":"DAem"
       }
     },
-    "0x169b71ed1f0":{
+    "0x78e8043492b0":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"Calc.Background",
@@ -151,11 +149,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":217.0,
-      "height":133.0,
+      "width":226.78125,
+      "height":159.20000000000002,
       "pos":[
-        97.82290386243892,
-        -9.576867972161509
+        81.4074665506927,
+        -11.765592947061
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -165,7 +163,7 @@
         "Min. lag, \u03bcs":1000
       }
     },
-    "0x169b71ee0f0":{
+    "0x78e80434a030":{
       "type_":"Selectors.BurstSelectorWidthNode",
       "icon":null,
       "name":"Width",
@@ -189,21 +187,21 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":133.0,
+      "width":246.78125,
+      "height":159.20000000000002,
       "pos":[
-        867.2722922817522,
-        21.368241675560853
+        827.9323276423437,
+        89.72009147279718
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "Longer than, ms":0.0,
-        "Shorter than, ms":10.0
+        "Longer than, ms":1.0,
+        "Shorter than, ms":15.0
       }
     },
-    "0x169b71ee3f0":{
+    "0x78e804349e20":{
       "type_":"Selectors.BurstSelectorSizeNode",
       "icon":null,
       "name":"Size",
@@ -227,21 +225,21 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":235.0,
-      "height":133.0,
+      "width":246.78125,
+      "height":159.20000000000002,
       "pos":[
-        861.987004079793,
-        161.75652255301375
+        828.5517348443295,
+        249.6880919469348
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
         "Low Threshold":30,
-        "High Threshold":200
+        "High Threshold":300
       }
     },
-    "0x16997044530":{
+    "0x78e80434a9c0":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET histogram",
@@ -265,11 +263,11 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":753.999809862167,
-      "height":565.3386993099451,
+      "width":667.545173353637,
+      "height":436.8,
       "pos":[
-        374.75453452322154,
-        313.43452691770807
+        452.6947673674075,
+        391.99695712948943
       ],
       "layout_direction":0,
       "port_deletion_allowed":true,
@@ -292,7 +290,7 @@
         "Bin Width":0.05
       }
     },
-    "0x169b71ef170":{
+    "0x78e80434a210":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
@@ -314,13 +312,13 @@
         30
       ],
       "disabled":false,
-      "selected":false,
+      "selected":true,
       "visible":true,
-      "width":450,
-      "height":327.348665954237,
+      "width":483.609375,
+      "height":431.55,
       "pos":[
-        -134.82271372460596,
-        274.8001140826998
+        -48.98850237880788,
+        186.93225819532495
       ],
       "layout_direction":0,
       "port_deletion_allowed":true,
@@ -335,78 +333,125 @@
       "output_ports":[],
       "custom":{
         "plot_widget":null,
-        "File to plot:":"port1:1, #4_M2dCas-NS_09hOct_400x.001"
+        "File to plot:":""
+      }
+    },
+    "0x78e80434bbc0":{
+      "type_":"Analysis.FuseBurstsNode",
+      "icon":null,
+      "name":"FuseBursts",
+      "color":[
+        150,
+        150,
+        150,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":340.78125,
+      "height":100.4,
+      "pos":[
+        824.8973348030617,
+        -12.73553170953079
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "Delay, ms":3.0
       }
     }
   },
   "connections":[
     {
       "in":[
-        "0x169b71bb770",
+        "0x78e8061a9280",
         "inport"
       ],
       "out":[
-        "0x169b71ed1f0",
+        "0x78e8043492b0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x169b71bb770",
+        "0x78e8061a9280",
         "outport"
       ],
       "in":[
-        "0x169b71eca70",
+        "0x78e8061daab0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x16996de6360",
+        "0x78e806547230",
         "out_file"
       ],
       "in":[
-        "0x169b71ed1f0",
+        "0x78e8043492b0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x169b71eca70",
+        "0x78e8061daab0",
         "outport"
       ],
       "in":[
-        "0x169b71ee0f0",
+        "0x78e80434bbc0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x169b71ed1f0",
+        "0x78e8043492b0",
         "outport"
       ],
       "in":[
-        "0x169b71ef170",
+        "0x78e80434a210",
         "port1"
       ]
     },
     {
+      "in":[
+        "0x78e80434a030",
+        "inport"
+      ],
       "out":[
-        "0x169b71ee0f0",
+        "0x78e80434bbc0",
+        "outport"
+      ]
+    },
+    {
+      "out":[
+        "0x78e80434a030",
         "outport"
       ],
       "in":[
-        "0x169b71ee3f0",
+        "0x78e804349e20",
         "inport"
       ]
     },
     {
       "out":[
-        "0x169b71ee3f0",
+        "0x78e804349e20",
         "outport"
       ],
       "in":[
-        "0x16997044530",
+        "0x78e80434a9c0",
         "port1"
       ]
     }
