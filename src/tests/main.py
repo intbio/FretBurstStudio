@@ -1,10 +1,13 @@
 import sys
 
 import unittest
+from types import SimpleNamespace
+
 import NodeGraphQt
+import numpy as np
 from NodeGraphQt.constants import MIME_TYPE
 from Qt import QtWidgets, QtCore, QtGui
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 import matplotlib
 from matplotlib import colors as mpl_colors
@@ -20,6 +23,10 @@ from fretGUI.singletons import (
 )
 from fretGUI.node_workers import NodeWorker
 from fretGUI.fbs_data import FBSData
+from fretGUI.custom_nodes.abstract_nodes import (
+    AbstractRecomputable,
+    ResizableContentNode,
+)
 from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
 from fretGUI.custom_widgets.node_sidebar import (
     CATEGORY_ROLE,
@@ -126,6 +133,74 @@ class TestGraph(unittest.TestCase):
          
             
 class TestWidgets(unittest.TestCase):
+    def test_timetrace_explorer_is_compact_recomputable_node(self):
+        graph = BaseUtils.init_graph()
+        graph.register_node(custom_nodes.TimetraceExplorerNode)
+        node = graph.create_node('Plot.TimetraceExplorerNode')
+
+        self.assertIsInstance(node, AbstractRecomputable)
+        self.assertNotIsInstance(node, ResizableContentNode)
+        self.assertFalse(hasattr(node.view, '_resize_handle'))
+        self.assertEqual(len(node.input_ports()), 1)
+        self.assertGreaterEqual(node.items_to_plot.minimumWidth(), 200)
+        self.assertGreaterEqual(
+            node.items_to_plot.get_custom_widget().minimumWidth(),
+            200,
+        )
+
+        data = custom_nodes.Data(
+            ph_times_m=[np.arange(5)],
+            A_em=[np.zeros(5, dtype=bool)],
+            clk_p=1e-6,
+            alternated=False,
+            nch=1,
+            fname='timetrace-test.h5',
+        )
+        wrapped = FBSData(data, 'timetrace-test.h5', id=7)
+        self.assertEqual(node.execute(wrapped), [wrapped])
+        self.assertIs(node._selected_data(), data)
+
+    def test_bva_contours_stay_on_each_nodes_own_axes(self):
+        class Bursts(list):
+            def recompute_index_reduce(self, _ph_times):
+                return self
+
+        data = custom_nodes.Data(
+            ph_times_m=[np.arange(14)],
+            A_em=[np.ones(14, dtype=bool)],
+            clk_p=1e-6,
+            alternated=False,
+            nch=1,
+            fname='bva-test.h5',
+        )
+        data.E = [np.array([0.5])]
+        data.mburst = [
+            Bursts([SimpleNamespace(istart=0, istop=13)])
+        ]
+        data.get_ph_times = lambda ph_sel: np.arange(14)
+        data.get_ph_mask = lambda ph_sel: np.ones(14, dtype=bool)
+        plotted_data = SimpleNamespace(id=1, data=data)
+
+        graph = BaseUtils.init_graph()
+        first = graph.create_node('Plot.BVAPlotterNode')
+        second = graph.create_node('Plot.BVAPlotterNode')
+        self.assertEqual(len(first.input_ports()), 1)
+        self.assertEqual(len(second.input_ports()), 1)
+        first.data_to_plot = [plotted_data]
+        second.data_to_plot = [plotted_data]
+
+        with patch(
+            'fretGUI.custom_nodes.custom_nodes.sns.kdeplot'
+        ) as kdeplot:
+            first._on_refresh_canvas()
+            second._on_refresh_canvas()
+
+        first_ax = kdeplot.call_args_list[0].kwargs['ax']
+        second_ax = kdeplot.call_args_list[1].kwargs['ax']
+        self.assertIsNot(first_ax, second_ax)
+        self.assertIs(first_ax, first.plot_widget.figure.axes[0])
+        self.assertIs(second_ax, second.plot_widget.figure.axes[0])
+
     def test_node_sidebar_groups_nodes_and_has_fixed_width(self):
         graph = BaseUtils.init_graph()
         run_button = QtWidgets.QPushButton('Run')
@@ -158,6 +233,22 @@ class TestWidgets(unittest.TestCase):
         self.assertIn('Plot', categories)
         self.assertNotIn('nodeGraphQt.nodes', categories)
         self.assertGreater(categories['Analysis'].childCount(), 0)
+
+        for node_id, node_class in graph.node_factory.nodes.items():
+            if node_id.startswith('nodeGraphQt.nodes.'):
+                continue
+            self.assertTrue(
+                getattr(node_class, 'DESCRIPTION', '').strip(),
+                '{} is missing DESCRIPTION'.format(node_id),
+            )
+
+        analysis_node = categories['Analysis'].child(0)
+        analysis_node_id = analysis_node.data(0, NODE_TYPE_ROLE)
+        description = graph.node_factory.nodes[
+            analysis_node_id
+        ].DESCRIPTION
+        self.assertIn(description, analysis_node.toolTip(0))
+        self.assertNotIn(analysis_node_id, analysis_node.toolTip(0))
 
         categories['Analysis'].setExpanded(False)
         self.assertFalse(categories['Analysis'].isExpanded())

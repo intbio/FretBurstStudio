@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x1a043ca6a80":{
+    "0x1b67abdc980":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
@@ -48,7 +48,7 @@
         "Direct ex.":0.02
       }
     },
-    "0x1a044321190":{
+    "0x1b67f088e60":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"Confocor2 RAW",
@@ -73,7 +73,7 @@
       "selected":false,
       "visible":true,
       "width":300.0,
-      "height":200,
+      "height":137.2,
       "pos":[
         -142.04741496684,
         -36.51130919826261
@@ -82,14 +82,10 @@
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "File Widget":[
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.001",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/a.001",
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001"
-        ]
+        "File Widget":[]
       }
     },
-    "0x1a04da05190":{
+    "0x1b67f089940":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearch by BG",
@@ -129,7 +125,7 @@
         "Channel":"DAem"
       }
     },
-    "0x1a04da05460":{
+    "0x1b67f088cb0":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"Calc.Background",
@@ -167,7 +163,7 @@
         "Min. lag, \u03bcs":1000
       }
     },
-    "0x1a04da06420":{
+    "0x1b67f08adb0":{
       "type_":"Selectors.BurstSelectorWidthNode",
       "icon":null,
       "name":"Width",
@@ -189,13 +185,13 @@
         30
       ],
       "disabled":false,
-      "selected":false,
+      "selected":true,
       "visible":true,
       "width":160,
       "height":114.10000000000001,
       "pos":[
-        169.46936734021537,
-        589.4802401214239
+        -41.362116215101835,
+        587.1885935610402
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -205,7 +201,7 @@
         "Shorter than, ms":20.0
       }
     },
-    "0x1a0441ae450":{
+    "0x1b67f08b9b0":{
       "type_":"Selectors.BurstSelectorSizeNode",
       "icon":null,
       "name":"Size",
@@ -232,8 +228,8 @@
       "width":160,
       "height":114.10000000000001,
       "pos":[
-        167.1587919226088,
-        713.4202316886275
+        171.74208504337656,
+        587.3796708675139
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -243,7 +239,7 @@
         "High Threshold":300
       }
     },
-    "0x1a04da207a0":{
+    "0x1b604ea4470":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET histogram",
@@ -265,7 +261,7 @@
         30
       ],
       "disabled":false,
-      "selected":true,
+      "selected":false,
       "visible":true,
       "width":579.2696766511294,
       "height":539.61846194526,
@@ -294,7 +290,7 @@
         "Bin Width":0.04
       }
     },
-    "0x1a04da20a40":{
+    "0x1b604ea47d0":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
@@ -337,10 +333,10 @@
       "output_ports":[],
       "custom":{
         "plot_widget":null,
-        "File to plot:":"port1:1, #4_M2dCas-NS_09hOct_400x.001"
+        "File to plot:":""
       }
     },
-    "0x1a04da04d70":{
+    "0x1b604ea5ca0":{
       "type_":"Analysis.FuseBurstsNode",
       "icon":null,
       "name":"FuseBursts",
@@ -364,8 +360,8 @@
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":258.0,
-      "height":82.6,
+      "width":160,
+      "height":73.15,
       "pos":[
         172.28009832724115,
         502.163937705438
@@ -376,87 +372,135 @@
       "custom":{
         "Delay, ms":3.0
       }
+    },
+    "0x1b604ea7ce0":{
+      "type_":"Plot.TimetraceExplorerNode",
+      "icon":null,
+      "name":"Timetrace Explorer",
+      "color":[
+        150,
+        150,
+        150,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        30,
+        30,
+        30
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":242.0,
+      "height":117.25,
+      "pos":[
+        95.60309098053762,
+        713.7696772220731
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "open_btn":null,
+        "File to plot:":""
+      }
     }
   },
   "connections":[
     {
       "in":[
-        "0x1a043ca6a80",
+        "0x1b67abdc980",
         "inport"
       ],
       "out":[
-        "0x1a04da05460",
+        "0x1b67f088cb0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x1a043ca6a80",
+        "0x1b67abdc980",
         "outport"
       ],
       "in":[
-        "0x1a04da05190",
+        "0x1b67f089940",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1a044321190",
+        "0x1b67f088e60",
         "out_file"
       ],
       "in":[
-        "0x1a04da05460",
+        "0x1b67f088cb0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1a04da05190",
+        "0x1b67f089940",
         "outport"
       ],
       "in":[
-        "0x1a04da04d70",
+        "0x1b604ea5ca0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1a04da05460",
+        "0x1b67f088cb0",
         "outport"
       ],
       "in":[
-        "0x1a04da20a40",
+        "0x1b604ea47d0",
         "port1"
       ]
     },
     {
       "in":[
-        "0x1a04da06420",
+        "0x1b67f08adb0",
         "inport"
       ],
       "out":[
-        "0x1a04da04d70",
+        "0x1b604ea5ca0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x1a04da06420",
+        "0x1b67f08adb0",
         "outport"
       ],
       "in":[
-        "0x1a0441ae450",
+        "0x1b67f08b9b0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x1a0441ae450",
+        "0x1b67f08b9b0",
         "outport"
       ],
       "in":[
-        "0x1a04da207a0",
+        "0x1b604ea4470",
         "port1"
+      ]
+    },
+    {
+      "out":[
+        "0x1b67f08b9b0",
+        "outport"
+      ],
+      "in":[
+        "0x1b604ea7ce0",
+        "inport"
       ]
     }
   ]

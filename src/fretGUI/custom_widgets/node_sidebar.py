@@ -1,4 +1,5 @@
 from collections import defaultdict
+from html import escape
 
 from Qt import QtCore, QtGui, QtWidgets
 from NodeGraphQt.constants import MIME_TYPE, URN_SCHEME
@@ -166,7 +167,11 @@ class NodeTreeWidget(QtWidgets.QTreeWidget):
                 category = '.'.join(node_id.split('.')[:-1])
                 if category == 'nodeGraphQt.nodes':
                     continue
-                grouped_nodes[category].append((node_name, node_id))
+                node_class = self._node_graph.node_factory.nodes.get(node_id)
+                description = getattr(node_class, 'DESCRIPTION', '')
+                grouped_nodes[category].append(
+                    (node_name, node_id, description)
+                )
 
         priority = {
             category: index for index, category in enumerate(self.CATEGORY_ORDER)
@@ -189,12 +194,19 @@ class NodeTreeWidget(QtWidgets.QTreeWidget):
             category_item.setFont(0, font)
             self.addTopLevelItem(category_item)
 
-            for node_name, node_id in sorted(
+            for node_name, node_id, description in sorted(
                 grouped_nodes[category], key=lambda value: value[0].lower()
             ):
                 node_item = QtWidgets.QTreeWidgetItem([node_name])
                 node_item.setData(0, NODE_TYPE_ROLE, node_id)
-                node_item.setToolTip(0, node_id)
+                node_item.setToolTip(
+                    0,
+                    (
+                        "<div style='white-space: normal; width: 320px;'>"
+                        f"{escape(description)}"
+                        "</div>"
+                    ),
+                )
                 node_item.setFlags(
                     QtCore.Qt.ItemIsEnabled
                     | QtCore.Qt.ItemIsSelectable

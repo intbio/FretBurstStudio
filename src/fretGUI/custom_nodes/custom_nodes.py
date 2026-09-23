@@ -290,6 +290,7 @@ class PhHDF5Node(AbstractLoader):
 
     __identifier__ = 'Loaders'
     NODE_NAME  = 'Photon HDF5'
+    DESCRIPTION = 'Load photon timestamps, detector streams, and measurement metadata from a Photon-HDF5 file.'
 
     def __init__(self):
         super().__init__() 
@@ -304,6 +305,7 @@ class LSM510Node(AbstractLoader):
     from fretGUI.misc.fcsfiles import ConfoCor2Raw
     __identifier__ = 'Loaders'
     NODE_NAME  = 'Confocor2 RAW'
+    DESCRIPTION = 'Import donor and acceptor photon timestamps from a ConfoCor2 RAW measurement as single-spot smFRET data.'
 
     def __init__(self):
         super().__init__() 
@@ -333,6 +335,7 @@ class LSM510Node(AbstractLoader):
 class AlexNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'AlexNode'
+    DESCRIPTION = 'Apply the configured excitation alternation periods to an ALEX photon stream.'
     
     def __init__(self):
         super().__init__()
@@ -348,6 +351,7 @@ class AlexNode(AbstractRecomputable):
 class CalcBGNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'Calc.Background'
+    DESCRIPTION = 'Estimate time-dependent background rates by fitting exponential photon waiting-time tails.'
 
     def __init__(self):
         super().__init__()
@@ -371,6 +375,7 @@ class CalcBGNode(AbstractRecomputable):
 class CorrectionsNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'Corrections'
+    DESCRIPTION = 'Apply gamma, donor leakage, and direct acceptor-excitation corrections and recalculate FRET efficiency.'
     fields_width = 100
     
     def __init__(self):
@@ -415,6 +420,7 @@ class CorrectionsNode(AbstractRecomputable):
 class DitherNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'Dither'
+    DESCRIPTION = 'Add uniform random dithering to integer burst photon counts to reduce quantization artifacts.'
     fields_width = 100
     
     def __init__(self):
@@ -441,6 +447,7 @@ class DitherNode(AbstractRecomputable):
 class BurstSearchNodeRate(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'BurstSearch by Rate'
+    DESCRIPTION = 'Detect bursts when the m-photon local rate exceeds a fixed threshold, requiring at least L photons.'
     
     def __init__(self):
         super().__init__()
@@ -477,6 +484,7 @@ class BurstSearchNodeRate(AbstractRecomputable):
 class FuseBurstsNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'FuseBursts'
+    DESCRIPTION = 'Merge neighboring bursts separated by less than the selected delay in milliseconds.'
     
     def __init__(self):
         super().__init__()
@@ -500,6 +508,7 @@ class FuseBurstsNode(AbstractRecomputable):
 class BurstSearchNodeFromBG(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'BurstSearch by BG'
+    DESCRIPTION = 'Detect bursts at rates above F times the measured background using the selected photon stream.'
     fields_width = 100
     
     def __init__(self):
@@ -1021,6 +1030,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
 
 class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Background Fit'
+    DESCRIPTION = 'Plot the photon waiting-time histogram and fitted background model for a selected measurement.'
     PLOT_FUNC = staticmethod(fretbursts.hist_bg)
     PLOT_KWARGS = dict(show_fit=True)
     USE_FILE_COLOR = False
@@ -1030,6 +1040,7 @@ class BGFitPlotterNode(BaseSingleFilePlotterNode):
 
 class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Background TimeLine'
+    DESCRIPTION = 'Plot the estimated background rate over time for a selected measurement.'
     PLOT_FUNC = staticmethod(fretbursts.timetrace_bg)
     USE_FILE_COLOR = False
     
@@ -1038,31 +1049,37 @@ class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
 
 class ScatterWidthSizePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst Width vs Size'
+    DESCRIPTION = 'Scatter-plot burst duration against burst photon count, including FRETbursts model guide lines.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_width_size)
     # Already draws model (m/T, BG) lines; skip extra regression by default.
 
 class ScatterDaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'B.Donor vs Acc Size'
+    DESCRIPTION = 'Scatter-plot donor versus acceptor burst photon counts, with an optional linear fit.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_da)
     SHOW_REGRESSION = True
 
 class ScatterRateDaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'B.Donor vs Acc Rate'
+    DESCRIPTION = 'Scatter-plot donor versus acceptor burst count rates, with an optional linear fit.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_rate_da)
     SHOW_REGRESSION = True
 
 class ScatterFretSizePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst FRET vs Size'
+    DESCRIPTION = 'Scatter-plot burst FRET efficiency against burst photon count, with an optional linear fit.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_size)
     SHOW_REGRESSION = True
 
 class ScatterFretNdNaPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'B. FRET vs Corr.Size'
+    DESCRIPTION = 'Scatter-plot burst FRET efficiency against corrected donor-plus-acceptor burst size.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_nd_na)
     SHOW_REGRESSION = True
 
 class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst FRET vs Width'
+    DESCRIPTION = 'Scatter-plot burst FRET efficiency against burst duration, with an optional linear fit.'
     PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
     SHOW_REGRESSION = True
 
@@ -1070,6 +1087,7 @@ class ScatterFretWidthPlotterNode(BaseSingleFilePlotterNode):
     
 class EHistPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'FRET histogram'
+    DESCRIPTION = 'Compare FRET-efficiency histograms from one or more measurements using an adjustable bin width.'
     PLOT_FUNC = staticmethod(fretbursts.hist_fret)
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize
@@ -1081,11 +1099,13 @@ class EHistPlotterNode(BaseMultiFilePlotterNode):
 
 class HistBurstSizeAllPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst Size hist.'
+    DESCRIPTION = 'Plot the distribution of total photon counts per burst for a selected measurement.'
     PLOT_FUNC = staticmethod(fretbursts.hist_size_all)
     USE_FILE_COLOR = False
 
 class HistBurstWidthPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Burst Width hist'
+    DESCRIPTION = 'Compare burst-duration histograms from one or more measurements using adjustable bins.'
     PLOT_FUNC = staticmethod(fretbursts.hist_width)
     def __init__(self, widget_name='plot_widget', qgraphics_item=None):
         # tell the base which widget name to resize
@@ -1097,14 +1117,17 @@ class HistBurstWidthPlotterNode(BaseMultiFilePlotterNode):
 
 class HistBurstBrightnessPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Burst Brightness hist.'
+    DESCRIPTION = 'Compare distributions of burst brightness (size divided by duration) across measurements.'
     PLOT_FUNC = staticmethod(fretbursts.hist_brightness)
 
 class HistBurstSBRPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Burst Sig.Bg.Rat. Hist.'
+    DESCRIPTION = 'Compare signal-to-background-ratio distributions across one or more measurements.'
     PLOT_FUNC = staticmethod(fretbursts.hist_sbr)
 
 class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Burst Max.Rate Hist.'
+    DESCRIPTION = 'Compare distributions of maximum photon rate within bursts across measurements.'
     PLOT_FUNC = staticmethod(fretbursts.hist_burst_phrate)
 
 
@@ -1114,6 +1137,7 @@ class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
 class BVAPlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
     NODE_NAME = 'BVA'
+    DESCRIPTION = 'Perform burst variance analysis by plotting sub-burst FRET-efficiency variation against burst FRET efficiency.'
 
     LEFT_RIGHT_MARGIN = 3
     TOP_MARGIN = 25
@@ -1127,7 +1151,6 @@ class BVAPlotterNode(AbstractContentNode):
         self.PLOT_KWARGS = {}
         self.node_builder = NodeBuilder(self)
 
-        self.add_input('inport')
         self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
         self.items_to_plot = self.node_builder.build_combobox(
             widget_name="File to plot:",
@@ -1210,8 +1233,19 @@ class BVAPlotterNode(AbstractContentNode):
         x = np.arange(0,1.01,0.01)
         y = np.sqrt((x*(1-x))/n)
         ax.plot(x, y, lw=2, color='k', ls='--')
-        im = sns.kdeplot(data={'E':ds_FRET.E[0], 'sigma':np.asfarray(E_sub_std)}, x='E', y='sigma', 
-                        fill=True, cmap='Spectral_r', thresh=0.05, levels=20)
+        sns.kdeplot(
+            data={
+                'E': ds_FRET.E[0],
+                'sigma': np.asfarray(E_sub_std),
+            },
+            x='E',
+            y='sigma',
+            fill=True,
+            cmap='Spectral_r',
+            thresh=0.05,
+            levels=20,
+            ax=ax,
+        )
         ax.set_xlim(0,1)
         ax.set_ylim(0,np.sqrt(0.5**2/7)*2)
         ax.set_xlabel('E', fontsize=16)
@@ -1227,6 +1261,7 @@ class BVAPlotterNode(AbstractContentNode):
 class InterBurstPlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
     NODE_NAME = 'InterBurstDelay'
+    DESCRIPTION = 'Plot a logarithmic histogram of waiting times between the end of one burst and the start of the next.'
 
     LEFT_RIGHT_MARGIN = 3
     TOP_MARGIN = 25
@@ -1240,7 +1275,6 @@ class InterBurstPlotterNode(AbstractContentNode):
         self.PLOT_KWARGS = {}
         self.node_builder = NodeBuilder(self)
 
-        self.add_input('inport')
         self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
         self.items_to_plot = self.node_builder.build_combobox(
             widget_name="File to plot:",
@@ -1292,27 +1326,27 @@ class InterBurstPlotterNode(AbstractContentNode):
         plot_widget.canvas.draw()
 
 
-class TimetraceExplorerNode(AbstractContentNode):
+class TimetraceExplorerNode(AbstractRecomputable):
     """Plot node that opens a separate window for fast burst timetrace exploration."""
 
     __identifier__ = 'Plot'
     NODE_NAME = 'Timetrace Explorer'
-
-    LEFT_RIGHT_MARGIN = 3
-    TOP_MARGIN = 25
-    BOTTOM_MARGIN = 0
-    PLOT_NODE = True
-    MIN_WIDTH = 280
-    MIN_HEIGHT = 120
+    DESCRIPTION = 'Open an interactive photon timetrace and burst browser for the selected measurement.'
 
     def __init__(self, widget_name='open_btn', qgraphics_item=None):
-        super().__init__(widget_name, qgraphics_item)
+        if qgraphics_item is None:
+            super().__init__()
+        else:
+            super().__init__(qgraphics_item=qgraphics_item)
         self.node_builder = NodeBuilder(self)
         self._map_name_to_data = {}
+        self._run_buffers = {}
+        self._data_lock = RLock()
         self._explorer_window = None
         self._theme_kind = 'light'
         self._theme_colors = None
 
+        self.add_input('inport')
         self.open_btn = OpenExplorerButtonWrapper(parent=self.view)
         self.open_btn.set_name('open_btn')
         self.add_custom_widget(self.open_btn, tab='custom')
@@ -1322,27 +1356,45 @@ class TimetraceExplorerNode(AbstractContentNode):
             widget_name="File to plot:",
             items=[],
             value=None,
-            tooltip="Select a file to explore"
+            tooltip="Select a file to explore",
+            min_width=200,
         )
 
-    def on_refresh_canvas(self):
-        """Update file list / open window; no embedded plot widget."""
-        if self.has_plot_data():
-            self._on_refresh_canvas()
-            self.data_to_plot.clear()
-        else:
-            self.data_to_plot.clear()
-            self._map_name_to_data.clear()
+        coordinator = RunCoordinator()
+        coordinator.run_started.connect(self._on_run_started)
+        coordinator.run_completed.connect(self._on_run_completed)
+        coordinator.run_discarded.connect(self._on_run_discarded)
 
-    def _on_refresh_canvas(self):
+    def _on_run_started(self, run_id):
+        with self._data_lock:
+            self._run_buffers[run_id] = []
+
+    def _on_run_discarded(self, run_id):
+        with self._data_lock:
+            self._run_buffers.pop(run_id, None)
+
+    def _on_run_completed(self, run_id):
+        with self._data_lock:
+            data_items = self._run_buffers.pop(run_id, [])
+        self._update_data_options(data_items)
+
+    def execute(self, fbsdata=None):
+        if fbsdata is None:
+            return [fbsdata]
+        run_id = getattr(fbsdata, 'run_id', None)
+        if run_id in (None, 0):
+            self._update_data_options([fbsdata])
+            return [fbsdata]
+        with self._data_lock:
+            self._run_buffers.setdefault(run_id, []).append(fbsdata)
+        return [fbsdata]
+
+    def _update_data_options(self, data_items):
         map_name_to_data = {}
-        self.data_to_plot.sort(key=lambda x: x.id)
-        for cur_data in self.data_to_plot:
+        for cur_data in sorted(data_items, key=lambda item: item.id):
             fname = os.path.basename(cur_data.data.fname)
-            inport = self.get_input_port(cur_data)
-            inport_name = inport.name() if inport is not None else "port"
             fbid = cur_data.id
-            map_name_to_data[f'{inport_name}:{fbid}, {fname}'] = cur_data.data
+            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
 
         self._map_name_to_data = map_name_to_data
         self.items_to_plot.set_items(list(map_name_to_data.keys()))
