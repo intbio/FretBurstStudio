@@ -1,7 +1,7 @@
 
 from Qt.QtCore import QRunnable, QThreadPool
 import uuid
-from fretGUI.singletons import ThreadSignalManager
+from fretGUI.singletons import RunContext, ThreadSignalManager
 from abc import abstractmethod
 from collections import deque
 from copy import deepcopy
@@ -9,12 +9,16 @@ from copy import deepcopy
 
 
 class AbstractNodeWorker(QRunnable):
-    def __init__(self, start_node, data=None, node_seq=None):
+    def __init__(self, start_node, data=None, node_seq=None, context=None):
         super().__init__()
         self.start_node = start_node
         self.data = data
         self.node_seq = node_seq if node_seq else deque()
         self.uid = uuid.uuid4().hex
+        self.context = context or RunContext(0)
+        self.context.register_worker(self.uid)
+        if self.data is not None:
+            self.data.run_id = self.context.run_id
         
     @abstractmethod
     def fill_nodeseq(self):
@@ -30,26 +34,50 @@ class AbstractNodeWorker(QRunnable):
     
 
     def run(self):
-        if self.need_fill():
-            self.fill_nodeseq()
-        ThreadSignalManager().thread_started.emit(self.uid, len(self.node_seq) - 1)
         try:
-            self._run()
-        except AttributeError as error:
+            if self.need_fill() and not self.context.obsolete:
+                self.fill_nodeseq()
+            ThreadSignalManager().thread_started.emit(
+                self.uid,
+                len(self.node_seq) - 1,
+            )
+            if not self.context.obsolete:
+                self._run()
+        except Exception as error:
+            self.context.invalidate()
             ThreadSignalManager().thread_error.emit(self.uid)
             raise error
         finally:
             ThreadSignalManager().thread_finished.emit(self.uid)
+            self.context.worker_finished(self.uid)
             
     def run_in_new_thread(self, node, data, q, *args, **kwargs):
-        new_worker = type(self)(node, deepcopy(data), q, *args, **kwargs)
+        new_worker = type(self)(
+            node,
+            deepcopy(data),
+            q,
+            *args,
+            context=self.context,
+            **kwargs,
+        )
         pool = QThreadPool.globalInstance()
-        pool.start(new_worker)
+        try:
+            pool.start(new_worker)
+        except Exception:
+            self.context.worker_finished(new_worker.uid)
+            raise
 
 
 class NodeWorker(AbstractNodeWorker):    
-    def __init__(self, start_node, data=None, node_seq=None, need_fill=True):
-        super().__init__(start_node, data, node_seq)   
+    def __init__(
+        self,
+        start_node,
+        data=None,
+        node_seq=None,
+        need_fill=True,
+        context=None,
+    ):
+        super().__init__(start_node, data, node_seq, context=context)
         self.__need_fill = need_fill
     
     def need_fill(self):
@@ -57,6 +85,8 @@ class NodeWorker(AbstractNodeWorker):
         
     def _run(self):
         while len(self.node_seq) != 0:
+            if self.context.obsolete:
+                break
             ThreadSignalManager().thread_progress.emit(self.uid)
             cur_node = self.node_seq.popleft()
             try:
@@ -68,13 +98,16 @@ class NodeWorker(AbstractNodeWorker):
                     raise error
             except Exception as error:
                 raise error
-            else:        
+            else:
+                if self.context.obsolete:
+                    break
                 for i, cur_data in enumerate(data_container):
                     
                     if cur_data is None:
                         self.data = cur_data
                         continue
                     
+                    cur_data.run_id = self.context.run_id
                     cur_data.prev_nodeid = id(cur_node)
                     if i >= 1:
                         self.run_in_new_thread(cur_node, cur_data, self.node_seq.copy(), False)
@@ -88,7 +121,7 @@ class NodeWorker(AbstractNodeWorker):
         for i, cur_pathq in enumerate(paths):
             if i == 0:
                 self.node_seq = cur_pathq
-                self.need_fill = False
+                self.__need_fill = False
             else:
                 self.run_in_new_thread(self.start_node, self.data, cur_pathq, False)
     

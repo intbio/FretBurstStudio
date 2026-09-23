@@ -2,7 +2,6 @@ from Qt import QtWidgets
 from Qt.QtWidgets import QVBoxLayout, QProgressBar
 from Qt.QtCore import QTimer, Signal
 from fretGUI.singletons import ThreadSignalManager
-from fretGUI.custom_widgets.abstract_widget_wrapper import debounce 
 
 
 class ProgressBar(QtWidgets.QWidget):
@@ -67,14 +66,24 @@ class ProgressBar2(QtWidgets.QWidget):
         self.progress_bar = QProgressBar()
         self.layout.addWidget(self.progress_bar)
         
-        self.release_ui.connect(ThreadSignalManager().all_thread_finished.emit)
         self.hide()
+
+    def on_run_started(self, run_id):
+        self.workers.clear()
+        self.total_max = 0
+        self.total_current = 0
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.setValue(0)
+
+    def on_busy_changed(self, busy):
+        if busy:
+            self.block_ui.emit()
+            self.show()
+        else:
+            self.release_ui.emit()
+            self.hide()
     
     def on_thread_started(self, uid: str, max_values: int):
-        if len(self.workers) == 0:
-            self.block_ui.emit()
-            self.show()  # Show when first worker starts
-        
         print('worker started', uid)
         self.workers[uid] = {'max': max_values, 'current': 0}
         self.total_max += max_values
@@ -82,19 +91,13 @@ class ProgressBar2(QtWidgets.QWidget):
     
     def on_thread_finished(self, uid: str):
         print("worker finished", uid)
-        worker_info = self.workers.pop(uid)
+        worker_info = self.workers.pop(uid, None)
+        if worker_info is None:
+            return
         # Ensure we account for any remaining progress from this worker
         remaining = worker_info['max'] - worker_info['current']
         self.total_current += remaining
         self.progress_bar.setValue(self.total_current)
-        
-        if len(self.workers) == 0:
-            self.on_all_thread_finished()
-           
-    @debounce(500) 
-    def on_all_thread_finished(self):
-        self.release_ui.emit()
-        self.hide()
     
     def on_thread_processed(self, uid: str):
         if uid in self.workers:
@@ -109,6 +112,3 @@ class ProgressBar2(QtWidgets.QWidget):
             worker_info = self.workers.pop(uid)
             remaining = worker_info['max'] - worker_info['current']
             self.total_max -= remaining  # Remove remaining from total
-            if len(self.workers) == 0:
-                self.release_ui.emit()
-                QTimer.singleShot(500, self.hide)

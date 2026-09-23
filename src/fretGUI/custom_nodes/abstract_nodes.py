@@ -6,7 +6,12 @@ from NodeGraphQt import BaseNode
 from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from fretGUI.custom_nodes.compact_node_item import CompactNodeItem
 from fretGUI.fbs_data import FBSData
-from fretGUI.singletons import EventDebouncer, NodeStateManager, ThreadSignalManager
+from fretGUI.singletons import (
+    EventDebouncer,
+    NodeStateManager,
+    RunCoordinator,
+    ThreadSignalManager,
+)
 
 from fretGUI.custom_nodes.resizable_node_item import ResizablePlotNodeItem
             
@@ -117,8 +122,11 @@ class AbstractRecomputable(AbstractExecutable):
             self.event_debouncer.disconnect()
         
         if isinstance(widget, AbstractWidgetWrapper):  
-            if connection_status:      
-                widget.debounced_signal.connect(self.on_widget_triggered)            
+            widget.widget_changed_signal.connect(
+                self.on_widget_changing
+            )
+            if connection_status:
+                widget.debounced_signal.connect(self.on_widget_triggered)
             self.widget_wrappers.append(widget)  
         super().add_custom_widget(widget, *args, **kwargs)
         
@@ -146,16 +154,21 @@ class AbstractRecomputable(AbstractExecutable):
             
     def on_input_connected(self, in_port, out_port):          
         if self.are_ports_acceptable(in_port, out_port):
+            RunCoordinator().invalidate_active()
             self.event_debouncer.push_event(('connect', in_port, out_port))
             return super().on_input_connected(in_port, out_port)
         out_port.disconnect_from(in_port, emit_signal=False)
     
     def on_input_disconnected(self, in_port, out_port):
+        RunCoordinator().invalidate_active()
         self.event_debouncer.push_event(('disconnect', in_port, out_port))
         return super().on_input_disconnected(in_port, out_port)
     
     def on_connection(self, event):
         self.on_widget_triggered()
+
+    def on_widget_changing(self):
+        RunCoordinator().invalidate_active()
             
     def on_widget_triggered(self):
         print("TRIGGERED", type(self))

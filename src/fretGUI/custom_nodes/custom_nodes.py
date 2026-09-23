@@ -3,21 +3,128 @@ from fretGUI.custom_nodes.abstract_nodes import AbstractRecomputable, ResizableC
 import fretbursts, os
 from fretGUI.node_builder import NodeBuilder
 import NodeGraphQt
-from fretGUI.singletons import NodeStateManager
+from fretGUI.singletons import NodeStateManager, RunCoordinator
 
 
 from fretGUI.fbs_data import FBSData
-from fretGUI.singletons import FBSDataCash, FBSDataIDGenerator, ThreadSignalManager
+from fretGUI.singletons import FBSDataCash, FBSDataIDGenerator
 from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingModuleSource]
 from abc import abstractmethod
 import numpy as np
 from fretbursts.burstlib import Data
 import pandas as pd
 import seaborn as sns
+from matplotlib.markers import MarkerStyle
+from threading import RLock
 from fretGUI.custom_widgets.timetrace_explorer import (
     OpenExplorerButtonWrapper,
     TimetraceExplorerWindow,
 )
+
+
+PORT_MARKERS = ('o', 's', '^', 'D', 'v', '<', '>', 'P', 'X', '*')
+
+
+def _artist_counts(ax):
+    return len(ax.lines), len(ax.collections), len(ax.patches)
+
+
+def _style_new_data_artists(
+    ax,
+    previous_counts,
+    color,
+    marker=None,
+    label=None,
+    primary_only=False,
+):
+    """Style only artists added by one dataset's plotting call."""
+    line_count, collection_count, patch_count = previous_counts
+    lines = list(ax.lines[line_count:])
+    collections = list(ax.collections[collection_count:])
+    patches = list(ax.patches[patch_count:])
+
+    styled_lines = lines
+    styled_collections = collections
+    styled_patches = patches
+    if primary_only:
+        point_collections = [
+            collection
+            for collection in collections
+            if hasattr(collection, 'get_offsets')
+            and len(collection.get_offsets()) > 1
+        ]
+        if point_collections:
+            styled_lines = []
+            styled_collections = point_collections
+            styled_patches = []
+        elif patches:
+            styled_lines = []
+            styled_collections = []
+        elif lines:
+            styled_lines = lines[:1]
+            styled_collections = []
+            styled_patches = []
+
+    if color:
+        for line in styled_lines:
+            line.set_color(color)
+        for collection in styled_collections:
+            collection.set_facecolor(color)
+            collection.set_edgecolor(color)
+        for patch in styled_patches:
+            patch.set_facecolor(color)
+            patch.set_edgecolor(color)
+
+    if marker:
+        for line in lines:
+            line.set_marker(marker)
+            line.set_markersize(4)
+            point_count = len(line.get_xdata())
+            if point_count > 24:
+                line.set_markevery(max(1, point_count // 20))
+        marker_path = MarkerStyle(marker).get_path().transformed(
+            MarkerStyle(marker).get_transform()
+        )
+        for collection in collections:
+            if hasattr(collection, 'get_offsets') and len(
+                collection.get_offsets()
+            ):
+                collection.set_paths([marker_path])
+
+    artists = [*lines, *collections, *patches]
+    if label and artists:
+        artists[0].set_label(label)
+        for artist in artists[1:]:
+            artist.set_label('_nolegend_')
+    return artists
+
+
+def _port_number(port):
+    if port is None:
+        return 1
+    name = port.name()
+    suffix = ''
+    for character in reversed(name):
+        if not character.isdigit():
+            break
+        suffix = character + suffix
+    return int(suffix) if suffix else 1
+
+
+def _marker_for_port(port):
+    port_number = _port_number(port)
+    return PORT_MARKERS[(port_number - 1) % len(PORT_MARKERS)]
+
+
+def _multifile_legend_label(cur_data, input_port, show_port):
+    file_label = (
+        f'{cur_data.id}: {cur_data.data.name}, '
+        f'N {cur_data.data.num_bursts[0]}'
+    )
+    if not show_port:
+        return file_label
+    port_name = input_port.name() if input_port is not None else 'port1'
+    return f'{port_name}: {file_label}'
 
 
 class AbstractLoader(AbstractRecomputable):
@@ -115,11 +222,11 @@ class AbstractLoader(AbstractRecomputable):
     
     def execute(self, fbsdata: FBSData=None):
         file_entries = self.file_widget.get_file_entries()
-        selected_paths = [path for _, path, _ in file_entries]
+        selected_paths = [path for _, path, _, _ in file_entries]
         self.__delete_closed_files(selected_paths)
         
         # Ensure all selected paths have IDs assigned
-        for path_id, path, _ in file_entries:
+        for path_id, path, _, _ in file_entries:
             if path not in self.path_to_id:
                 # Assign ID if somehow missing (shouldn't happen, but safety check)
                 new_id = (
@@ -130,7 +237,7 @@ class AbstractLoader(AbstractRecomputable):
                 self.path_to_id[path] = new_id
         
         data_list = []
-        for path_id, cur_path, is_checked in file_entries:
+        for path_id, cur_path, is_checked, color in file_entries:
             path_hash = hash(cur_path)
             # Use the immutable row snapshot rather than a live Qt widget.
             assigned_id = path_id
@@ -145,6 +252,7 @@ class AbstractLoader(AbstractRecomputable):
                 existing_fbsdata = self.opened_paths[path_hash]
                 fbsdata_copy = existing_fbsdata.copy()
                 fbsdata_copy.set_checked(is_checked)
+                fbsdata_copy.color = color
                 data_list.append(fbsdata_copy)
                 # Update tooltip for loaded file
                 tooltip_text = self._format_metadata_tooltip(existing_fbsdata)
@@ -156,6 +264,7 @@ class AbstractLoader(AbstractRecomputable):
                     id=assigned_id,
                     checked=is_checked,
                 )
+                loaded_fbsdata.color = color
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
                 # self.__wire_fbsdata(self.opened_paths[path_hash])
                 data_list.append(loaded_fbsdata)
@@ -441,10 +550,15 @@ class AbstractContentNode(ResizableContentNode):
         self.__enable_multiports = enable_multiports
         self.__inport_color = inport_color
         self.data_to_plot = []
-        ThreadSignalManager().all_thread_finished.connect(self.on_refresh_canvas)
-        ThreadSignalManager().all_thread_finished.connect(self.on_check_ports)
         self.__prevnodeid_data_map = dict()
+        self.__run_buffers = {}
+        self.__run_port_maps = {}
+        self.__plot_lock = RLock()
         self.was_executed = False
+        coordinator = RunCoordinator()
+        coordinator.run_started.connect(self._on_run_started)
+        coordinator.run_completed.connect(self._on_run_completed)
+        coordinator.run_discarded.connect(self._on_run_discarded)
         
         print(inport_color, "INPORT")
         
@@ -461,6 +575,30 @@ class AbstractContentNode(ResizableContentNode):
     
     def has_plot_data(self) -> bool:
         return len(self.data_to_plot) != 0
+
+    def _on_run_started(self, run_id):
+        with self.__plot_lock:
+            self.__run_buffers[run_id] = []
+            self.__run_port_maps[run_id] = {}
+
+    def _on_run_discarded(self, run_id):
+        with self.__plot_lock:
+            self.__run_buffers.pop(run_id, None)
+            self.__run_port_maps.pop(run_id, None)
+
+    def _on_run_completed(self, run_id):
+        with self.__plot_lock:
+            self.data_to_plot = self.__run_buffers.pop(run_id, [])
+            self.__prevnodeid_data_map = self.__run_port_maps.pop(
+                run_id, {}
+            )
+        self.was_executed = True
+        self.on_refresh_canvas()
+        self.on_check_ports()
+        with self.__plot_lock:
+            self.data_to_plot.clear()
+            self.__prevnodeid_data_map.clear()
+        self.was_executed = False
         
     def on_refresh_canvas(self):
         if not self.was_executed:
@@ -469,7 +607,6 @@ class AbstractContentNode(ResizableContentNode):
             print("WAS EXECUTED", type(self))
             self._on_refresh_canvas()
             self.plot_widget.canvas.draw()
-            self.data_to_plot.clear()
         else:
             print("WAS NOT EXECUTED", type(self))   
             self.__on_plot_data_clear()
@@ -506,10 +643,19 @@ class AbstractContentNode(ResizableContentNode):
         return None
     
     def execute(self, fbsdata: FBSData=None):
-        self.was_executed = True
-        self.__prevnodeid_data_map[fbsdata] = fbsdata.prev_nodeid
-        if fbsdata is not None:
+        if fbsdata is None:
+            return [fbsdata]
+        run_id = getattr(fbsdata, 'run_id', None)
+        if run_id in (None, 0):
+            self.was_executed = True
+            self.__prevnodeid_data_map[fbsdata] = fbsdata.prev_nodeid
             self.data_to_plot.append(fbsdata)
+            return [fbsdata]
+        with self.__plot_lock:
+            self.__run_buffers.setdefault(run_id, []).append(fbsdata)
+            self.__run_port_maps.setdefault(run_id, {})[
+                fbsdata
+            ] = fbsdata.prev_nodeid
         return [fbsdata] 
     
     def __get_port_name(self, connected_inputs) -> str:
@@ -569,6 +715,7 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
     MIN_WIDTH = 450
     MIN_HEIGHT = 300
     PLOT_FUNC = None
+    USE_FILE_COLOR = True
     # Opt-in: overlay a linear regression of plotted points (does not change fretbursts).
     SHOW_REGRESSION = False
 
@@ -583,7 +730,7 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
                          enable_multiports=enable_multiports)
         self.PLOT_KWARGS = {}
         self.node_builder = NodeBuilder(self)
-        self._plot_cache = {}  # file label -> fretbursts Data
+        self._plot_cache = {}  # file label -> FBSData
 
         self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
         self.items_to_plot = self.node_builder.build_combobox(
@@ -615,14 +762,30 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         if not self._plot_cache:
             return
         selected_val = self.items_to_plot.get_value()
-        selected_data = self._plot_cache.get(selected_val)
+        selected_fbsdata = self._plot_cache.get(selected_val)
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
-        if plot_func is None or selected_data is None or not isinstance(selected_data, Data):
+        if (
+            plot_func is None
+            or selected_fbsdata is None
+            or not isinstance(selected_fbsdata.data, Data)
+        ):
             return
         fig = self.plot_widget.figure
         fig.clear()
         ax = fig.add_subplot()
-        fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
+        previous_counts = _artist_counts(ax)
+        fretbursts.dplot(
+            selected_fbsdata.data,
+            plot_func,
+            ax=ax,
+            **self.PLOT_KWARGS,
+        )
+        _style_new_data_artists(
+            ax,
+            previous_counts,
+            selected_fbsdata.color if self.USE_FILE_COLOR else None,
+            primary_only=True,
+        )
         if self.SHOW_REGRESSION and self.get_property('show_regression'):
             self._add_regression_line(ax)
         self.plot_widget.canvas.draw()
@@ -686,20 +849,36 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
             inport_name = self.get_input_port(cur_data).name()
             
             fbid = cur_data.id
-            map_name_to_data[f'{inport_name}:{fbid}, {fname}'] = cur_data.data
+            map_name_to_data[f'{inport_name}:{fbid}, {fname}'] = cur_data
 
         self._plot_cache = map_name_to_data
         self.items_to_plot.set_items(list(map_name_to_data.keys()))
         selected_val = self.items_to_plot.get_value()
-        selected_data = map_name_to_data.get(selected_val)
+        selected_fbsdata = map_name_to_data.get(selected_val)
 
         # Avoid accidental binding and ensure we pass a Data instance.
         plot_func = self.PLOT_FUNC.__func__ if isinstance(self.PLOT_FUNC, staticmethod) else self.PLOT_FUNC
-        if plot_func is None or selected_data is None or not isinstance(selected_data, Data):
+        if (
+            plot_func is None
+            or selected_fbsdata is None
+            or not isinstance(selected_fbsdata.data, Data)
+        ):
             self.plot_widget.canvas.draw()
             return
 
-        fretbursts.dplot(selected_data, plot_func, ax=ax, **self.PLOT_KWARGS)
+        previous_counts = _artist_counts(ax)
+        fretbursts.dplot(
+            selected_fbsdata.data,
+            plot_func,
+            ax=ax,
+            **self.PLOT_KWARGS,
+        )
+        _style_new_data_artists(
+            ax,
+            previous_counts,
+            selected_fbsdata.color if self.USE_FILE_COLOR else None,
+            primary_only=True,
+        )
         if self.SHOW_REGRESSION and self.get_property('show_regression'):
             self._add_regression_line(ax)
         # fig.tight_layout()
@@ -761,22 +940,40 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             return
         self.update_plot_kwargs()
 
-        self.data_to_plot.sort(key = lambda x: x.id)
-
+        plotted_data = []
         for cur_data in self.data_to_plot:
+            input_port = self.get_input_port(cur_data)
+            plotted_data.append((input_port, cur_data))
+        plotted_data.sort(
+            key=lambda item: (_port_number(item[0]), item[1].id)
+        )
+
+        connected_port_count = sum(
+            bool(connected_nodes)
+            for connected_nodes in self.connected_input_nodes().values()
+        )
+        show_port_in_legend = connected_port_count > 1
+
+        for input_port, cur_data in plotted_data:
             if not isinstance(cur_data.data, Data):
                 continue
             
             # Call fretbursts.dplot for each item in data_to_plot
+            previous_counts = _artist_counts(self.ax)
             fretbursts.dplot(cur_data.data, plot_func, ax=self.ax, **self.PLOT_KWARGS)
 
-            if len(self.connected_input_nodes())==2:
-                name = f'{cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
-            else:
-                inport_name = self.get_input_port(cur_data).name()
-                name = f'{inport_name}: {cur_data.data.name}, N {cur_data.data.num_bursts[0]}'
-            if self.ax.lines:
-                self.ax.lines[-1].set_label(name)
+            name = _multifile_legend_label(
+                cur_data,
+                input_port,
+                show_port_in_legend,
+            )
+            _style_new_data_artists(
+                self.ax,
+                previous_counts,
+                cur_data.color,
+                marker=_marker_for_port(input_port),
+                label=name,
+            )
 
         # Add legend if multiple files are plotted
         if len(self.data_to_plot) > 1:
@@ -826,6 +1023,7 @@ class BGFitPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Background Fit'
     PLOT_FUNC = staticmethod(fretbursts.hist_bg)
     PLOT_KWARGS = dict(show_fit=True)
+    USE_FILE_COLOR = False
     
     def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=(255,255,0), enable_multiports=False):
         super().__init__(widget_name, qgraphics_item, inport_color, enable_multiports=enable_multiports)
@@ -833,6 +1031,7 @@ class BGFitPlotterNode(BaseSingleFilePlotterNode):
 class BGTimeLinePlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Background TimeLine'
     PLOT_FUNC = staticmethod(fretbursts.timetrace_bg)
+    USE_FILE_COLOR = False
     
     def __init__(self, widget_name='plot_widget', qgraphics_item=None, inport_color=(255,255,0), enable_multiports=False):
         super().__init__(widget_name, qgraphics_item, inport_color, enable_multiports=enable_multiports)
@@ -883,6 +1082,7 @@ class EHistPlotterNode(BaseMultiFilePlotterNode):
 class HistBurstSizeAllPlotterNode(BaseSingleFilePlotterNode):
     NODE_NAME = 'Burst Size hist.'
     PLOT_FUNC = staticmethod(fretbursts.hist_size_all)
+    USE_FILE_COLOR = False
 
 class HistBurstWidthPlotterNode(BaseMultiFilePlotterNode):
     NODE_NAME = 'Burst Width hist'
@@ -1060,22 +1260,31 @@ class InterBurstPlotterNode(AbstractContentNode):
         for cur_data in self.data_to_plot:
             fname = os.path.basename(cur_data.data.fname)
             fbid = cur_data.id
-            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+            map_name_to_data[f'{fbid}, {fname}'] = cur_data
 
         self.items_to_plot.set_items(list(map_name_to_data.keys()))
         selected_val = self.items_to_plot.get_value()
-        selected_data = map_name_to_data.get(selected_val)
+        selected_fbsdata = map_name_to_data.get(selected_val)
 
-        if selected_data is None or not isinstance(selected_data, Data):
+        if (
+            selected_fbsdata is None
+            or not isinstance(selected_fbsdata.data, Data)
+        ):
             plot_widget.canvas.draw()
             return
         
-        ds_FRET = selected_data
+        ds_FRET = selected_fbsdata.data
         df_bursts = fretbursts.bext.burst_data(ds_FRET)
         burst_starts = df_bursts['t_start']
         burst_ends = df_bursts['t_stop']
         inter_burst_intervals = burst_starts.values[1:] - burst_ends.values[:-1]
-        ax.hist(inter_burst_intervals, bins=100, log=True, histtype='step')
+        ax.hist(
+            inter_burst_intervals,
+            bins=100,
+            log=True,
+            histtype='step',
+            color=selected_fbsdata.color,
+        )
         ax.set_xlabel('Time, s', fontsize=16)
         ax.set_ylabel('N', fontsize=16);
         

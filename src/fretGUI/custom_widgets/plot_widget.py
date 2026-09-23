@@ -14,6 +14,11 @@ _ABS_MARGINS_IN = dict(left=0.8, right=0.25, bottom=0.5, top=0.25)
 _MAX_GRAPH_OVERSAMPLE = 3.0
 _OVERSAMPLE_DEBOUNCE_MS = 80
 _DARK_MPL_STYLE = dict(plt.style.library['dark_background'])
+_DARK_MPL_STYLE.update({
+    'axes.facecolor': '#303030',
+    'figure.facecolor': '#303030',
+    'savefig.facecolor': '#303030',
+})
 _LIGHT_MPL_STYLE = {
     key: matplotlib.rcParams[key]
     for key in _DARK_MPL_STYLE

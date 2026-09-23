@@ -6,11 +6,19 @@ from Qt import QtWidgets, QtCore, QtGui
 from unittest.mock import MagicMock
 from pathlib import Path
 import matplotlib
+from matplotlib import colors as mpl_colors
+from matplotlib.figure import Figure
 
 import fretGUI.custom_nodes.custom_nodes as custom_nodes
 import fretGUI.custom_nodes.selector_nodes as selector_nodes
-from fretGUI.singletons import ThreadSignalManager
+from fretGUI.singletons import (
+    FBSDataCash,
+    RunContext,
+    RunCoordinator,
+    ThreadSignalManager,
+)
 from fretGUI.node_workers import NodeWorker
+from fretGUI.fbs_data import FBSData
 from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
 from fretGUI.custom_widgets.plot_widget import (
     TemplatePlotWidget,
@@ -160,10 +168,9 @@ class TestWidgets(unittest.TestCase):
         path_widget = node.file_widget.path_widget
         path_widget.process_files(['/tmp/deleted-file.h5'])
 
-        path_id, _, _ = path_widget.get_file_entries()[0]
+        path_id, _, _, _ = path_widget.get_file_entries()[0]
         row_widget = path_widget.rowwidget_map[path_id]
-        self.assertEqual(row_widget.del_button.text(), '×')
-        self.assertTrue(row_widget.del_button.icon().isNull())
+        self.assertEqual(row_widget.del_button.size(), QtCore.QSize(25, 25))
         row_widget.on_button_click()
         QtCore.QCoreApplication.sendPostedEvents(
             None,
@@ -173,6 +180,153 @@ class TestWidgets(unittest.TestCase):
         self.assertEqual(path_widget.get_file_entries(), [])
         self.assertNotIn(path_id, path_widget.rowwidget_map)
         self.assertEqual(node.execute(), [])
+
+    def test_file_rows_cycle_colors_and_update_runtime_state(self):
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.PhHDF5Node')
+        path_widget = node.file_widget.path_widget
+        path_widget.process_files(['/tmp/color-file.h5'])
+
+        path_id, _, _, initial_color = path_widget.get_file_entries()[0]
+        color_cycle = matplotlib.rcParams[
+            'axes.prop_cycle'
+        ].by_key()['color']
+        self.assertEqual(
+            initial_color,
+            QtGui.QColor(color_cycle[(path_id - 1) % len(color_cycle)]).name(),
+        )
+
+        row_widget = path_widget.rowwidget_map[path_id]
+        row_widget.set_color('#12ab34')
+        row_widget.color_changed.emit(row_widget.get_color())
+        self.assertEqual(
+            path_widget.get_file_entries()[0][3],
+            '#12ab34',
+        )
+
+    def test_fbsdata_copy_preserves_file_color(self):
+        original = FBSData(id=10001, color='#abcdef')
+        copied = original.copy()
+
+        self.assertEqual(copied.color, '#abcdef')
+        copied.color = '#123456'
+        self.assertEqual(original.color, '#abcdef')
+
+    def test_plot_artist_keeps_file_color_and_uses_port_marker(self):
+        figure = Figure()
+        ax = figure.add_subplot()
+        port1 = MagicMock()
+        port1.name.return_value = 'port1'
+        port2 = MagicMock()
+        port2.name.return_value = 'port2'
+
+        first_counts = custom_nodes._artist_counts(ax)
+        first_line, = ax.plot([0, 1], [0, 1])
+        custom_nodes._style_new_data_artists(
+            ax,
+            first_counts,
+            '#336699',
+            marker=custom_nodes._marker_for_port(port1),
+            label='port1: file',
+        )
+
+        second_counts = custom_nodes._artist_counts(ax)
+        second_line, = ax.plot([0, 1], [1, 2])
+        custom_nodes._style_new_data_artists(
+            ax,
+            second_counts,
+            '#336699',
+            marker=custom_nodes._marker_for_port(port2),
+            label='port2: file',
+        )
+
+        self.assertEqual(first_line.get_color(), '#336699')
+        self.assertEqual(second_line.get_color(), '#336699')
+        self.assertEqual(first_line.get_marker(), 'o')
+        self.assertEqual(second_line.get_marker(), 's')
+        self.assertEqual(first_line.get_label(), 'port1: file')
+        self.assertEqual(second_line.get_label(), 'port2: file')
+
+    def test_single_file_color_only_changes_primary_artist(self):
+        figure = Figure()
+        ax = figure.add_subplot()
+        previous_counts = custom_nodes._artist_counts(ax)
+        points = ax.scatter([0, 1], [1, 2], color='#000000')
+        guide, = ax.plot([0, 1], [2, 3], color='#cc0000')
+
+        custom_nodes._style_new_data_artists(
+            ax,
+            previous_counts,
+            '#2468ac',
+            primary_only=True,
+        )
+
+        self.assertEqual(
+            mpl_colors.to_hex(points.get_facecolors()[0]),
+            '#2468ac',
+        )
+        self.assertEqual(guide.get_color(), '#cc0000')
+
+    def test_multifile_legend_groups_ports_and_uses_file_ids(self):
+        port1 = MagicMock()
+        port1.name.return_value = 'port1'
+        port2 = MagicMock()
+        port2.name.return_value = 'port2'
+        first = MagicMock()
+        first.id = 3
+        first.data.name = 'first.h5'
+        first.data.num_bursts = [12]
+
+        self.assertEqual(
+            custom_nodes._multifile_legend_label(
+                first, port1, show_port=False
+            ),
+            '3: first.h5, N 12',
+        )
+        self.assertEqual(
+            custom_nodes._multifile_legend_label(
+                first, port2, show_port=True
+            ),
+            'port2: 3: first.h5, N 12',
+        )
+
+        entries = [(port2, 1), (port1, 5), (port1, 2)]
+        entries.sort(
+            key=lambda item: (
+                custom_nodes._port_number(item[0]),
+                item[1],
+            )
+        )
+        self.assertEqual(
+            [(port.name(), file_id) for port, file_id in entries],
+            [('port1', 2), ('port1', 5), ('port2', 1)],
+        )
+        self.assertFalse(custom_nodes.BGFitPlotterNode.USE_FILE_COLOR)
+        self.assertFalse(custom_nodes.BGTimeLinePlotterNode.USE_FILE_COLOR)
+        self.assertFalse(
+            custom_nodes.HistBurstSizeAllPlotterNode.USE_FILE_COLOR
+        )
+
+    def test_plot_buffers_accept_only_completed_generation(self):
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Plot.ScatterRateDaPlotterNode')
+        plotted_ids = []
+        node._on_refresh_canvas = lambda: plotted_ids.append(
+            [data.id for data in node.data_to_plot]
+        )
+
+        node._on_run_started(501)
+        node.execute(FBSData(id=1, run_id=501))
+        node.execute(FBSData(id=2, run_id=501))
+        node._on_run_discarded(501)
+        self.assertEqual(plotted_ids, [])
+
+        node._on_run_started(502)
+        node.execute(FBSData(id=3, run_id=502))
+        node._on_run_completed(502)
+
+        self.assertEqual(plotted_ids, [[3]])
+        self.assertEqual(node.data_to_plot, [])
 
     def test_plot_fills_width_and_controls_share_row(self):
         graph = BaseUtils.init_graph()
@@ -368,6 +522,10 @@ class TestWidgets(unittest.TestCase):
                 ax.get_facecolor(),
             )
             self.assertEqual(
+                mpl_colors.to_hex(ax.get_facecolor()),
+                '#303030',
+            )
+            self.assertEqual(
                 matplotlib.colors.to_rgba(
                     matplotlib.rcParams['text.color']
                 ),
@@ -403,6 +561,41 @@ class TestWidgets(unittest.TestCase):
         finally:
             app.setPalette(original_palette)
             set_matplotlib_theme('light')
+
+    def test_control_free_histograms_keep_resize_handle_above_canvas(self):
+        graph = BaseUtils.init_graph()
+        node_types = (
+            'Plot.HistBurstBrightnessPlotterNode',
+            'Plot.HistBurstSBRPlotterNode',
+            'Plot.HistBurstPhratePlotterNode',
+        )
+
+        for node_type in node_types:
+            with self.subTest(node_type=node_type):
+                node = graph.create_node(node_type)
+                app.processEvents()
+                view = node.view
+                plot_proxy = node.get_widget('plot_widget')
+
+                self.assertGreater(
+                    view._resize_handle.zValue(),
+                    plot_proxy.zValue(),
+                )
+                self.assertEqual(
+                    view._resize_handle.pos(),
+                    QtCore.QPointF(
+                        view._width - view.HANDLE_SIZE,
+                        view._height - view.HANDLE_SIZE,
+                    ),
+                )
+                old_size = (view._width, view._height)
+                view._begin_resize(QtCore.QPointF(0, 0))
+                view._resize_from_scene_pos(QtCore.QPointF(20, 30))
+                view._end_resize()
+
+                self.assertEqual(view._width, old_size[0] + 20)
+                self.assertEqual(view._height, old_size[1] + 30)
+                self.assertFalse(view._resizing)
     
         
         
@@ -437,30 +630,40 @@ class TestWorkers(unittest.TestCase):
         ThreadSignalManager().disconnect()
         graph = self.__load_template("test_signals.json")
         lsm_node = graph.get_node_by_name('Confocor2 RAW')
-        worker = NodeWorker(lsm_node)
+        context = RunContext(101)
+        worker = NodeWorker(lsm_node, context=context)
         spy = QSignalSpy(ThreadSignalManager().thread_started)
-        all_thread_finished_spy = QSignalSpy(ThreadSignalManager().all_thread_finished)
+        drained_spy = QSignalSpy(context.drained)
         progress_bar = ProgressBar2()
         ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
         ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
         ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
         worker.run()
-        self.assertTrue(all_thread_finished_spy.wait(10000), "thread_started signal was not obtained")
+        self.assertTrue(
+            QtCore.QThreadPool.globalInstance().waitForDone(10000)
+        )
+        app.processEvents()
+        self.assertEqual(drained_spy.count(), 1)
         self.assertEqual(spy.count(), 2, "it should be 2 emitions of thread_started signal")
         
     def test_worker_thread_finished_signals(self):
         ThreadSignalManager().disconnect()
         graph = self.__load_template("test_signals.json")
         lsm_node = graph.get_node_by_name('Confocor2 RAW')
-        worker = NodeWorker(lsm_node)
+        context = RunContext(102)
+        worker = NodeWorker(lsm_node, context=context)
         spy = QSignalSpy(ThreadSignalManager().thread_finished)
-        all_thread_finished_spy = QSignalSpy(ThreadSignalManager().all_thread_finished)
+        drained_spy = QSignalSpy(context.drained)
         progress_bar = ProgressBar2()
         ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
         ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
         ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
         worker.run()
-        self.assertTrue(all_thread_finished_spy.wait(10000))
+        self.assertTrue(
+            QtCore.QThreadPool.globalInstance().waitForDone(10000)
+        )
+        app.processEvents()
+        self.assertEqual(drained_spy.count(), 1)
         self.assertEqual(spy.count(), 2, "it should be 2 emitions of thread_finished signal")
         
     def test_worker_all_thread_finished(self):
@@ -471,11 +674,100 @@ class TestWorkers(unittest.TestCase):
         ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
         ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
         lsm_node = graph.get_node_by_name('Confocor2 RAW')
-        worker = NodeWorker(lsm_node)
-        spy = QSignalSpy(ThreadSignalManager().all_thread_finished)
+        context = RunContext(103)
+        worker = NodeWorker(lsm_node, context=context)
+        spy = QSignalSpy(context.drained)
         worker.run()
-        self.assertTrue(spy.wait(10000), "all_thread_finished signal was not obtained")
-        self.assertEqual(spy.count() , 1, "it should be 1 emition of all_thread_finished signal")
+        self.assertTrue(
+            QtCore.QThreadPool.globalInstance().waitForDone(10000)
+        )
+        app.processEvents()
+        self.assertEqual(spy.count(), 1, "run should drain exactly once")
+
+    def test_run_coordinator_coalesces_to_latest_request(self):
+        coordinator = RunCoordinator()
+        coordinator.reset_for_tests()
+        started = QSignalSpy(coordinator.run_started)
+        completed = QSignalSpy(coordinator.run_completed)
+        discarded = QSignalSpy(coordinator.run_discarded)
+
+        first = coordinator.request_run()
+        first.register_worker('first-worker')
+        coordinator.request_run()
+        coordinator.request_run()
+        self.assertTrue(first.obsolete)
+
+        first.worker_finished('first-worker')
+        app.processEvents()
+
+        self.assertEqual(discarded.count(), 1)
+        self.assertEqual(started.count(), 2)
+        second = coordinator.active_context
+        self.assertIsNotNone(second)
+        second.register_worker('second-worker')
+        second.worker_finished('second-worker')
+        app.processEvents()
+
+        self.assertEqual(completed.count(), 1)
+        self.assertFalse(coordinator.is_busy)
+        coordinator.reset_for_tests()
+
+    def test_run_context_waits_for_every_branch(self):
+        context = RunContext(104)
+        drained = QSignalSpy(context.drained)
+        context.register_worker('root')
+        context.register_worker('branch')
+
+        context.worker_finished('root')
+        self.assertEqual(drained.count(), 0)
+        context.worker_finished('branch')
+        app.processEvents()
+
+        self.assertEqual(drained.count(), 1)
+
+    def test_invalidated_run_does_not_write_analysis_cache(self):
+        coordinator = RunCoordinator()
+        coordinator.reset_for_tests()
+        context = coordinator.request_run()
+        context.register_worker('cache-worker')
+        data = FBSData(id=20001, run_id=context.run_id)
+        cache = FBSDataCash()
+        size_before = cache.size
+
+        class FakeNode:
+            def widgets(self):
+                return {}
+
+        def calculate(node, fbsdata):
+            return [fbsdata]
+
+        coordinator.invalidate_active()
+        result = cache.fbscash(calculate)(FakeNode(), data)
+
+        self.assertEqual(result, [data])
+        self.assertEqual(cache.size, size_before)
+        context.worker_finished('cache-worker')
+        app.processEvents()
+        coordinator.reset_for_tests()
+
+    def test_worker_error_still_drains_run_context(self):
+        class ExplodingNode:
+            def iter_children_nodes(self):
+                return []
+
+            def execute(self, data):
+                raise RuntimeError("expected test failure")
+
+        context = RunContext(105)
+        worker = NodeWorker(ExplodingNode(), context=context)
+        drained = QSignalSpy(context.drained)
+
+        with self.assertRaisesRegex(RuntimeError, "expected test failure"):
+            worker.run()
+
+        app.processEvents()
+        self.assertTrue(context.obsolete)
+        self.assertEqual(drained.count(), 1)
         
     def test_path2(self):
         graph = self.__load_template("test2.json")

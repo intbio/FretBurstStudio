@@ -9,14 +9,14 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x73504022b200":{
+    "0x1abf87af380":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Corrections",
       "color":[
-        150,
-        150,
-        150,
+        100,
+        100,
+        100,
         255
       ],
       "border_color":[
@@ -26,15 +26,15 @@
         255
       ],
       "text_color":[
-        30,
-        30,
-        30
+        240,
+        240,
+        240
       ],
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":161.96875,
-      "height":159.20000000000002,
+      "width":160,
+      "height":155.05,
       "pos":[
         47.578751651963444,
         121.44008438683521
@@ -45,17 +45,17 @@
       "custom":{
         "Gamma":1.0,
         "Leakage":0.24,
-        "Direct ex.":0.0
+        "Direct ex.":0.02
       }
     },
-    "0x73503c0c4650":{
+    "0x1abf8a16600":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"Confocor2 RAW",
       "color":[
-        150,
-        150,
-        150,
+        100,
+        100,
+        100,
         255
       ],
       "border_color":[
@@ -65,15 +65,15 @@
         255
       ],
       "text_color":[
-        30,
-        30,
-        30
+        240,
+        240,
+        240
       ],
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":304.75,
-      "height":235,
+      "width":300.0,
+      "height":165,
       "pos":[
         -270.3796223483374,
         -11.303197034039897
@@ -83,21 +83,19 @@
       "subgraph_session":{},
       "custom":{
         "File Widget":[
-          "/home/armeev/Projects/software/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.002",
-          "/home/armeev/Projects/software/FretBurstStudio/samle_files/lsm510/a.002",
-          "/home/armeev/Projects/software/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001",
-          "/home/armeev/Projects/software/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.001"
+          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/#4_M2dCas-NS_09hOct_400x.001",
+          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001"
         ]
       }
     },
-    "0x73503c0c4e60":{
+    "0x1abf131eae0":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"BurstSearch by BG",
       "color":[
-        150,
-        150,
-        150,
+        100,
+        100,
+        100,
         255
       ],
       "border_color":[
@@ -107,55 +105,55 @@
         255
       ],
       "text_color":[
-        30,
-        30,
-        30
-      ],
-      "disabled":false,
-      "selected":false,
-      "visible":true,
-      "width":161.96875,
-      "height":235.85000000000002,
-      "pos":[
-        209.96912044736962,
-        120.7460215604544
-      ],
-      "layout_direction":0,
-      "port_deletion_allowed":false,
-      "subgraph_session":{},
-      "custom":{
-        "m, Photon search window":21,
-        "L, Minimal Burst size":20,
-        "F, Min. Burst rate to bg. ratio":6,
-        "Channel":"DAem"
-      }
-    },
-    "0x7350402bde20":{
-      "type_":"Analysis.CalcBGNode",
-      "icon":null,
-      "name":"Calc.Background",
-      "color":[
-        150,
-        150,
-        150,
-        255
-      ],
-      "border_color":[
-        74,
-        84,
-        85,
-        255
-      ],
-      "text_color":[
-        30,
-        30,
-        30
+        240,
+        240,
+        240
       ],
       "disabled":false,
       "selected":false,
       "visible":true,
       "width":160,
-      "height":117.2,
+      "height":246.4,
+      "pos":[
+        206.68603298502035,
+        121.84038404790414
+      ],
+      "layout_direction":0,
+      "port_deletion_allowed":false,
+      "subgraph_session":{},
+      "custom":{
+        "m, Photon search window":20,
+        "L, Minimal Burst size":20,
+        "F, Min. Burst rate to bg. ratio":6,
+        "Channel":"DAem"
+      }
+    },
+    "0x1abf87ecda0":{
+      "type_":"Analysis.CalcBGNode",
+      "icon":null,
+      "name":"Calc.Background",
+      "color":[
+        100,
+        100,
+        100,
+        255
+      ],
+      "border_color":[
+        74,
+        84,
+        85,
+        255
+      ],
+      "text_color":[
+        240,
+        240,
+        240
+      ],
+      "disabled":false,
+      "selected":false,
+      "visible":true,
+      "width":160,
+      "height":114.10000000000001,
       "pos":[
         81.4074665506927,
         -11.765592947061
@@ -168,14 +166,14 @@
         "Min. lag, \u03bcs":1000
       }
     },
-    "0x73503c0c6d50":{
+    "0x1abf7dfed20":{
       "type_":"Selectors.BurstSelectorWidthNode",
       "icon":null,
       "name":"Width",
       "color":[
-        150,
-        150,
-        150,
+        100,
+        100,
+        100,
         255
       ],
       "border_color":[
@@ -185,15 +183,15 @@
         255
       ],
       "text_color":[
-        30,
-        30,
-        30
+        240,
+        240,
+        240
       ],
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":161.96875,
-      "height":117.2,
+      "width":160,
+      "height":114.10000000000001,
       "pos":[
         39.99133667852627,
         500.10602426645204
@@ -203,17 +201,17 @@
       "subgraph_session":{},
       "custom":{
         "Longer than, ms":1.0,
-        "Shorter than, ms":15.0
+        "Shorter than, ms":20.0
       }
     },
-    "0x73503c0c7800":{
+    "0x1abf8005790":{
       "type_":"Selectors.BurstSelectorSizeNode",
       "icon":null,
       "name":"Size",
       "color":[
-        150,
-        150,
-        150,
+        100,
+        100,
+        100,
         255
       ],
       "border_color":[
@@ -223,15 +221,15 @@
         255
       ],
       "text_color":[
-        30,
-        30,
-        30
+        240,
+        240,
+        240
       ],
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":161.96875,
-      "height":117.2,
+      "width":160,
+      "height":114.10000000000001,
       "pos":[
         200.38766704817525,
         500.2971015729267
@@ -244,14 +242,14 @@
         "High Threshold":300
       }
     },
-    "0x73503c0f41d0":{
+    "0x1abf855d580":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET histogram",
       "color":[
-        255,
-        255,
-        255,
+        70,
+        70,
+        70,
         255
       ],
       "border_color":[
@@ -261,9 +259,9 @@
         255
       ],
       "text_color":[
-        30,
-        30,
-        30
+        240,
+        240,
+        240
       ],
       "disabled":false,
       "selected":false,
@@ -292,17 +290,17 @@
       "output_ports":[],
       "custom":{
         "plot_widget":null,
-        "Bin Width":0.05
+        "Bin Width":0.04
       }
     },
-    "0x73503c0f42f0":{
+    "0x1abf1111a60":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
       "color":[
-        255,
-        255,
-        255,
+        70,
+        70,
+        70,
         255
       ],
       "border_color":[
@@ -312,12 +310,12 @@
         255
       ],
       "text_color":[
-        30,
-        30,
-        30
+        240,
+        240,
+        240
       ],
       "disabled":false,
-      "selected":true,
+      "selected":false,
       "visible":true,
       "width":553.964436307726,
       "height":314.2267123368467,
@@ -338,17 +336,17 @@
       "output_ports":[],
       "custom":{
         "plot_widget":null,
-        "File to plot:":"port1:1, L2-dCas-NS_1to500.002"
+        "File to plot:":"port1:3, #4_M2dCas-NS_09hOct_400x.001"
       }
     },
-    "0x73503c0f5e20":{
+    "0x1abf855c6e0":{
       "type_":"Analysis.FuseBurstsNode",
       "icon":null,
       "name":"FuseBursts",
       "color":[
-        150,
-        150,
-        150,
+        100,
+        100,
+        100,
         255
       ],
       "border_color":[
@@ -358,15 +356,15 @@
         255
       ],
       "text_color":[
-        30,
-        30,
-        30
+        240,
+        240,
+        240
       ],
       "disabled":false,
       "selected":false,
       "visible":true,
-      "width":261.96875,
-      "height":83.6,
+      "width":258.0,
+      "height":82.6,
       "pos":[
         58.84359358823926,
         368.1026139229808
@@ -382,81 +380,81 @@
   "connections":[
     {
       "in":[
-        "0x73504022b200",
+        "0x1abf87af380",
         "inport"
       ],
       "out":[
-        "0x7350402bde20",
+        "0x1abf87ecda0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x73504022b200",
+        "0x1abf87af380",
         "outport"
       ],
       "in":[
-        "0x73503c0c4e60",
+        "0x1abf131eae0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x73503c0c4650",
+        "0x1abf8a16600",
         "out_file"
       ],
       "in":[
-        "0x7350402bde20",
+        "0x1abf87ecda0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x73503c0c4e60",
+        "0x1abf131eae0",
         "outport"
       ],
       "in":[
-        "0x73503c0f5e20",
+        "0x1abf855c6e0",
         "inport"
       ]
     },
     {
       "out":[
-        "0x7350402bde20",
+        "0x1abf87ecda0",
         "outport"
       ],
       "in":[
-        "0x73503c0f42f0",
+        "0x1abf1111a60",
         "port1"
       ]
     },
     {
       "in":[
-        "0x73503c0c6d50",
+        "0x1abf7dfed20",
         "inport"
       ],
       "out":[
-        "0x73503c0f5e20",
+        "0x1abf855c6e0",
         "outport"
       ]
     },
     {
       "out":[
-        "0x73503c0c6d50",
+        "0x1abf7dfed20",
         "outport"
       ],
       "in":[
-        "0x73503c0c7800",
+        "0x1abf8005790",
         "inport"
       ]
     },
     {
       "out":[
-        "0x73503c0c7800",
+        "0x1abf8005790",
         "outport"
       ],
       "in":[
-        "0x73503c0f41d0",
+        "0x1abf855d580",
         "port1"
       ]
     }

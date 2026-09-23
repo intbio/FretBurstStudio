@@ -2,53 +2,133 @@ from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import Signal
 from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from Qt.QtWidgets import QCheckBox
+from matplotlib import rcParams
 import os
 from threading import RLock
+
+
+class _CloseButton(QtWidgets.QPushButton):
+    """Small circular close button with platform-independent alignment."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(25, 25)
+        self.setFlat(True)
+        self.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+        palette = self.palette()
+        background = palette.color(QtGui.QPalette.Button)
+        border = palette.color(QtGui.QPalette.Mid)
+        if self.isDown():
+            background = background.darker(115)
+        elif self.underMouse():
+            background = background.lighter(110)
+            border = palette.color(QtGui.QPalette.Highlight)
+
+        painter.setPen(QtGui.QPen(border, 1))
+        painter.setBrush(background)
+        painter.drawEllipse(QtCore.QRectF(1, 1, 23, 23))
+
+        center = self.rect().center()
+        pen = QtGui.QPen(palette.color(QtGui.QPalette.ButtonText), 1.7)
+        pen.setCapStyle(QtCore.Qt.RoundCap)
+        painter.setPen(pen)
+        offset = 4
+        painter.drawLine(
+            center.x() - offset, center.y() - offset,
+            center.x() + offset, center.y() + offset,
+        )
+        painter.drawLine(
+            center.x() + offset, center.y() - offset,
+            center.x() - offset, center.y() + offset,
+        )
+
+
+class _ColorIdLabel(QtWidgets.QLabel):
+    """Clickable file ID swatch backed by a canonical Matplotlib color."""
+
+    color_changed = Signal(str)
+
+    def __init__(self, parent=None, text='-'):
+        super().__init__(parent=parent, text=text)
+        self._color = '#ffffff'
+        self.setFixedSize(25, 25)
+        self.setAlignment(QtCore.Qt.AlignCenter)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        self.setToolTip("Click to select this file's plot color")
+        self.set_color(self._color)
+
+    def color(self):
+        return self._color
+
+    def set_color(self, color):
+        qcolor = QtGui.QColor(color)
+        if not qcolor.isValid():
+            return
+        self._color = qcolor.name()
+        luminance = (
+            0.299 * qcolor.red()
+            + 0.587 * qcolor.green()
+            + 0.114 * qcolor.blue()
+        )
+        text_color = '#111111' if luminance > 150 else '#ffffff'
+        self.setStyleSheet(
+            f"background-color: {self._color};"
+            f"color: {text_color};"
+            "border: 1px solid palette(mid);"
+        )
+
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            # Widgets in nodes live inside a QGraphicsProxyWidget. Parenting a
+            # dialog to one of them can make Windows embed an empty dialog in
+            # the scene. Use the real application window and Qt's widget-based
+            # dialog so it is always rendered as a normal top-level window.
+            parent_window = QtWidgets.QApplication.activeWindow()
+            dialog = QtWidgets.QColorDialog(
+                QtGui.QColor(self._color),
+                parent_window,
+            )
+            dialog.setWindowTitle("Select file plot color")
+            dialog.setOption(
+                QtWidgets.QColorDialog.DontUseNativeDialog,
+                True,
+            )
+            dialog.setWindowModality(QtCore.Qt.ApplicationModal)
+            if dialog.exec_():
+                selected = dialog.selectedColor()
+                new_color = selected.name()
+                if new_color != self._color:
+                    self.set_color(new_color)
+                    self.color_changed.emit(new_color)
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
 
 class PathRowWidget(QtWidgets.QWidget):
     del_signal = Signal()
     changed_state = Signal(bool)
+    color_changed = Signal(str)
     
-    def __init__(self, parent=None, path_id=None):    
+    def __init__(self, parent=None, path_id=None, color=None):
         super(PathRowWidget, self).__init__(parent)
         self._path_id = path_id
         
         self.checkbox = QCheckBox(parent=parent, checked=True)
                       
-        self.del_button = QtWidgets.QPushButton('×', parent=self)
-        self.del_button.setFixedSize(25, 25)
-        self.del_button.setFlat(True)
-        self.del_button.setFocusPolicy(QtCore.Qt.NoFocus)
-        close_font = self.del_button.font()
-        close_font.setBold(True)
-        close_font.setPointSize(16)
-        self.del_button.setFont(close_font)
-        self.del_button.setStyleSheet(
-            "QPushButton {"
-            " background-color: palette(button);"
-            " border: 1px solid palette(mid);"
-            " border-radius: 12px;"
-            " padding: 0;"
-            " color: palette(button-text);"
-            "}"
-            "QPushButton:hover {"
-            " border-color: palette(highlight);"
-            " color: palette(highlight);"
-            "}"
-            "QPushButton:pressed { background-color: palette(midlight); }"
-        )
+        self.del_button = _CloseButton(parent=self)
         self.del_button.setToolTip("Close file")
         
         # ID label on the left
-        self.id_label = QtWidgets.QLabel(parent=self, text='-')
-        self.id_label.setFixedSize(25, 25)
-        self.id_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.id_label.setStyleSheet(
-            "background-color: palette(alternate-base);"
-            "color: palette(text);"
-            "border: 1px solid palette(mid);"
-        )
+        self.id_label = _ColorIdLabel(parent=self, text='-')
+        if color is not None:
+            self.id_label.set_color(color)
         
         self.text_field = QtWidgets.QLineEdit(parent=self, text='...')
         self.text_field.setFixedSize(200, 25)
@@ -77,6 +157,7 @@ class PathRowWidget(QtWidgets.QWidget):
     def wire_signals(self):
         self.del_button.clicked.connect(self.on_button_click)
         self.checkbox.stateChanged.connect(self.on_state_chenged)
+        self.id_label.color_changed.connect(self.color_changed.emit)
         
     def on_state_chenged(self, state: bool):
         print("state  changed")
@@ -116,6 +197,12 @@ class PathRowWidget(QtWidgets.QWidget):
     def get_id(self):
         """Get the ID from the label"""
         return self._path_id
+
+    def set_color(self, color):
+        self.id_label.set_color(color)
+
+    def get_color(self):
+        return self.id_label.color()
     
     def set_tooltip(self, tooltip_text):
         """Set tooltip for the row widget"""
@@ -129,6 +216,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
     
     del_btn_clicked = Signal()
     checkbox_clicked = Signal()
+    color_changed = Signal()
     paths_added = Signal(list)  # Signal emitted when paths are added, with list of paths
     _get_path_to_id_callback = None  # Callback to get path_to_id mapping
     _wrapper = None  # Reference to the wrapper widget
@@ -180,7 +268,12 @@ class PathSelectorWidget(QtWidgets.QWidget):
         """Return a worker-safe snapshot without reading Qt child widgets."""
         with self._state_lock:
             return [
-                (path_id, state['path'], state['checked'])
+                (
+                    path_id,
+                    state['path'],
+                    state['checked'],
+                    state['color'],
+                )
                 for path_id, state in self.path_state.items()
             ]
     
@@ -279,9 +372,20 @@ class PathSelectorWidget(QtWidgets.QWidget):
     def add_row_widgets(self, file_paths, path_to_id=None):
         if path_to_id is None:
             path_to_id = {}
+        color_cycle = rcParams['axes.prop_cycle'].by_key().get(
+            'color', ['#1f77b4']
+        )
         for path in file_paths:
             path_id = path_to_id.get(path)
-            new_row_widget = PathRowWidget(parent=self, path_id=path_id)
+            color_index = (path_id - 1) if path_id is not None else len(
+                self.path_state
+            )
+            color = color_cycle[color_index % len(color_cycle)]
+            new_row_widget = PathRowWidget(
+                parent=self,
+                path_id=path_id,
+                color=color,
+            )
             self.__wire_row_widget(new_row_widget)
             self.rowwidget_map[path_id] = new_row_widget
             
@@ -290,6 +394,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
                 self.path_state[path_id] = {
                     'path': path,
                     'checked': True,
+                    'color': new_row_widget.get_color(),
                 }
             self.layout.addWidget(new_row_widget)
             
@@ -301,6 +406,9 @@ class PathSelectorWidget(QtWidgets.QWidget):
             lambda row=row_widget: self._remove_row_state(row)
         )
         row_widget.del_signal.connect(self.del_btn_clicked.emit)
+        row_widget.color_changed.connect(
+            lambda color, row=row_widget: self._on_color_changed(row, color)
+        )
 
     def _on_checked_changed(self, row_widget, checked):
         path_id = row_widget.get_id()
@@ -314,6 +422,13 @@ class PathSelectorWidget(QtWidgets.QWidget):
         self.rowwidget_map.pop(path_id, None)
         with self._state_lock:
             self.path_state.pop(path_id, None)
+
+    def _on_color_changed(self, row_widget, color):
+        path_id = row_widget.get_id()
+        with self._state_lock:
+            if path_id in self.path_state:
+                self.path_state[path_id]['color'] = color
+        self.color_changed.emit()
         
     
     def update_path_ids(self, path_to_id):
@@ -460,6 +575,8 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
         self.path_widget.del_btn_clicked.connect(
             self.widget_changed_signal.emit)
         self.path_widget.checkbox_clicked.connect(
+            self.widget_changed_signal.emit)
+        self.path_widget.color_changed.connect(
             self.widget_changed_signal.emit)
         
         # Forward paths_added signal

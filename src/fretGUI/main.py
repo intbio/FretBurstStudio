@@ -8,7 +8,11 @@ import fretGUI.custom_nodes.custom_nodes as custom_nodes
 import fretGUI.custom_nodes.selector_nodes as selector_nodes
 import fretGUI.graph_engene as graph_engene
 from fretGUI.custom_widgets.toogle_widget import IconToggleButton
-from fretGUI.singletons import ThreadSignalManager, NodeStateManager
+from fretGUI.singletons import (
+    NodeStateManager,
+    RunCoordinator,
+    ThreadSignalManager,
+)
 from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
 from fretGUI.custom_widgets.plot_widget import set_matplotlib_theme
 from fretGUI.node_workers import NodeWorker
@@ -81,13 +85,75 @@ def build_theme_palette(kind):
     return palette
 
 
-def on_run_btn_clicked(graph, btn):
+def build_theme_stylesheet(kind):
+    """Style controls whose native Windows rendering ignores QPalette."""
+    colors = THEME_COLORS[kind]
+    return f"""
+        QMenuBar, QMenu {{
+            background-color: rgb{colors['window']};
+            color: rgb{colors['text']};
+        }}
+        QMenuBar::item:selected, QMenu::item:selected {{
+            background-color: rgb{colors['highlight']};
+            color: rgb{colors['highlighted_text']};
+        }}
+        QMenu::separator {{
+            background-color: rgb{colors['grid']};
+            height: 1px;
+            margin: 4px 8px;
+        }}
+        QPushButton, QToolButton, QComboBox {{
+            background-color: rgb{colors['button']};
+            color: rgb{colors['text']};
+            border: 1px solid rgb{colors['grid']};
+            padding: 2px 4px;
+        }}
+        QPushButton:hover, QToolButton:hover, QComboBox:hover {{
+            background-color: rgb{colors['button_hover']};
+        }}
+        QLineEdit, QPlainTextEdit, QTextEdit, QListView, QTreeView,
+        QTableView, QComboBox QAbstractItemView {{
+            background-color: rgb{colors['base']};
+            color: rgb{colors['text']};
+            alternate-background-color: rgb{colors['alternate_base']};
+            border: 1px solid rgb{colors['grid']};
+            selection-background-color: rgb{colors['highlight']};
+            selection-color: rgb{colors['highlighted_text']};
+        }}
+        QPushButton:disabled, QToolButton:disabled, QComboBox:disabled,
+        QLineEdit:disabled {{
+            color: rgb{colors['disabled_text']};
+        }}
+    """
+
+
+def start_graph_run(graph, context):
     engene = graph_engene.GraphEngene(graph)
     roots = engene.find_root_nodes()
+    if not roots:
+        context.finish_if_idle()
+        return
     pool = QThreadPool.globalInstance()
-    for root_node in roots:
-        new_worker = NodeWorker(root_node)
-        pool.start(new_worker)
+    # Construct every root worker first so the context knows the full initial
+    # worker set before a very short root can finish.
+    workers = [
+        NodeWorker(root_node, context=context)
+        for root_node in roots
+    ]
+    for index, worker in enumerate(workers):
+        try:
+            pool.start(worker)
+        except Exception:
+            context.invalidate()
+            context.worker_finished(worker.uid)
+            for unscheduled in workers[index + 1:]:
+                context.worker_finished(unscheduled.uid)
+            raise
+
+
+def on_run_btn_clicked(graph, btn):
+    RunCoordinator().request_run()
+
 
 def on_toogle_clicked(graph, toggle_btn):
     engene = graph_engene.GraphEngene(graph)
@@ -119,6 +185,9 @@ def main():
     
     # Create QApplication immediately
     app = QtWidgets.QApplication(sys.argv)
+    # The native Windows style only applies some palette roles (notably text),
+    # leaving several controls light when the application palette is dark.
+    app.setStyle('Fusion')
 
     # ---- In-application console logger ----
     class EmittingStream(QtCore.QObject):
@@ -348,7 +417,17 @@ def main():
                     background-color: #bbdefb;
                 }
             """)
-    ThreadSignalManager().run_btn_clicked.connect(lambda: on_run_btn_clicked(graph, run_button))
+    coordinator = RunCoordinator()
+    ThreadSignalManager().run_btn_clicked.connect(
+        lambda: on_run_btn_clicked(graph, run_button)
+    )
+    coordinator.run_ready.connect(
+        lambda context: start_graph_run(graph, context)
+    )
+    coordinator.run_completed.connect(
+        lambda _run_id: ThreadSignalManager().all_thread_finished.emit()
+    )
+    coordinator.busy_changed.connect(run_button.setDisabled)
     run_button.clicked.connect(ThreadSignalManager().run_btn_clicked.emit)
     
     toggle_btn = IconToggleButton(parent=graph_widget)
@@ -359,9 +438,10 @@ def main():
     ThreadSignalManager().thread_started.connect(progress_bar.on_thread_started)
     ThreadSignalManager().thread_finished.connect(progress_bar.on_thread_finished)
     ThreadSignalManager().thread_progress.connect(progress_bar.on_thread_processed)
-    progress_bar.block_ui.connect(lambda: run_button.setDisabled(True))
+    ThreadSignalManager().thread_error.connect(progress_bar.on_thread_error)
+    coordinator.run_started.connect(progress_bar.on_run_started)
+    coordinator.busy_changed.connect(progress_bar.on_busy_changed)
     progress_bar.block_ui.connect(lambda: on_block_ui(graph))
-    progress_bar.release_ui.connect(lambda: run_button.setDisabled(False))
     progress_bar.release_ui.connect(lambda: on_release_ui(graph))
 
     
@@ -470,6 +550,7 @@ def main():
         THEME = kind
         colors = THEME_COLORS[kind]
         app.setPalette(build_theme_palette(kind))
+        app.setStyleSheet(build_theme_stylesheet(kind))
         set_matplotlib_theme(kind)
         
         graph.set_background_color(*colors['background'])

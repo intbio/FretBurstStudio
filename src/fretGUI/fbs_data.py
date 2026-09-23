@@ -4,12 +4,23 @@ from fretGUI.singletons import FBSDataIDGenerator
 
 
 class FBSData():
-    def __init__(self, data=None, path=None, id=None, checked=False, node_metadata=None):
+    def __init__(
+        self,
+        data=None,
+        path=None,
+        id=None,
+        checked=False,
+        node_metadata=None,
+        color=None,
+        run_id=None,
+    ):
         self.__data = data if data else Data()
         self.__path = path if path else ''
         self.__id = id if id else FBSDataIDGenerator().get_next_id()
         self.__checked = checked
         self.__node_metadata = node_metadata if node_metadata else []
+        self.__color = color
+        self.run_id = run_id
         self.prev_nodeid = None        
         
     def add_node_metadata(self, metadata: dict):
@@ -45,6 +56,14 @@ class FBSData():
     def id(self):
         """Returns the integer ID of this FBSData object"""
         return self.__id
+
+    @property
+    def color(self):
+        return self.__color
+
+    @color.setter
+    def color(self, new_color):
+        self.__color = new_color
         
     def copy(self):
         new_obj = FBSData(deepcopy(self.__data),
@@ -52,6 +71,8 @@ class FBSData():
                           id=self.__id,
                           checked=self.__checked,
                           node_metadata=self.node_metadata,
+                          color=self.__color,
+                          run_id=self.run_id,
                           )
         new_obj.prev_nodeid = self.prev_nodeid
         return new_obj
