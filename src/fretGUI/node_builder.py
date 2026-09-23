@@ -79,6 +79,25 @@ class NodeBuilder():
         if tooltip:
             combobox_widget.setToolTip(tooltip)
         return combobox_widget
+
+    def build_checkbox(self, widget_name=None, label=None, text='',
+                       value=False, tooltip=None, min_width=default_w_width):
+        widget_name = (
+            widget_name
+            if widget_name
+            else f"checkbox{len(self.node.widgets())}"
+        )
+        checkbox = sliders.CheckBoxWidgetWrapper(
+            self.node.view,
+            sliders.CheckBoxWidget(widget_name, text, value),
+            min_width,
+        )
+        checkbox.set_name(widget_name)
+        checkbox.set_label(label if label is not None else widget_name)
+        if tooltip:
+            checkbox.setToolTip(tooltip)
+        self.node.add_custom_widget(checkbox, tab='custom')
+        return checkbox
         
     def build_html_label(self, widget_name=None, html_text="", word_wrap=True, tooltip=None, min_width=default_w_width):
         widget_name = widget_name if widget_name else f"htmllabel{len(self.node.widgets())}"

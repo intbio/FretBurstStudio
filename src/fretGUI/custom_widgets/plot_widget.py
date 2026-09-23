@@ -13,16 +13,41 @@ matplotlib.rcParams['savefig.dpi'] = 150
 _ABS_MARGINS_IN = dict(left=0.8, right=0.25, bottom=0.5, top=0.25)
 _MAX_GRAPH_OVERSAMPLE = 3.0
 _OVERSAMPLE_DEBOUNCE_MS = 80
+_DARK_MPL_STYLE = dict(plt.style.library['dark_background'])
+_LIGHT_MPL_STYLE = {
+    key: matplotlib.rcParams[key]
+    for key in _DARK_MPL_STYLE
+}
+_ACTIVE_MPL_THEME = 'light'
+
+
+def set_matplotlib_theme(kind):
+    """Set defaults for axes created after a GUI theme change."""
+    global _ACTIVE_MPL_THEME
+    if kind == _ACTIVE_MPL_THEME:
+        return
+    style = _DARK_MPL_STYLE if kind == 'dark' else _LIGHT_MPL_STYLE
+    matplotlib.rcParams.update(style)
+    matplotlib.rcParams['savefig.dpi'] = 150
+    _ACTIVE_MPL_THEME = kind
 
 
 class TemplatePlotWidget(QtWidgets.QWidget):
     """
     Simplest widget with a matplotlib plot area and toolbar
     """
-    def __init__(self, parent=None, mpl_width=None, mpl_height=None):
+    def __init__(
+        self,
+        parent=None,
+        mpl_width=None,
+        mpl_height=None,
+        retain_limits=True,
+    ):
         super().__init__()
+        self._retain_limits_enabled = retain_limits
 
-        highlightColor = 'white'
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        self.setAutoFillBackground(False)
 
         # Let layouts handle sizing
         self.mainLayout = QtWidgets.QVBoxLayout(self)
@@ -31,17 +56,58 @@ class TemplatePlotWidget(QtWidgets.QWidget):
 
         # Create figure with optional size
         if mpl_width is not None and mpl_height is not None:
-            self.figure = plt.figure(facecolor=highlightColor, figsize=(mpl_width, mpl_height))
+            self.figure = plt.figure(facecolor='none', figsize=(mpl_width, mpl_height))
         else:
-            self.figure = plt.figure(facecolor=highlightColor)
+            self.figure = plt.figure(facecolor='none')
             
         self.canvas = FigureCanvas(self.figure)
+        self.figure.patch.set_alpha(0)
+        self.canvas.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        self.canvas.setAutoFillBackground(False)
+        self.canvas.setStyleSheet('background: transparent;')
         self.toolbar = NavigationToolbar(self.canvas, self)
+        self.toolbar.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        self.toolbar.setAutoFillBackground(False)
+        self.toolbar.setStyleSheet(
+            'QToolBar { background: transparent; border: 0; }'
+        )
+        # Keep Matplotlib's toolbar independent from the application theme.
+        # Its source icons are black and remain clear over both node colors.
+        toolbar_palette = self.toolbar.palette()
+        toolbar_palette.setColor(QtGui.QPalette.Window, QtGui.QColor('white'))
+        toolbar_palette.setColor(QtGui.QPalette.Button, QtGui.QColor('white'))
+        toolbar_palette.setColor(QtGui.QPalette.WindowText, QtGui.QColor('black'))
+        toolbar_palette.setColor(QtGui.QPalette.ButtonText, QtGui.QColor('black'))
+        self.toolbar.setPalette(toolbar_palette)
+        for _, _, image_name, callback in self.toolbar.toolitems:
+            if image_name:
+                action = self.toolbar._actions.get(callback)
+                if action is not None:
+                    action.setIcon(self.toolbar._icon(image_name))
+        self._toolbar_left_inset = 0
+        self._hide_history_actions()
+        self._toolbar_left_spacer = QtWidgets.QWidget(self.toolbar)
+        self._toolbar_left_spacer.setFixedWidth(0)
+        first_action = self.toolbar.actions()[0]
+        self.toolbar.insertWidget(first_action, self._toolbar_left_spacer)
         self._graph_render_scale = 1.0
         self._oversample_timer = QtCore.QTimer(self)
         self._oversample_timer.setSingleShot(True)
         self._oversample_timer.setInterval(_OVERSAMPLE_DEBOUNCE_MS)
         self._oversample_timer.timeout.connect(self._apply_graph_render_scale)
+        self._drawn_axes = ()
+        self._retained_limits = []
+        self._default_limits = []
+        if self._retain_limits_enabled:
+            self.canvas.mpl_connect("draw_event", self._retain_plot_limits)
+
+        home_action = self.toolbar._actions.get('home')
+        if self._retain_limits_enabled and home_action is not None:
+            try:
+                home_action.triggered.disconnect()
+            except TypeError:
+                pass
+            home_action.triggered.connect(self._reset_plot_limits)
         
         # Method 1: Try to find save action by iterating actions
         save_action = None
@@ -97,6 +163,105 @@ class TemplatePlotWidget(QtWidgets.QWidget):
 
         self.mainLayout.addWidget(self.toolbar)
         self.mainLayout.addWidget(self.canvas)
+
+    def _retain_plot_limits(self, event):
+        """Restore view limits when a replot replaces this widget's axes."""
+        axes = tuple(self.figure.axes)
+        if not axes:
+            # Keep the previous view while the figure is temporarily empty.
+            return
+
+        axes_changed = self._drawn_axes and axes != self._drawn_axes
+        if axes_changed and self._retained_limits:
+            self._default_limits = [
+                (ax.get_xlim(), ax.get_ylim())
+                for ax in axes
+            ]
+            for ax, (xlim, ylim) in zip(axes, self._retained_limits):
+                ax.set_xlim(xlim)
+                ax.set_ylim(ylim)
+            self._drawn_axes = axes
+            self.canvas.draw_idle()
+            return
+
+        if not self._drawn_axes:
+            self._default_limits = [
+                (ax.get_xlim(), ax.get_ylim())
+                for ax in axes
+            ]
+        self._drawn_axes = axes
+        self._retained_limits = [
+            (ax.get_xlim(), ax.get_ylim())
+            for ax in axes
+        ]
+
+    def _reset_plot_limits(self):
+        """Restore the limits produced by the most recent recalculation."""
+        axes = tuple(self.figure.axes)
+        for ax, (xlim, ylim) in zip(axes, self._default_limits):
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+        self._drawn_axes = axes
+        self._retained_limits = list(self._default_limits)
+        self.canvas.draw_idle()
+
+    def set_theme(self, kind, colors=None):
+        """Apply the active theme to existing and future Matplotlib axes."""
+        set_matplotlib_theme(kind)
+        self.figure.patch.set_alpha(0)
+
+        axes_facecolor = matplotlib.rcParams['axes.facecolor']
+        axes_edgecolor = matplotlib.rcParams['axes.edgecolor']
+        text_color = matplotlib.rcParams['text.color']
+        tick_color = matplotlib.rcParams['xtick.color']
+        grid_color = matplotlib.rcParams['grid.color']
+
+        for ax in self.figure.axes:
+            ax.set_facecolor(axes_facecolor)
+            ax.title.set_color(text_color)
+            ax.xaxis.label.set_color(text_color)
+            ax.yaxis.label.set_color(text_color)
+            ax.tick_params(axis='both', colors=tick_color)
+            for spine in ax.spines.values():
+                spine.set_color(axes_edgecolor)
+            for grid_line in [*ax.get_xgridlines(), *ax.get_ygridlines()]:
+                grid_line.set_color(grid_color)
+            for text in ax.texts:
+                text.set_color(text_color)
+
+            legend = ax.get_legend()
+            if legend is not None:
+                legend_facecolor = matplotlib.rcParams['legend.facecolor']
+                if legend_facecolor == 'inherit':
+                    legend_facecolor = axes_facecolor
+                legend_edgecolor = matplotlib.rcParams['legend.edgecolor']
+                if legend_edgecolor == 'inherit':
+                    legend_edgecolor = axes_edgecolor
+                legend.get_frame().set_facecolor(
+                    legend_facecolor
+                )
+                legend.get_frame().set_edgecolor(
+                    legend_edgecolor
+                )
+                for legend_text in legend.get_texts():
+                    legend_text.set_color(text_color)
+
+        self.canvas.draw_idle()
+
+    def _hide_history_actions(self):
+        """Hide view-history arrows that resemble graph navigation controls."""
+        for action in self.toolbar.actions():
+            action_name = action.text().replace('&', '').strip().lower()
+            if action_name in {'back', 'forward'}:
+                action.setVisible(False)
+
+    def set_toolbar_left_inset(self, pixels):
+        """Move toolbar controls past labels drawn over the canvas edge."""
+        inset = max(0, int(round(pixels)))
+        if inset == self._toolbar_left_inset:
+            return
+        self._toolbar_left_inset = inset
+        self._toolbar_left_spacer.setFixedWidth(inset)
 
     def _apply_absolute_margins(self):
         w, h = self.figure.get_size_inches()
@@ -190,7 +355,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         # Save the figure if a filename was provided
         if filename:
             try:
-                self.figure.savefig(filename)
+                self.figure.savefig(filename, facecolor='white')
                 print("DEBUG: Figure saved successfully")
             except Exception as e:
                 print(f"DEBUG: Exception saving figure: {e}")

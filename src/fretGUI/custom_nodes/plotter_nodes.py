@@ -13,7 +13,7 @@ class BGPlotterNode(AbstractContentNode):
    
 
     # if you want different margins just for this node:
-    LEFT_RIGHT_MARGIN = 67
+    LEFT_RIGHT_MARGIN = 3
     TOP_MARGIN = 35
     BOTTOM_MARGIN = 20
     PLOT_NODE = True

@@ -4,6 +4,7 @@ from collections import deque
 from NodeGraphQt import BaseNode
 
 from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from fretGUI.custom_nodes.compact_node_item import CompactNodeItem
 from fretGUI.fbs_data import FBSData
 from fretGUI.singletons import EventDebouncer, NodeStateManager, ThreadSignalManager
 
@@ -14,7 +15,29 @@ from fretGUI.custom_nodes.resizable_node_item import ResizablePlotNodeItem
 class AbstractExecutable(BaseNode, ABC):
    
     def __init__(self, *args, **kwargs):
+        kwargs.setdefault('qgraphics_item', CompactNodeItem)
         BaseNode.__init__(self, *args, **kwargs)   
+
+    def add_input(self, name='input', *args, **kwargs):
+        port = super().add_input(name, *args, **kwargs)
+        self._set_port_display_text(port, 'in' if name == 'inport' else name)
+        return port
+
+    def add_output(self, name='output', *args, **kwargs):
+        port = super().add_output(name, *args, **kwargs)
+        self._set_port_display_text(port, 'out' if name == 'outport' else name)
+        return port
+
+    def _set_port_display_text(self, port, text):
+        """Set a visual port alias without changing its serialized name."""
+        items = (
+            self.view._input_items
+            if port in self.input_ports()
+            else self.view._output_items
+        )
+        text_item = items.get(port.view)
+        if text_item is not None:
+            text_item.setPlainText(text)
         
     def are_ports_acceptable(self, inport, outport) -> bool:
           return inport.color == outport.color
@@ -146,10 +169,15 @@ class ResizableContentNode(AbstractRecomputable):
     that should follow the node's size.
     """
     # default margins, override in subclasses if you want
-    LEFT_RIGHT_MARGIN = 100
+    LEFT_RIGHT_MARGIN = 3
     TOP_MARGIN = 35
     BOTTOM_MARGIN = 20
-    SLIDER_WIDTH = 200  # Fixed width for sliders and other non-plot widgets
+    CONTROL_MIN_WIDTH = 180
+    CONTROL_GAP = 3
+    MAX_CONTROL_COLUMNS = 2
+    PLOT_Z_VALUE = 1
+    PORT_Z_VALUE = 2
+    PORT_TEXT_Z_VALUE = 4
     MIN_WIDTH = 300  # Minimum allowed width for the node
     MIN_HEIGHT = 200  # Minimum allowed height for the node
 
@@ -240,6 +268,39 @@ class ResizableContentNode(AbstractRecomputable):
         if wrapper is None:
             return
 
+        # The full-width canvas may extend under the ports. Keep port shapes
+        # and names above it without sacrificing plot width.
+        wrapper.setZValue(self.PLOT_Z_VALUE)
+        for port, text in [
+            *self.view._input_items.items(),
+            *self.view._output_items.items(),
+        ]:
+            port.setZValue(self.PORT_Z_VALUE)
+            text.setZValue(self.PORT_TEXT_Z_VALUE)
+
+        content_widget = wrapper.get_custom_widget()
+        set_toolbar_left_inset = getattr(
+            content_widget,
+            'set_toolbar_left_inset',
+            None,
+        )
+        if callable(set_toolbar_left_inset):
+            visible_input_labels = [
+                text
+                for port, text in self.view._input_items.items()
+                if port.isVisible() and text.isVisible()
+            ]
+            label_right = max(
+                (
+                    text.pos().x() + text.boundingRect().width()
+                    for text in visible_input_labels
+                ),
+                default=self.LEFT_RIGHT_MARGIN,
+            )
+            set_toolbar_left_inset(
+                max(0, label_right - self.LEFT_RIGHT_MARGIN + 6)
+            )
+
         inner_w = max(
             1,
             w - 2 * self.LEFT_RIGHT_MARGIN
@@ -260,51 +321,83 @@ class ResizableContentNode(AbstractRecomputable):
             else:
                 widgets_before_plot.append((widget_name, widget))
         
-        def get_widget_height(widget):
+        def get_widget_height(widget, width):
             """Safely get widget height from various sources."""
-            # Try to get from current geometry first
             try:
-                geom = widget.geometry()
-                if geom.height() > 0:
-                    return geom.height()
+                container = widget.widget()
+                height = container.heightForWidth(int(width))
+                if height > 0:
+                    return height
             except:
                 pass
             
-            # Try to get from custom widget's size hint
             try:
-                custom_widget = widget.get_custom_widget()
-                if custom_widget:
-                    hint = custom_widget.sizeHint()
-                    if hint and hint.height() > 0:
-                        return hint.height()
+                hint = widget.widget().sizeHint()
+                if hint and hint.height() > 0:
+                    return hint.height()
             except:
                 pass
             
-            # Fallback to a reasonable default (slider height is typically ~50)
             return 50
+
+        def build_control_rows(widgets):
+            if not widgets:
+                return []
+
+            columns = min(
+                self.MAX_CONTROL_COLUMNS,
+                max(
+                    1,
+                    int(
+                        (inner_w + self.CONTROL_GAP)
+                        // (self.CONTROL_MIN_WIDTH + self.CONTROL_GAP)
+                    ),
+                ),
+            )
+            cell_width = (
+                inner_w - ((columns - 1) * self.CONTROL_GAP)
+            ) / columns
+
+            rows = []
+            for start in range(0, len(widgets), columns):
+                row_widgets = widgets[start:start + columns]
+                row_height = max(
+                    get_widget_height(widget, cell_width)
+                    for _, widget in row_widgets
+                )
+                rows.append((row_widgets, cell_width, row_height))
+            return rows
+
+        def rows_height(rows):
+            if not rows:
+                return 0
+            return (
+                sum(row_height for _, _, row_height in rows)
+                + self.CONTROL_GAP * (len(rows) - 1)
+            )
+
+        def position_rows(rows, start_y):
+            current_y = start_y
+            for row_widgets, cell_width, row_height in rows:
+                for column, (_, widget) in enumerate(row_widgets):
+                    x = (
+                        self.LEFT_RIGHT_MARGIN
+                        + column * (cell_width + self.CONTROL_GAP)
+                    )
+                    widget.setGeometry(x, current_y, cell_width, row_height)
+                current_y += row_height + self.CONTROL_GAP
+            return current_y
         
         # Lay out widgets in three vertical blocks:
         # 1) widgets_before_plot at the top
         # 2) plot widget in the middle
         # 3) widgets_after_plot below the plot
 
-        # First, place widgets that precede the plot widget.
-        current_y = self.TOP_MARGIN
-        for widget_name, widget in widgets_before_plot:
-            widget_height = get_widget_height(widget)
-            widget.setGeometry(
-                self.LEFT_RIGHT_MARGIN,
-                current_y,
-                self.SLIDER_WIDTH,
-                widget_height
-            )
-            current_y += widget_height
+        before_rows = build_control_rows(widgets_before_plot)
+        after_rows = build_control_rows(widgets_after_plot)
 
-        # Pre-compute total height of widgets that should appear after the plot
-        widgets_after_height = sum(
-            get_widget_height(widget)
-            for _, widget in widgets_after_plot
-        )
+        current_y = position_rows(before_rows, self.TOP_MARGIN)
+        widgets_after_height = rows_height(after_rows)
 
         # Position the plot widget using remaining space minus the space needed for widgets_after_plot.
         plot_y = current_y
@@ -321,14 +414,5 @@ class ResizableContentNode(AbstractRecomputable):
             plot_h
         )
 
-        # Finally, place widgets that were added after the plot widget.
-        current_y = plot_y + plot_h
-        for widget_name, widget in widgets_after_plot:
-            widget_height = get_widget_height(widget)
-            widget.setGeometry(
-                self.LEFT_RIGHT_MARGIN,
-                current_y,
-                self.SLIDER_WIDTH,
-                widget_height
-            )
-            current_y += widget_height
+        # Finally, flow widgets added after the plot into compact rows.
+        position_rows(after_rows, plot_y + plot_h)

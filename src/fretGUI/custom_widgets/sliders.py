@@ -23,7 +23,7 @@ class AbstractSliderWidget(QtWidgets.QWidget):
         self.layout = QtWidgets.QHBoxLayout(self)
         self.layout.addWidget(self.text_box, alignment=QtCore.Qt.AlignCenter)
         self.layout.addWidget(self.slider, alignment=QtCore.Qt.AlignBottom)
-        self.layout.setContentsMargins(3, 3, 3, 3)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         
         self.wire_signals()
         
@@ -194,7 +194,7 @@ class IntSpinBoxWidget(QtWidgets.QWidget):
         
         self.layout = QtWidgets.QHBoxLayout(self)
         self.layout.addWidget(self.spinbox)
-        self.layout.setContentsMargins(3, 3, 3, 3)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         
         # Use lambda to ignore the value argument from valueChanged
         self.spinbox.valueChanged.connect(lambda val: self.widget_updaeted.emit())
@@ -228,7 +228,7 @@ class FloatSpinBoxWidget(QtWidgets.QWidget):
         
         self.layout = QtWidgets.QHBoxLayout(self)
         self.layout.addWidget(self.spinbox)
-        self.layout.setContentsMargins(3, 3, 3, 3)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         
         # Use lambda to ignore the value argument from valueChanged
         self.spinbox.valueChanged.connect(lambda val: self.widget_updaeted.emit())
@@ -269,17 +269,64 @@ class SpinBoxWidgetWrapper(AbstractWidgetWrapper):
             self.widget_changed_signal.emit)
 
 
+class FrontmostComboBox(QtWidgets.QComboBox):
+    """Combo box that lifts its node while the popup is visible."""
+
+    POPUP_NODE_Z = 10000
+    POPUP_PROXY_Z = 10001
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._previous_z_values = None
+
+    def _find_graphics_proxy(self):
+        widget = self
+        while widget is not None:
+            proxy = widget.graphicsProxyWidget()
+            if proxy is not None:
+                return proxy
+            widget = widget.parentWidget()
+        return None
+
+    def showPopup(self):
+        proxy = self._find_graphics_proxy()
+        node_item = proxy.parentItem() if proxy is not None else None
+        if proxy is not None and self._previous_z_values is None:
+            self._previous_z_values = (
+                proxy,
+                proxy.zValue(),
+                node_item,
+                node_item.zValue() if node_item is not None else None,
+            )
+            if node_item is not None:
+                node_item.setZValue(self.POPUP_NODE_Z)
+            proxy.setZValue(self.POPUP_PROXY_Z)
+
+        super().showPopup()
+        self.view().window().raise_()
+
+    def hidePopup(self):
+        super().hidePopup()
+        if self._previous_z_values is None:
+            return
+        proxy, proxy_z, node_item, node_z = self._previous_z_values
+        proxy.setZValue(proxy_z)
+        if node_item is not None:
+            node_item.setZValue(node_z)
+        self._previous_z_values = None
+
+
 class ComboBoxWidget(QtWidgets.QWidget):
     widget_updaeted = Signal()
     
     def __init__(self, parent=None, items=None):
         super().__init__(None)
         
-        self.combobox = QtWidgets.QComboBox()
+        self.combobox = FrontmostComboBox()
         
         self.layout = QtWidgets.QHBoxLayout(self)
         self.layout.addWidget(self.combobox)
-        self.layout.setContentsMargins(3, 3, 3, 3)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         
         if items is not None:
             self.setItems(items)
@@ -356,6 +403,54 @@ class ComboBoxWidgetWrapper(AbstractWidgetWrapper):
     def wire_signals(self):
         self.combobox_widget.widget_updaeted.connect(
             self.widget_changed_signal.emit)
+
+
+class CheckBoxWidget(QtWidgets.QWidget):
+    widget_updaeted = Signal(bool)
+
+    def __init__(self, parent=None, text='', checked=False):
+        super().__init__(None)
+
+        self.checkbox = QtWidgets.QCheckBox(text)
+        self.checkbox.setChecked(checked)
+
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.addWidget(self.checkbox)
+
+        self.checkbox.toggled.connect(self.widget_updaeted.emit)
+
+    def value(self):
+        return self.checkbox.isChecked()
+
+    def setValue(self, checked):
+        self.checkbox.setChecked(bool(checked))
+
+
+class CheckBoxWidgetWrapper(AbstractWidgetWrapper):
+    def __init__(self, parent, checkbox_widget, min_width=None):
+        self.checkbox_widget = checkbox_widget
+        super().__init__(parent)
+
+        self.set_name('CheckBox')
+        self.set_custom_widget(self.checkbox_widget)
+
+        if min_width is not None:
+            self.setMinimumWidth(min_width)
+            self.checkbox_widget.setMinimumWidth(min_width)
+
+    def get_value(self):
+        return self.get_custom_widget().value()
+
+    def set_value(self, value):
+        self.get_custom_widget().setValue(value)
+
+    def wire_signals(self):
+        self.checkbox_widget.widget_updaeted.connect(
+            lambda checked: self.widget_changed_signal.emit()
+        )
+        self.checkbox_widget.widget_updaeted.connect(self.on_value_changed)
+
 
 class HtmlLabelWidget(QtWidgets.QWidget):
     widget_updaeted = Signal()

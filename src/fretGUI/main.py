@@ -10,9 +10,75 @@ import fretGUI.graph_engene as graph_engene
 from fretGUI.custom_widgets.toogle_widget import IconToggleButton
 from fretGUI.singletons import ThreadSignalManager, NodeStateManager
 from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
+from fretGUI.custom_widgets.plot_widget import set_matplotlib_theme
 from fretGUI.node_workers import NodeWorker
 from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, NodesPaletteWidget, PropertiesBinWidget
+
+
+THEME = 'light'
+THEME_COLORS = {
+    'light': {
+        'background': (240, 240, 240),
+        'window': (240, 240, 240),
+        'base': (255, 255, 255),
+        'alternate_base': (246, 246, 246),
+        'button': (232, 232, 232),
+        'button_hover': (220, 232, 244),
+        'grid': (210, 210, 210),
+        'node': (150, 150, 150),
+        'plot_node': (255, 255, 255),
+        'text': (30, 30, 30),
+        'disabled_text': (135, 135, 135),
+        'highlight': (47, 111, 237),
+        'highlighted_text': (255, 255, 255),
+    },
+    'dark': {
+        'background': (50, 50, 50),
+        'window': (45, 45, 45),
+        'base': (62, 62, 62),
+        'alternate_base': (70, 70, 70),
+        'button': (76, 76, 76),
+        'button_hover': (88, 88, 88),
+        'grid': (80, 80, 80),
+        'node': (100, 100, 100),
+        'plot_node': (70, 70, 70),
+        'text': (240, 240, 240),
+        'disabled_text': (155, 155, 155),
+        'highlight': (76, 139, 245),
+        'highlighted_text': (255, 255, 255),
+    },
+}
+
+
+def build_theme_palette(kind):
+    colors = THEME_COLORS[kind]
+    palette = QtGui.QPalette()
+    role_colors = {
+        QtGui.QPalette.Window: colors['window'],
+        QtGui.QPalette.WindowText: colors['text'],
+        QtGui.QPalette.Base: colors['base'],
+        QtGui.QPalette.AlternateBase: colors['alternate_base'],
+        QtGui.QPalette.ToolTipBase: colors['base'],
+        QtGui.QPalette.ToolTipText: colors['text'],
+        QtGui.QPalette.Text: colors['text'],
+        QtGui.QPalette.Button: colors['button'],
+        QtGui.QPalette.ButtonText: colors['text'],
+        QtGui.QPalette.BrightText: colors['highlighted_text'],
+        QtGui.QPalette.Highlight: colors['highlight'],
+        QtGui.QPalette.HighlightedText: colors['highlighted_text'],
+    }
+    for role, color in role_colors.items():
+        palette.setColor(role, QtGui.QColor(*color))
+
+    disabled = QtGui.QColor(*colors['disabled_text'])
+    for role in (
+        QtGui.QPalette.WindowText,
+        QtGui.QPalette.Text,
+        QtGui.QPalette.ButtonText,
+    ):
+        palette.setColor(QtGui.QPalette.Disabled, role, disabled)
+    return palette
 
 
 def on_run_btn_clicked(graph, btn):
@@ -48,7 +114,6 @@ def on_release_ui(graph):
 
 
 def main():
-    THEME = 'light'
     # handle SIGINT to make the app terminate on CTRL+C
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     
@@ -133,6 +198,7 @@ def main():
     graph = NodeGraph()  
     
     graph_widget = graph.widget 
+    graph_widget.setObjectName('nodeGraphRoot')
     
     main_layout = QtWidgets.QVBoxLayout(graph_widget)
     main_layout.setContentsMargins(2, 2, 2, 2)
@@ -397,67 +463,92 @@ def main():
 
     def apply_theme(kind=None):
         global THEME
+        previous_theme = THEME
         if kind is None:
             kind = THEME
-        else:
-            THEME = kind
-        color_dict = {
-            'light': {
-                'background': (240, 240, 240),
-                'grid': (210, 210, 210),
-                'node': (150, 150, 150),
-                'text': (30, 30, 30)
-            },
-            'dark': {
-                'background': (50, 50, 50),
-                'grid': (80, 80, 80),
-                'node': (100, 100, 100),
-                'text': (240, 240, 240)
-            }
-        }
+        theme_changed = kind != previous_theme
+        THEME = kind
+        colors = THEME_COLORS[kind]
+        app.setPalette(build_theme_palette(kind))
+        set_matplotlib_theme(kind)
         
-        graph.set_background_color(*color_dict[kind]['background'])
-        graph.set_grid_color(*color_dict[kind]['grid'])
+        graph.set_background_color(*colors['background'])
+        graph.set_grid_color(*colors['grid'])
         # Also tint the top-level widget so the app background matches the theme
-        bg = color_dict[kind]['background']
+        bg = colors['background']
         graph_widget.setStyleSheet(
             f"""
-            background-color: rgb{bg};
-            color: rgb{color_dict[kind]['text']};
-            /* border: 1px solid rgb{color_dict[kind]['grid']}; */
+            QWidget#nodeGraphRoot {{
+                background-color: rgb{bg};
+                color: rgb{colors['text']};
+            }}
             """
         )
+
+        run_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgb{colors['button']};
+                color: rgb{colors['text']};
+                border: 2px solid rgb{colors['highlight']};
+                border-radius: 20px;
+                font-weight: bold;
+                padding: 5px;
+            }}
+            QPushButton:hover {{
+                background-color: rgb{colors['button_hover']};
+            }}
+        """)
+        toggle_btn.set_theme(kind, colors)
             
                 
         def theme_node(node):
            
-            node.set_property('text_color',color_dict[kind]['text'])
+            node.set_property('text_color', colors['text'])
             # update resize handle color if the view supports it
             if hasattr(node, 'view') and hasattr(node.view, 'set_handle_color'):
-                node.view.set_handle_color(color_dict[kind]['grid'])
+                node.view.set_handle_color(colors['grid'])
             if hasattr(node, 'PLOT_NODE') and node.PLOT_NODE:
-                node.set_color( 255,255,255)
+                node.set_color(*colors['plot_node'])
             else:
-                node.set_color( *color_dict[kind]['node'])
+                node.set_color(*colors['node'])
+
+            set_node_theme = getattr(node, 'set_theme', None)
+            if callable(set_node_theme):
+                set_node_theme(kind, colors)
 
             if hasattr(node, 'widgets'):
                 for w in node.widgets().values():
-                    box = w.widget()  # this is _NodeGroupBox (a QGroupBox)
-                    # Replace the stylesheet completely with your own.
+                    box = w.widget()
+                    text_color = colors['text']
+                    set_box_theme = getattr(box, 'set_theme', None)
+                    if callable(set_box_theme):
+                        set_box_theme(kind, colors)
+                    elif hasattr(box, 'set_text_color'):
+                        box.set_text_color(text_color)
+
+                    custom_widget = w.get_custom_widget()
+                    set_theme = getattr(custom_widget, 'set_theme', None)
+                    if callable(set_theme):
+                        set_theme(kind, colors)
+
+                    if callable(set_box_theme) or hasattr(box, 'set_text_color'):
+                        continue
+
+                    title = box.title() if hasattr(box, 'title') else ''
+                    top_padding = 14 if title else 0
                     box.setStyleSheet(f"""
                     QGroupBox {{
                         background-color: transparent;
                         border: 0px;
-                        margin-top: 1px;
-                        padding: 14px 1px 2px 1px;
+                        margin: 0px;
+                        padding: {top_padding}px 0px 0px 0px;
                         font-size: 8pt;
                     }}
                     QGroupBox::title {{
                         subcontrol-origin: margin;
-                        subcontrol-position: top left;
-                        color: rgb(*color_dict[{kind}]['text']); 
+                        subcontrol-position: top center;
+                        color: rgb{text_color};
                         padding: 0px;
-                        margin-left: 4px;
                     }}
                     """)
 
@@ -489,32 +580,38 @@ def main():
         graph.duplicate_nodes = duplicate_nodes_wrapper
         
         nodes_palette.setStyleSheet(f"""
-            background-color: rgb{color_dict[kind]['background']};
-            color: rgb{color_dict[kind]['text']};
+            background-color: rgb{colors['background']};
+            color: rgb{colors['text']};
         """)
 
         # Style tab headers separately from the palette background
         tabs.setStyleSheet(f"""
             QTabBar::tab    {{
-                background: rgb{color_dict[kind]['background']};
-                color: rgb{color_dict[kind]['text']};
+                background: rgb{colors['background']};
+                color: rgb{colors['text']};
                 padding: 6px 10px;
-                border: 1px solid rgb{color_dict[kind]['grid']};
+                border: 1px solid rgb{colors['grid']};
                 border-bottom: 0px;
                 border-top-left-radius: 4px;
                 border-top-right-radius: 4px;
                 margin-right: 2px;
             }}
             QTabBar::tab:selected {{
-                background: rgb{color_dict[kind]['node']};
-                border-color: rgb{color_dict[kind]['grid']};
+                background: rgb{colors['node']};
+                border-color: rgb{colors['grid']};
             }}   
             QTabWidget::pane {{
-                background: rgb{color_dict[kind]['background']}; /* match palette body instead of black */
-                border: 1px solid rgb{color_dict[kind]['grid']};
+                background: rgb{colors['background']}; /* match palette body instead of black */
+                border: 1px solid rgb{colors['grid']};
                 top: -1px;
             }}
         """)
+        app.processEvents()
+        if theme_changed:
+            QtCore.QTimer.singleShot(
+                0,
+                ThreadSignalManager().run_btn_clicked.emit,
+            )
        
     # ----- menu bar -----
     def open_file():

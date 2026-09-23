@@ -3,6 +3,7 @@ from Qt.QtCore import Signal
 from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from Qt.QtWidgets import QCheckBox
 import os
+from threading import RLock
 
 
 class PathRowWidget(QtWidgets.QWidget):
@@ -11,22 +12,43 @@ class PathRowWidget(QtWidgets.QWidget):
     
     def __init__(self, parent=None, path_id=None):    
         super(PathRowWidget, self).__init__(parent)
+        self._path_id = path_id
         
         self.checkbox = QCheckBox(parent=parent, checked=True)
                       
-        self.del_button = QtWidgets.QPushButton(parent=self)
+        self.del_button = QtWidgets.QPushButton('×', parent=self)
         self.del_button.setFixedSize(25, 25)
-        style = self.del_button.style()
-        close_icon = style.standardIcon(QtWidgets.QStyle.SP_TitleBarCloseButton)
-        self.del_button.setIcon(close_icon)
-        self.del_button.setIconSize(QtCore.QSize(16, 16))
+        self.del_button.setFlat(True)
+        self.del_button.setFocusPolicy(QtCore.Qt.NoFocus)
+        close_font = self.del_button.font()
+        close_font.setBold(True)
+        close_font.setPointSize(16)
+        self.del_button.setFont(close_font)
+        self.del_button.setStyleSheet(
+            "QPushButton {"
+            " background-color: palette(button);"
+            " border: 1px solid palette(mid);"
+            " border-radius: 12px;"
+            " padding: 0;"
+            " color: palette(button-text);"
+            "}"
+            "QPushButton:hover {"
+            " border-color: palette(highlight);"
+            " color: palette(highlight);"
+            "}"
+            "QPushButton:pressed { background-color: palette(midlight); }"
+        )
         self.del_button.setToolTip("Close file")
         
         # ID label on the left
         self.id_label = QtWidgets.QLabel(parent=self, text='-')
         self.id_label.setFixedSize(25, 25)
         self.id_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.id_label.setStyleSheet("background-color: #e0e0e0; border: 1px solid #ccc;")
+        self.id_label.setStyleSheet(
+            "background-color: palette(alternate-base);"
+            "color: palette(text);"
+            "border: 1px solid palette(mid);"
+        )
         
         self.text_field = QtWidgets.QLineEdit(parent=self, text='...')
         self.text_field.setFixedSize(200, 25)
@@ -88,12 +110,12 @@ class PathRowWidget(QtWidgets.QWidget):
     
     def set_id(self, path_id):
         """Set the ID displayed in the label"""
+        self._path_id = path_id
         self.id_label.setText(str(path_id))
     
     def get_id(self):
         """Get the ID from the label"""
-        text = self.id_label.text()
-        return int(text) if text and text != '-' else None
+        return self._path_id
     
     def set_tooltip(self, tooltip_text):
         """Set tooltip for the row widget"""
@@ -121,6 +143,8 @@ class PathSelectorWidget(QtWidgets.QWidget):
         super(PathSelectorWidget, self).__init__()
         
         self.rowwidget_map = dict()
+        self.path_state = dict()
+        self._state_lock = RLock()
         
         self.parentView = parent
                
@@ -149,17 +173,16 @@ class PathSelectorWidget(QtWidgets.QWidget):
         button.clicked.connect(self.on_button_click)
         
     def get_paths(self) -> list:
-        existing_paths = []
-        total_widgets = self.layout.count()
-        for i in range(total_widgets):
-            item = self.layout.itemAt(i)
-            if item is None:
-                continue
-            row_widget = item.widget()
-            if row_widget and isinstance(item.widget(), PathRowWidget):
-                text = row_widget.get_text()
-                existing_paths.append(text)
-        return existing_paths
+        with self._state_lock:
+            return [state['path'] for state in self.path_state.values()]
+
+    def get_file_entries(self):
+        """Return a worker-safe snapshot without reading Qt child widgets."""
+        with self._state_lock:
+            return [
+                (path_id, state['path'], state['checked'])
+                for path_id, state in self.path_state.items()
+            ]
     
     def count_path_rows(self) -> int:
         """Count the number of path row widgets"""
@@ -263,13 +286,34 @@ class PathSelectorWidget(QtWidgets.QWidget):
             self.rowwidget_map[path_id] = new_row_widget
             
             new_row_widget.set_text(path)
+            with self._state_lock:
+                self.path_state[path_id] = {
+                    'path': path,
+                    'checked': True,
+                }
             self.layout.addWidget(new_row_widget)
             
     def __wire_row_widget(self, row_widget):
         row_widget.changed_state.connect(
-            lambda state: self.checkbox_clicked.emit()
-        )        
+            lambda state, row=row_widget: self._on_checked_changed(row, state)
+        )
+        row_widget.del_signal.connect(
+            lambda row=row_widget: self._remove_row_state(row)
+        )
         row_widget.del_signal.connect(self.del_btn_clicked.emit)
+
+    def _on_checked_changed(self, row_widget, checked):
+        path_id = row_widget.get_id()
+        with self._state_lock:
+            if path_id in self.path_state:
+                self.path_state[path_id]['checked'] = bool(checked)
+        self.checkbox_clicked.emit()
+
+    def _remove_row_state(self, row_widget):
+        path_id = row_widget.get_id()
+        self.rowwidget_map.pop(path_id, None)
+        with self._state_lock:
+            self.path_state.pop(path_id, None)
         
     
     def update_path_ids(self, path_to_id):
@@ -322,6 +366,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
 
 class PathSelectorWidgetWrapper(AbstractWidgetWrapper):    
     paths_added = Signal(list)  # Forward the signal from PathSelectorWidget
+    tooltip_update_requested = Signal(str, str)
     
     def __init__(self, parent=None):
         self.path_widget = PathSelectorWidget(parent=parent)
@@ -348,10 +393,16 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
         self.path_widget._get_path_to_id_callback = lambda: self._path_to_id
         # Give path widget reference to this wrapper so it can update geometry
         self.path_widget._wrapper = self  
+        self.tooltip_update_requested.connect(
+            self.path_widget.update_tooltip_for_path
+        )
             
     def get_value(self):
         selected_paths = self.path_widget.get_paths()
         return selected_paths
+
+    def get_file_entries(self):
+        return self.path_widget.get_file_entries()
     
     def get_rowwidget(self, id: int) -> PathRowWidget:
         return self.path_widget.rowwidget_map[id]
@@ -366,7 +417,7 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
     
     def update_tooltip_for_path(self, path, tooltip_text):
         """Update tooltip for a specific path"""
-        self.path_widget.update_tooltip_for_path(path, tooltip_text)
+        self.tooltip_update_requested.emit(path, tooltip_text)
     
     def resize_border_frame(self):
         """Explicitly resize the border frame to match the path_widget size"""

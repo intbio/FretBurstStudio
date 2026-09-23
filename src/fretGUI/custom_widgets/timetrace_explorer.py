@@ -7,7 +7,7 @@ import fretbursts
 from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import Signal
 from NodeGraphQt import NodeBaseWidget
-from custom_widgets.plot_widget import TemplatePlotWidget
+from fretGUI.custom_widgets.plot_widget import TemplatePlotWidget
 
 MAX_BINS = 20_000
 BURST_COLOR = "#BBBBBB"
@@ -188,6 +188,9 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         self._build_ui()
         self._wire_signals()
 
+    def set_theme(self, kind, colors=None):
+        self.plot_widget.set_theme(kind, colors)
+
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -251,14 +254,6 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setStyleSheet(
-            """
-            QTableWidget::item:selected {
-                background-color: rgba(47, 111, 237, 120);
-                color: #101010;
-            }
-            """
-        )
         splitter.addWidget(self.table)
 
         plot_panel = QtWidgets.QWidget()
@@ -266,7 +261,12 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         plot_layout.setContentsMargins(0, 0, 0, 0)
         plot_layout.setSpacing(4)
 
-        self.plot_widget = TemplatePlotWidget(parent=self, mpl_width=7.0, mpl_height=4.0)
+        self.plot_widget = TemplatePlotWidget(
+            parent=self,
+            mpl_width=7.0,
+            mpl_height=4.0,
+            retain_limits=False,
+        )
         self.plot_widget.toolbar.setVisible(False)
 
         self.time_scroll = QtWidgets.QScrollBar(QtCore.Qt.Horizontal)
@@ -276,18 +276,18 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
             """
             QScrollBar:horizontal {
                 height: 24px;
-                background: #E8E8E8;
+                background: palette(base);
                 margin: 0px;
-                border: 1px solid #B0B0B0;
+                border: 1px solid palette(mid);
             }
             QScrollBar::handle:horizontal {
-                background: #6A9FD8;
+                background: palette(highlight);
                 min-width: 40px;
                 border-radius: 3px;
-                border: 1px solid #3F7FBF;
+                border: 1px solid palette(mid);
             }
             QScrollBar::handle:horizontal:hover {
-                background: #4F8FC8;
+                background: palette(light);
             }
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
                 width: 0px;
@@ -300,7 +300,7 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
                 height: 0px;
             }
             QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-                background: #F2F2F2;
+                background: palette(alternate-base);
             }
             """
         )

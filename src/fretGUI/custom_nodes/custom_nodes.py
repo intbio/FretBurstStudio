@@ -7,7 +7,7 @@ from fretGUI.singletons import NodeStateManager
 
 
 from fretGUI.fbs_data import FBSData
-from fretGUI.singletons import FBSDataCash, ThreadSignalManager
+from fretGUI.singletons import FBSDataCash, FBSDataIDGenerator, ThreadSignalManager
 from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingModuleSource]
 from abc import abstractmethod
 import numpy as np
@@ -41,7 +41,6 @@ class AbstractLoader(AbstractRecomputable):
         
     def on_paths_added(self, paths):
         """Assign IDs immediately when paths are added"""
-        from singletons import FBSDataIDGenerator
         for path in paths:
             if path not in self.path_to_id:
                 # Assign new ID immediately
@@ -115,39 +114,48 @@ class AbstractLoader(AbstractRecomputable):
         return "\n".join(tooltip_parts)
     
     def execute(self, fbsdata: FBSData=None):
-        selected_paths = self.file_widget.get_value()
+        file_entries = self.file_widget.get_file_entries()
+        selected_paths = [path for _, path, _ in file_entries]
         self.__delete_closed_files(selected_paths)
         
         # Ensure all selected paths have IDs assigned
-        for path in selected_paths:
+        for path_id, path, _ in file_entries:
             if path not in self.path_to_id:
                 # Assign ID if somehow missing (shouldn't happen, but safety check)
-                new_id = FBSDataIDGenerator().get_next_id()
+                new_id = (
+                    path_id
+                    if path_id is not None
+                    else FBSDataIDGenerator().get_next_id()
+                )
                 self.path_to_id[path] = new_id
         
         data_list = []
-        for cur_path in selected_paths:
+        for path_id, cur_path, is_checked in file_entries:
             path_hash = hash(cur_path)
-            # Get the pre-assigned ID for this path
-            assigned_id = self.path_to_id[cur_path]
+            # Use the immutable row snapshot rather than a live Qt widget.
+            assigned_id = path_id
+            if assigned_id is None:
+                assigned_id = self.path_to_id[cur_path]
             
-            rowwidget = self.file_widget.get_rowwidget(assigned_id)
-            if not rowwidget.is_checked():
+            if not is_checked:
                 continue
             
-            rowwidget = self.file_widget.get_rowwidget(assigned_id)
             if path_hash in self.opened_paths:
                 # Use existing FBSData (which already has an ID)
                 existing_fbsdata = self.opened_paths[path_hash]
                 fbsdata_copy = existing_fbsdata.copy()
-                fbsdata_copy.set_checked(rowwidget.is_checked())
+                fbsdata_copy.set_checked(is_checked)
                 data_list.append(fbsdata_copy)
                 # Update tooltip for loaded file
                 tooltip_text = self._format_metadata_tooltip(existing_fbsdata)
                 self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
             else:
                 # Load new FBSData with the pre-assigned ID
-                loaded_fbsdata = self.load(cur_path, id=assigned_id, checked=rowwidget.is_checked())
+                loaded_fbsdata = self.load(
+                    cur_path,
+                    id=assigned_id,
+                    checked=is_checked,
+                )
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
                 # self.__wire_fbsdata(self.opened_paths[path_hash])
                 data_list.append(loaded_fbsdata)
@@ -155,8 +163,6 @@ class AbstractLoader(AbstractRecomputable):
                 tooltip_text = self._format_metadata_tooltip(loaded_fbsdata)
                 self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
         
-        # Update the path widget with IDs (in case any were missing)
-        self.file_widget.update_path_ids(self.path_to_id)
         return data_list
     
     def __delete_closed_files(self, selected_paths: list):
@@ -167,14 +173,8 @@ class AbstractLoader(AbstractRecomputable):
             for item in for_kill:
                 self.opened_paths.pop(item)
         
-        # Also clean up path_to_id mapping
-        selected_paths_set = set(selected_paths)
-        paths_to_remove = [path for path in self.path_to_id.keys() if path not in selected_paths_set]
-        for path in paths_to_remove:
-            self.path_to_id.pop(path, None)
-        
-        
-    
+        # Keep path IDs stable if a file is later reopened. In-flight workers
+        # may still hold a snapshot containing a recently closed path.
 
              
 class PhHDF5Node(AbstractLoader):
@@ -562,8 +562,8 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
     NODE_NAME = 'BaseSingleFilePlotterNode'
 
-    LEFT_RIGHT_MARGIN = 67
-    TOP_MARGIN = 10
+    LEFT_RIGHT_MARGIN = 3
+    TOP_MARGIN = 25
     BOTTOM_MARGIN = 0
     PLOT_NODE = True
     MIN_WIDTH = 450
@@ -593,19 +593,16 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
             tooltip="Select an option"
         )
         if self.SHOW_REGRESSION:
-            self.add_checkbox(
-                'show_regression',
+            self.regression_checkbox = self.node_builder.build_checkbox(
+                widget_name='show_regression',
                 label='Regression',
                 text='Show fit',
-                state=True,
+                value=True,
                 tooltip='Linear fit of plotted points via np.polyfit',
-                tab='custom',
             )
-            # Native NodeGraphQt checkbox is not an AbstractWidgetWrapper; wire it
-            # into auto-recalc and instant plot refresh ourselves.
-            regression_widget = self.get_widget('show_regression')
-            if regression_widget is not None:
-                regression_widget.value_changed.connect(self._on_regression_toggled)
+            self.regression_checkbox.value_changed.connect(
+                self._on_regression_toggled
+            )
 
     def _on_regression_toggled(self, *args):
         """Refresh fit overlay; kick auto-run only when dynamic mode is on."""
@@ -712,8 +709,8 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
     NODE_NAME = 'BaseMultiFilePlotterNode'
 
-    LEFT_RIGHT_MARGIN = 67
-    TOP_MARGIN = 10
+    LEFT_RIGHT_MARGIN = 3
+    TOP_MARGIN = 25
     BOTTOM_MARGIN = 0
     PLOT_NODE = True
     MIN_WIDTH = 550
@@ -734,12 +731,20 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         save_data_action = QAction('save data', toolbar)
         save_data_action.triggered.connect(lambda: self.export(export_type='file'))
         toolbar.addAction(save_data_action)
-        toolbar.widgetForAction(save_data_action).setStyleSheet("border: 1px solid gray;")
+        toolbar.widgetForAction(save_data_action).setStyleSheet(
+            "border: 1px solid palette(mid);"
+            "color: palette(button-text);"
+            "background: palette(button);"
+        )
 
         copy_data_action = QAction('copy data', toolbar)
         copy_data_action.triggered.connect(lambda: self.export(export_type='copy'))
         toolbar.addAction(copy_data_action)
-        toolbar.widgetForAction(copy_data_action).setStyleSheet("border: 1px solid gray;")
+        toolbar.widgetForAction(copy_data_action).setStyleSheet(
+            "border: 1px solid palette(mid);"
+            "color: palette(button-text);"
+            "background: palette(button);"
+        )
     
     def update_plot_kwargs(self):
         pass
@@ -910,8 +915,8 @@ class BVAPlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
     NODE_NAME = 'BVA'
 
-    LEFT_RIGHT_MARGIN = 67
-    TOP_MARGIN = 10
+    LEFT_RIGHT_MARGIN = 3
+    TOP_MARGIN = 25
     BOTTOM_MARGIN = 0
     PLOT_NODE = True
     MIN_WIDTH = 450
@@ -1023,8 +1028,8 @@ class InterBurstPlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
     NODE_NAME = 'InterBurstDelay'
 
-    LEFT_RIGHT_MARGIN = 67
-    TOP_MARGIN = 10
+    LEFT_RIGHT_MARGIN = 3
+    TOP_MARGIN = 25
     BOTTOM_MARGIN = 0
     PLOT_NODE = True
     MIN_WIDTH = 450
@@ -1084,8 +1089,8 @@ class TimetraceExplorerNode(AbstractContentNode):
     __identifier__ = 'Plot'
     NODE_NAME = 'Timetrace Explorer'
 
-    LEFT_RIGHT_MARGIN = 67
-    TOP_MARGIN = 10
+    LEFT_RIGHT_MARGIN = 3
+    TOP_MARGIN = 25
     BOTTOM_MARGIN = 0
     PLOT_NODE = True
     MIN_WIDTH = 280
@@ -1096,6 +1101,8 @@ class TimetraceExplorerNode(AbstractContentNode):
         self.node_builder = NodeBuilder(self)
         self._map_name_to_data = {}
         self._explorer_window = None
+        self._theme_kind = 'light'
+        self._theme_colors = None
 
         self.open_btn = OpenExplorerButtonWrapper(parent=self.view)
         self.open_btn.set_name('open_btn')
@@ -1144,6 +1151,12 @@ class TimetraceExplorerNode(AbstractContentNode):
             return
         self._explorer_window.set_data(self._selected_data(), preserve_view=True)
 
+    def set_theme(self, kind, colors):
+        self._theme_kind = kind
+        self._theme_colors = colors
+        if self._explorer_window is not None:
+            self._explorer_window.set_theme(kind, colors)
+
     def _on_open_explorer(self):
         data = self._selected_data()
         if self._explorer_window is None:
@@ -1153,6 +1166,10 @@ class TimetraceExplorerNode(AbstractContentNode):
             except Exception:
                 parent = None
             self._explorer_window = TimetraceExplorerWindow(parent=parent)
+            self._explorer_window.set_theme(
+                self._theme_kind,
+                self._theme_colors,
+            )
         self._explorer_window.set_data(data)
         self._explorer_window.show()
         self._explorer_window.raise_()
