@@ -363,12 +363,14 @@ def main():
 
     def restore_resizable_node_sizes(node,saved_sizes=None):
         """Restore size for ResizableContentNode instances after loading from JSON."""
-        from custom_nodes.abstract_nodes import ResizableContentNode
+        from fretGUI.custom_nodes.abstract_nodes import ResizableContentNode
         try:
             if isinstance(node, ResizableContentNode):
-                node.view._width = saved_sizes[node.name()].get('width')
-                node.view._height = saved_sizes[node.name()].get('height')
-                node.view._emit_resized(node.view._width, node.view._height)
+                saved_size = saved_sizes[node.name()]
+                node.restore_size(
+                    saved_size.get('width'),
+                    saved_size.get('height'),
+                )
         except (AttributeError, KeyError, TypeError, ValueError):
             pass
 

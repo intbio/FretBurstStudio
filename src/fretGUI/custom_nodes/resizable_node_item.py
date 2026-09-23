@@ -52,13 +52,28 @@ class ResizablePlotNodeItem(NodeItem):
             except Exception:
                 pass  # don't crash the view on user callback errors
 
+    def set_size(self, width, height, emit=True):
+        """Set both dimensions while keeping QGraphicsScene geometry valid."""
+        width = max(float(width), self.MIN_W)
+        height = max(float(height), self.MIN_H)
+        changed = width != self._width or height != self._height
+
+        if changed:
+            self.prepareGeometryChange()
+            self._width = width
+            self._height = height
+            self.update()
+
+        if emit:
+            self._emit_resized(self._width, self._height)
+        return changed
+
     # ---- NodeGraphQt layout overrides ---------------------------------
 
     def _set_base_size(self, add_w=0.0, add_h=0.0):
         # Manual resize / width-height properties own size.
         # Ignoring calc_size avoids feedback with large plot widgets.
-        self._width = max(float(self._width), self.MIN_W)
-        self._height = max(float(self._height), self.MIN_H)
+        self.set_size(self._width, self._height, emit=False)
 
     def align_widgets(self, v_offset=0.0):
         """Skip NodeGraphQt centering; keep geometry from _on_view_resized / resize handle."""
@@ -142,10 +157,7 @@ class ResizablePlotNodeItem(NodeItem):
             new_h = max(self.MIN_H, self._start_size.height() + delta.y())
 
             if new_w != self._width or new_h != self._height:
-                self.prepareGeometryChange()
-                self._width = new_w
-                self._height = new_h
-                self._emit_resized(new_w, new_h)
+                self.set_size(new_w, new_h)
 
             event.accept()
             return

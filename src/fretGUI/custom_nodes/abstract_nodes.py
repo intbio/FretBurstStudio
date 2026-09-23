@@ -172,26 +172,11 @@ class ResizableContentNode(AbstractRecomputable):
         try:
             node_width = self.get_property('width')
             node_height = self.get_property('height')
-            
-            if node_width is not None:
-                # Use the property value, ensuring it's at least the minimum
-                view._width = max(self.MIN_WIDTH, float(node_width))
-            elif view._width < self.MIN_WIDTH:
-                # Only set to minimum if no property exists and current is below minimum
-                view._width = self.MIN_WIDTH
-            
-            if node_height is not None:
-                # Use the property value, ensuring it's at least the minimum
-                view._height = max(self.MIN_HEIGHT, float(node_height))
-            elif view._height < self.MIN_HEIGHT:
-                # Only set to minimum if no property exists and current is below minimum
-                view._height = self.MIN_HEIGHT
+            width = node_width if node_width is not None else view._width
+            height = node_height if node_height is not None else view._height
+            view.set_size(width, height, emit=False)
         except (AttributeError, KeyError, TypeError, ValueError):
-            # If properties can't be accessed, fall back to ensuring minimums
-            if view._width < self.MIN_WIDTH:
-                view._width = self.MIN_WIDTH
-            if view._height < self.MIN_HEIGHT:
-                view._height = self.MIN_HEIGHT
+            view.set_size(view._width, view._height, emit=False)
         
         view.add_resize_callback(self._on_view_resized)
         
@@ -207,39 +192,38 @@ class ResizableContentNode(AbstractRecomputable):
         # This handles deserialization from JSON and copy/paste
         if hasattr(self, 'view') and isinstance(self.view, ResizablePlotNodeItem):
             if name == 'width':
-                # Ensure it's at least the minimum, then update view
-                new_width = max(self.MIN_WIDTH, float(value))
-                if self.view._width != new_width:
-                    self.view.prepareGeometryChange()
-                    self.view._width = new_width
-                    # Trigger resize callback to update widget layouts
-                    self.view._emit_resized(new_width, self.view._height)
+                self.view.set_size(value, self.view._height)
             elif name == 'height':
-                # Ensure it's at least the minimum, then update view
-                new_height = max(self.MIN_HEIGHT, float(value))
-                if self.view._height != new_height:
-                    self.view.prepareGeometryChange()
-                    self.view._height = new_height
-                    # Trigger resize callback to update widget layouts
-                    self.view._emit_resized(self.view._width, new_height)
+                self.view.set_size(self.view._width, value)
         
         return result
+
+    def restore_size(self, width, height):
+        """Restore a serialized size atomically after the node enters a scene."""
+        self.view.set_size(width, height)
 
     def _on_view_painted(self):
         """Called every time the node is redrawn/painted."""
         view = self.view
+
+        # Embedded Matplotlib canvases need more backing pixels when the graph
+        # view enlarges them. The widget debounces the actual DPI update.
+        wrapper = self.get_widget(self._content_widget_name)
+        scene = view.scene()
+        if wrapper is not None and scene is not None and scene.views():
+            content_widget = wrapper.get_custom_widget()
+            set_graph_scale = getattr(content_widget, 'set_graph_scale', None)
+            if callable(set_graph_scale):
+                set_graph_scale(abs(scene.views()[0].transform().m11()))
         
         # Enforce minimum size on every paint (in case NodeGraphQt recalculated it)
-        size_changed = False
-        if view._width < self.MIN_WIDTH:
-            view._width = self.MIN_WIDTH
-            size_changed = True
-        if view._height < self.MIN_HEIGHT:
-            view._height = self.MIN_HEIGHT
-            size_changed = True
+        size_changed = view.set_size(
+            view._width,
+            view._height,
+            emit=False,
+        )
         
         if size_changed:
-            view.prepareGeometryChange()
             self._on_view_resized(view._width, view._height)
             self._initial_layout_done = True
             return

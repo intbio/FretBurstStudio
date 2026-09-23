@@ -1,4 +1,4 @@
-from Qt import QtWidgets
+from Qt import QtCore, QtGui, QtWidgets
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 import matplotlib.pyplot as plt
@@ -11,6 +11,8 @@ matplotlib.rcParams['savefig.dpi'] = 150
 
 # Absolute margins for labels/ticks (in inches)
 _ABS_MARGINS_IN = dict(left=0.8, right=0.25, bottom=0.5, top=0.25)
+_MAX_GRAPH_OVERSAMPLE = 3.0
+_OVERSAMPLE_DEBOUNCE_MS = 80
 
 
 class TemplatePlotWidget(QtWidgets.QWidget):
@@ -35,6 +37,11 @@ class TemplatePlotWidget(QtWidgets.QWidget):
             
         self.canvas = FigureCanvas(self.figure)
         self.toolbar = NavigationToolbar(self.canvas, self)
+        self._graph_render_scale = 1.0
+        self._oversample_timer = QtCore.QTimer(self)
+        self._oversample_timer.setSingleShot(True)
+        self._oversample_timer.setInterval(_OVERSAMPLE_DEBOUNCE_MS)
+        self._oversample_timer.timeout.connect(self._apply_graph_render_scale)
         
         # Method 1: Try to find save action by iterating actions
         save_action = None
@@ -91,15 +98,6 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self.mainLayout.addWidget(self.toolbar)
         self.mainLayout.addWidget(self.canvas)
 
-    def _resolve_dpi(self):
-        screen = self.screen()
-        if screen is None:
-            app = QtWidgets.QApplication.instance()
-            screen = app.primaryScreen() if app is not None else None
-        if screen is not None:
-            return max(float(screen.logicalDotsPerInch()), 1.0)
-        return max(96.0 * float(self.devicePixelRatioF()), 1.0)
-
     def _apply_absolute_margins(self):
         w, h = self.figure.get_size_inches()
         w = max(w, 0.01)
@@ -113,26 +111,47 @@ class TemplatePlotWidget(QtWidgets.QWidget):
             return
         self.figure.subplots_adjust(left=left, right=right, bottom=bottom, top=top)
 
-    def _sync_figure_geometry(self):
-        """Match figure DPI and inch size to the canvas pixel size."""
-        width = max(self.canvas.width(), 1)
-        height = max(self.canvas.height(), 1)
-        dpi = self._resolve_dpi()
-        self.figure.set_dpi(dpi)
-        self.figure.set_size_inches(width / dpi, height / dpi, forward=False)
-        self._apply_absolute_margins()
-
     def _on_canvas_resize(self, event):
-        self._sync_figure_geometry()
+        # FigureCanvasQTAgg has already updated the figure using Qt's device
+        # pixel ratio. Only update our margins here so HiDPI rendering is kept.
+        self._apply_absolute_margins()
         event.canvas.draw_idle()
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        self._sync_figure_geometry()
+    def set_graph_scale(self, scale):
+        """Request enough canvas pixels for the current node-graph zoom."""
+        try:
+            scale = float(scale)
+        except (TypeError, ValueError):
+            scale = 1.0
+        self._graph_render_scale = min(
+            max(scale, 1.0),
+            _MAX_GRAPH_OVERSAMPLE,
+        )
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._sync_figure_geometry()
+        target_ratio = (
+            max(float(self.canvas.devicePixelRatioF()), 1.0)
+            * self._graph_render_scale
+        )
+        if abs(self.canvas.device_pixel_ratio - target_ratio) < 0.01:
+            return
+        self._oversample_timer.start()
+
+    def _apply_graph_render_scale(self):
+        """Apply graph oversampling after zoom interaction has settled."""
+        target_ratio = (
+            max(float(self.canvas.devicePixelRatioF()), 1.0)
+            * self._graph_render_scale
+        )
+        if not self.canvas._set_device_pixel_ratio(target_ratio):
+            return
+
+        # Match Matplotlib's own HiDPI update path: resizing recalculates the
+        # backing Agg buffer while preserving the canvas's logical dimensions.
+        resize_event = QtGui.QResizeEvent(
+            self.canvas.size(),
+            self.canvas.size(),
+        )
+        self.canvas.resizeEvent(resize_event)
         
     
     def _custom_save_figure(self, *args, **kwargs):
