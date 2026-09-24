@@ -24,7 +24,7 @@ jobs:
     
     - name: Create conda environment
       run: |
-        conda env create -f requirements.txt
+        conda env create -f environment.yml
         conda env list
 
     - name: install pyinstaller
