@@ -16,7 +16,7 @@ jobs:
       uses: s-weigand/setup-conda@v1
       with:
         update-conda: true
-    
+
     - name: Verify conda installation
       run: |
         conda --version
@@ -24,16 +24,19 @@ jobs:
     
     - name: Create conda environment
       run: |
-        conda env create -f win_environment.yml
+        conda create -n FBSTUDIO --file win_environment.txt -y
         conda env list
 
-    # - name: install pyinstaller and NodeGraphQt
-    #   run: |
-    #     conda install -n FBSTUDIO -y -c conda-forge pyinstaller
-    #     conda run -n FBSTUDIO pip install NodeGraphQt
+    - name: install pyinstaller and NodeGraphQt
+      run: |
+        conda install -n FBSTUDIO -y -c conda-forge pyinstaller
+        conda run -n FBSTUDIO pip install NodeGraphQt
       
     - name: Build project
       run: |
+        echo CONDA_PREFIX=%CONDA_PREFIX%
+        where python
+        python -c "import sys; print(sys.executable)"
         cd pyinstaller
         conda run -n FBSTUDIO build.bat
 
