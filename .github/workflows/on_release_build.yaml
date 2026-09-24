@@ -27,9 +27,11 @@ jobs:
         conda create -n FBSTUDIO --file win_environment.txt -y
         conda env list
 
-    - name: install pyinstaller
-      run: conda install -n FBSTUDIO -y -c conda-forge pyinstaller
-
+    - name: install pyinstaller and NodeGraphQt
+      run: |
+        conda install -n FBSTUDIO -y -c conda-forge pyinstaller
+        conda run -n FBSTUDIO pip install NodeGraphQt
+      
     - name: Build project
       run: |
         echo CONDA_PREFIX=%CONDA_PREFIX%
