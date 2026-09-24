@@ -123,7 +123,7 @@ dependencies:
   - typing_extensions=4.15.0=py312haa95532_0
   - tzdata=2025c=he532380_0
   - ucrt=10.0.22621.0=haa95532_0
-  - uncertainties=3.2.4=pyhd8ed1ab_0
+  - uncertainties=3.2.3=pyhd8ed1ab_0
   - vc=14.42=haa95532_5
   - vc14_runtime=14.44.35208=h4927774_10
   - vs2015_runtime=14.44.35208=ha6b5a95_10
