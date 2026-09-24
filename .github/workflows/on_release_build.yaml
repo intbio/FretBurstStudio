@@ -24,13 +24,13 @@ jobs:
     
     - name: Create conda environment
       run: |
-        conda create -n FBSTUDIO --file win_environment.txt -y
+        conda env create -f environment.yml
         conda env list
 
-    - name: install pyinstaller and NodeGraphQt
-      run: |
-        conda install -n FBSTUDIO -y -c conda-forge pyinstaller
-        conda run -n FBSTUDIO pip install NodeGraphQt
+    # - name: install pyinstaller and NodeGraphQt
+    #   run: |
+    #     conda install -n FBSTUDIO -y -c conda-forge pyinstaller
+    #     conda run -n FBSTUDIO pip install NodeGraphQt
       
     - name: Build project
       run: |
