@@ -28,12 +28,13 @@ jobs:
         conda env list
 
     - name: install pyinstaller
-      run: pip install pyinstaller
+      run: conda run -n FBSTUDIO pip install pyinstaller
 
     - name: Build project
       run: |
+        call conda activate FBSTUDIO
         cd pyinstaller
-        conda run -n FBSTUDIO .\build.bat
+        .\build.bat
 
     - name: Upload exe to Release
       uses: actions/upload-release-asset@v1
