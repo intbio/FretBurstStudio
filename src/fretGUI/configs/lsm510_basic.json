@@ -9,7 +9,7 @@
     "reject_connection_types":"{}"
   },
   "nodes":{
-    "0x24918fe2090":{
+    "0x22464155160":{
       "type_":"Loaders.LSM510Node",
       "icon":null,
       "name":"Confocor2 RAW",
@@ -34,21 +34,19 @@
       "selected":false,
       "visible":true,
       "width":300.0,
-      "height":150,
+      "height":137.2,
       "pos":[
-        -142.04741496684,
+        24.778538518966386,
         -36.51130919826261
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
       "subgraph_session":{},
       "custom":{
-        "File Widget":[
-          "C:/Users/armeev/Documents/GitHub/FretBurstStudio/samle_files/lsm510/L2-dCas-NS_1to500.001"
-        ]
+        "File Widget":[]
       }
     },
-    "0x2491d73d340":{
+    "0x2246852ca10":{
       "type_":"Plot.BGTimeLinePlotterNode",
       "icon":null,
       "name":"Background TimeLine",
@@ -75,7 +73,7 @@
       "width":579.4780306616894,
       "height":309.6434192160789,
       "pos":[
-        383.46794911889856,
+        550.293902604705,
         -33.477886739413
       ],
       "layout_direction":0,
@@ -91,10 +89,10 @@
       "output_ports":[],
       "custom":{
         "plot_widget":null,
-        "File to plot:":"port1:1, L2-dCas-NS_1to500.001"
+        "File to plot:":""
       }
     },
-    "0x2491d73eba0":{
+    "0x224685f1640":{
       "type_":"Analysis.FuseBurstsNode",
       "icon":null,
       "name":"FuseBursts",
@@ -121,7 +119,7 @@
       "width":160,
       "height":73.15,
       "pos":[
-        172.28009832724115,
+        339.10605181304754,
         502.163937705438
       ],
       "layout_direction":0,
@@ -131,7 +129,7 @@
         "Delay, ms":3.0
       }
     },
-    "0x2491d7fc740":{
+    "0x224685f3020":{
       "type_":"Plot.TimetraceExplorerNode",
       "icon":null,
       "name":"Timetrace Explorer",
@@ -158,7 +156,7 @@
       "width":242.0,
       "height":117.25,
       "pos":[
-        95.60309098053762,
+        262.429044466344,
         713.7696772220731
       ],
       "layout_direction":0,
@@ -166,10 +164,10 @@
       "subgraph_session":{},
       "custom":{
         "open_btn":null,
-        "File to plot:":"1, L2-dCas-NS_1to500.001"
+        "File to plot:":""
       }
     },
-    "0x2491d93c0b0":{
+    "0x22407dac470":{
       "type_":"Analysis.CalcBGNode",
       "icon":null,
       "name":"Calculate Background",
@@ -196,7 +194,7 @@
       "width":160,
       "height":114.10000000000001,
       "pos":[
-        176.58136291762054,
+        343.40731640342693,
         -34.78899253105644
       ],
       "layout_direction":0,
@@ -207,7 +205,7 @@
         "Min. lag, \u03bcs":300
       }
     },
-    "0x2491d93c860":{
+    "0x22407dacf20":{
       "type_":"Analysis.CorrectionsNode",
       "icon":null,
       "name":"Apply Corrections",
@@ -234,7 +232,7 @@
       "width":160,
       "height":155.05,
       "pos":[
-        175.97827193708278,
+        342.8042254228892,
         87.8551418213817
       ],
       "layout_direction":0,
@@ -246,7 +244,7 @@
         "Direct ex.":0.0
       }
     },
-    "0x2491d93ecc0":{
+    "0x22464157f20":{
       "type_":"Analysis.BurstSearchNodeFromBG",
       "icon":null,
       "name":"Burst Search: Background",
@@ -273,8 +271,8 @@
       "width":160,
       "height":246.4,
       "pos":[
-        176.83196610610406,
-        247.43795239136267
+        343.65791959191046,
+        247.4379523913627
       ],
       "layout_direction":0,
       "port_deletion_allowed":false,
@@ -286,7 +284,7 @@
         "Channel":"DAem"
       }
     },
-    "0x24914e39df0":{
+    "0x22407dae810":{
       "type_":"Selectors.BurstSelectorWidthNode",
       "icon":null,
       "name":"Burst Duration",
@@ -313,7 +311,7 @@
       "width":160,
       "height":114.10000000000001,
       "pos":[
-        -30.145823280191948,
+        136.68013020561443,
         587.6233713910945
       ],
       "layout_direction":0,
@@ -324,7 +322,7 @@
         "Shorter than, ms":20.0
       }
     },
-    "0x2491d93e450":{
+    "0x22468575af0":{
       "type_":"Selectors.BurstSelectorSizeNode",
       "icon":null,
       "name":"Burst Size",
@@ -351,7 +349,7 @@
       "width":160,
       "height":114.10000000000001,
       "pos":[
-        172.8319661061041,
+        339.6579195919105,
         587.1656211399619
       ],
       "layout_direction":0,
@@ -362,7 +360,7 @@
         "High Threshold":300
       }
     },
-    "0x2491d94d9d0":{
+    "0x22463f65940":{
       "type_":"Plot.EHistPlotterNode",
       "icon":null,
       "name":"FRET Efficiency Histogram",
@@ -389,7 +387,7 @@
       "width":607.0207629613435,
       "height":537.0656211399619,
       "pos":[
-        375.60212587896416,
+        542.4280793647705,
         285.91743070541236
       ],
       "layout_direction":0,
@@ -417,91 +415,91 @@
   "connections":[
     {
       "out":[
-        "0x24918fe2090",
+        "0x22464155160",
         "out_file"
       ],
       "in":[
-        "0x2491d93c0b0",
+        "0x22407dac470",
         "inport"
       ]
     },
     {
       "in":[
-        "0x2491d73d340",
+        "0x2246852ca10",
         "port1"
       ],
       "out":[
-        "0x2491d93c0b0",
+        "0x22407dac470",
         "outport"
       ]
     },
     {
       "in":[
-        "0x2491d73eba0",
+        "0x224685f1640",
         "inport"
       ],
       "out":[
-        "0x2491d93ecc0",
+        "0x22464157f20",
         "outport"
       ]
     },
     {
       "out":[
-        "0x2491d73eba0",
+        "0x224685f1640",
         "outport"
       ],
       "in":[
-        "0x24914e39df0",
-        "inport"
-      ]
-    },
-    {
-      "in":[
-        "0x2491d7fc740",
-        "inport"
-      ],
-      "out":[
-        "0x2491d93e450",
-        "outport"
-      ]
-    },
-    {
-      "out":[
-        "0x2491d93c0b0",
-        "outport"
-      ],
-      "in":[
-        "0x2491d93c860",
+        "0x22407dae810",
         "inport"
       ]
     },
     {
+      "in":[
+        "0x224685f3020",
+        "inport"
+      ],
       "out":[
-        "0x2491d93c860",
+        "0x22468575af0",
+        "outport"
+      ]
+    },
+    {
+      "out":[
+        "0x22407dac470",
         "outport"
       ],
       "in":[
-        "0x2491d93ecc0",
+        "0x22407dacf20",
         "inport"
       ]
     },
     {
       "out":[
-        "0x24914e39df0",
+        "0x22407dacf20",
         "outport"
       ],
       "in":[
-        "0x2491d93e450",
+        "0x22464157f20",
         "inport"
       ]
     },
     {
       "out":[
-        "0x2491d93e450",
+        "0x22407dae810",
         "outport"
       ],
       "in":[
-        "0x2491d94d9d0",
+        "0x22468575af0",
+        "inport"
+      ]
+    },
+    {
+      "out":[
+        "0x22468575af0",
+        "outport"
+      ],
+      "in":[
+        "0x22463f65940",
         "port1"
       ]
     }

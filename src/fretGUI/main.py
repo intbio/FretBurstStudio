@@ -15,7 +15,10 @@ from fretGUI.singletons import (
 )
 from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
 from fretGUI.custom_widgets.node_sidebar import NodeSidebar
-from fretGUI.custom_widgets.plot_widget import set_matplotlib_theme
+from fretGUI.custom_widgets.plot_widget import (
+    install_plot_context_menu_guard,
+    set_matplotlib_theme,
+)
 from fretGUI.node_workers import NodeWorker
 from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, PropertiesBinWidget
@@ -265,13 +268,14 @@ def main():
     app.processEvents()
     
     # create graph controller.
-    graph = NodeGraph()  
+    graph = NodeGraph()
+    install_plot_context_menu_guard(graph.viewer())
     
     graph_widget = graph.widget
     app_window = QtWidgets.QMainWindow()
     app_window.setObjectName('nodeGraphRoot')
     central_widget = QtWidgets.QWidget(app_window)
-    main_layout = QtWidgets.QHBoxLayout(central_widget)
+    main_layout = QtWidgets.QGridLayout(central_widget)
     main_layout.setContentsMargins(0, 0, 0, 0)
     main_layout.setSpacing(0)
     app_window.setCentralWidget(central_widget)
@@ -451,8 +455,9 @@ def main():
         progress_bar,
         parent=central_widget,
     )
-    main_layout.addWidget(sidebar)
-    main_layout.addWidget(graph_widget, stretch=1)
+    main_layout.addWidget(graph_widget, 0, 0)
+    main_layout.addWidget(sidebar, 0, 0, QtCore.Qt.AlignLeft)
+    sidebar.raise_()
 
     app_window.resize(1280, 800)
     app_window.setWindowTitle("FretBurstsStudio")

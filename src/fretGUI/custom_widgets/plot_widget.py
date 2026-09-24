@@ -70,7 +70,10 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self.canvas.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.canvas.setAutoFillBackground(False)
         self.canvas.setStyleSheet('background: transparent;')
+        self.setContextMenuPolicy(QtCore.Qt.PreventContextMenu)
+        self.canvas.setContextMenuPolicy(QtCore.Qt.PreventContextMenu)
         self.toolbar = NavigationToolbar(self.canvas, self)
+        self.toolbar.setContextMenuPolicy(QtCore.Qt.PreventContextMenu)
         self.toolbar.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.toolbar.setAutoFillBackground(False)
         self.toolbar.setStyleSheet(
@@ -389,3 +392,69 @@ class TemplatePlotWidgetWtapper(NodeBaseWidget):
     
     def set_value(self, fretData):
         return None
+
+
+def _is_plot_widget(widget):
+    while widget is not None:
+        if isinstance(widget, TemplatePlotWidget):
+            return True
+        widget = widget.parentWidget()
+    return False
+
+
+def plot_widget_under(global_pos):
+    """Return True when a screen position is over a matplotlib plot widget."""
+    return _is_plot_widget(QtWidgets.QApplication.widgetAt(global_pos))
+
+
+def plot_area_at(viewer, view_pos):
+    """Return True when a graph view position is over a matplotlib plot widget."""
+    viewport = viewer.viewport()
+    global_pos = viewport.mapToGlobal(view_pos)
+    if plot_widget_under(global_pos):
+        return True
+
+    scene_pos = viewer.mapToScene(view_pos)
+    for item in viewer.scene().items(scene_pos):
+        if not isinstance(item, QtWidgets.QGraphicsProxyWidget):
+            continue
+        widget = item.widget()
+        if widget is None:
+            continue
+        local_pos = item.mapFromScene(scene_pos).toPoint()
+        if _is_plot_widget(widget.childAt(local_pos)) or _is_plot_widget(widget):
+            return True
+    return False
+
+
+class PlotContextMenuGuard(QtCore.QObject):
+    """Block the node-graph context menu when it would cover matplotlib controls."""
+
+    def eventFilter(self, obj, event):
+        if event.type() != QtCore.QEvent.ContextMenu:
+            return False
+        viewer = self.parent()
+        if plot_widget_under(event.globalPos()):
+            event.accept()
+            return True
+        pos = event.pos()
+        if obj is viewer.viewport():
+            viewport_pos = pos
+        else:
+            viewport_pos = viewer.viewport().mapFrom(obj, pos)
+        if plot_area_at(viewer, viewport_pos):
+            event.accept()
+            return True
+        return False
+
+
+def install_plot_context_menu_guard(viewer):
+    """Keep right-clicks on plot canvases from opening the graph menu."""
+    existing = getattr(viewer, '_plot_context_menu_guard', None)
+    if existing is not None:
+        return existing
+    guard = PlotContextMenuGuard(viewer)
+    viewer.installEventFilter(guard)
+    viewer.viewport().installEventFilter(guard)
+    viewer._plot_context_menu_guard = guard
+    return guard

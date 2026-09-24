@@ -1,7 +1,60 @@
-from Qt import QtWidgets, QtCore      # pyright: ignore[reportMissingModuleSource]
+from Qt import QtWidgets, QtCore, QtGui      # pyright: ignore[reportMissingModuleSource]
 from abc import abstractmethod 
 from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 from Qt.QtCore import Signal
+
+
+def contrasting_text_color(color):
+    qcolor = color if isinstance(color, QtGui.QColor) else QtGui.QColor(color)
+    if not qcolor.isValid():
+        return QtGui.QColor('#111111')
+    luminance = (
+        0.299 * qcolor.red()
+        + 0.587 * qcolor.green()
+        + 0.114 * qcolor.blue()
+    )
+    return QtGui.QColor('#111111') if luminance > 150 else QtGui.QColor('#ffffff')
+
+
+def qcolor_from_item_data(value):
+    if isinstance(value, QtGui.QColor):
+        return value if value.isValid() else None
+    if isinstance(value, QtGui.QBrush):
+        color = value.color()
+        return color if color.isValid() else None
+    if value in (None, ''):
+        return None
+    qcolor = QtGui.QColor(value)
+    return qcolor if qcolor.isValid() else None
+
+
+class FileColorItemDelegate(QtWidgets.QStyledItemDelegate):
+    """Paint combobox rows with their file color instead of the theme popup fill."""
+
+    def paint(self, painter, option, index):
+        background = qcolor_from_item_data(index.data(QtCore.Qt.BackgroundRole))
+        if background is None:
+            super().paint(painter, option, index)
+            return
+
+        item_option = QtWidgets.QStyleOptionViewItem(option)
+        self.initStyleOption(item_option, index)
+        painter.save()
+        painter.fillRect(item_option.rect, background)
+        if item_option.state & QtWidgets.QStyle.State_Selected:
+            painter.setPen(QtGui.QPen(item_option.palette.highlight().color(), 2))
+            painter.drawRect(item_option.rect.adjusted(1, 1, -2, -2))
+        foreground = qcolor_from_item_data(index.data(QtCore.Qt.ForegroundRole))
+        if foreground is None:
+            foreground = contrasting_text_color(background)
+        painter.setPen(foreground)
+        text_rect = item_option.rect.adjusted(6, 0, -6, 0)
+        painter.drawText(
+            text_rect,
+            QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft,
+            index.data(QtCore.Qt.DisplayRole),
+        )
+        painter.restore()
 
 
      
@@ -323,6 +376,7 @@ class ComboBoxWidget(QtWidgets.QWidget):
         super().__init__(None)
         
         self.combobox = FrontmostComboBox()
+        self.combobox.setItemDelegate(FileColorItemDelegate(self.combobox))
         
         self.layout = QtWidgets.QHBoxLayout(self)
         self.layout.addWidget(self.combobox)
@@ -333,6 +387,7 @@ class ComboBoxWidget(QtWidgets.QWidget):
         
         # Connect signal
         self.combobox.activated.connect(lambda text: self.widget_updaeted.emit())
+        self.combobox.currentIndexChanged.connect(self._update_closed_combo_color)
     
     def value(self):
         """Returns the currently selected item text"""
@@ -348,10 +403,11 @@ class ComboBoxWidget(QtWidgets.QWidget):
             if self.combobox.count() > 0:
                 self.combobox.setCurrentIndex(0)
     
-    def setItems(self, items):
+    def setItems(self, items, colors=None):
         """Sets items from a list while preserving selected item if it's in the new list"""
         if not items:
             self.combobox.clear()
+            self._update_closed_combo_color()
             return
         
         # Get current selection before clearing
@@ -359,16 +415,55 @@ class ComboBoxWidget(QtWidgets.QWidget):
         
         # Clear and add new items
         self.combobox.clear()
-        self.combobox.addItems([str(item) for item in items])
+        item_strings = [str(item) for item in items]
+        for index, item in enumerate(item_strings):
+            self.combobox.addItem(item)
+            if colors is None or index >= len(colors):
+                continue
+            self._set_item_color(index, colors[index])
         
         # Try to restore previous selection if it exists in new items
-        item_strings = [str(item) for item in items]
         if current_text in item_strings:
             self.combobox.setCurrentText(current_text)
         else:
             # If previous selection not in new list, select first item
             if self.combobox.count() > 0:
                 self.combobox.setCurrentIndex(0)
+        self._update_closed_combo_color()
+
+    def _set_item_color(self, index, color):
+        qcolor = qcolor_from_item_data(color)
+        if qcolor is None:
+            return
+        self.combobox.setItemData(index, qcolor, QtCore.Qt.BackgroundRole)
+        self.combobox.setItemData(
+            index,
+            contrasting_text_color(qcolor),
+            QtCore.Qt.ForegroundRole,
+        )
+
+    def _update_closed_combo_color(self, *_):
+        color = qcolor_from_item_data(
+            self.combobox.itemData(
+                self.combobox.currentIndex(),
+                QtCore.Qt.BackgroundRole,
+            )
+        )
+        if color is None:
+            self.combobox.setStyleSheet('')
+            return
+        text = contrasting_text_color(color)
+        self.combobox.setStyleSheet(
+            f"""
+            QComboBox {{
+                background-color: {color.name()};
+                color: {text.name()};
+            }}
+            """
+        )
+
+    def set_theme(self, kind, colors):
+        self._update_closed_combo_color()
     
     def items(self):
         """Returns list of all items"""
@@ -396,9 +491,9 @@ class ComboBoxWidgetWrapper(AbstractWidgetWrapper):
     def set_value(self, value):
         self.get_custom_widget().setValue(value)
     
-    def set_items(self, items):
+    def set_items(self, items, colors=None):
         """Convenience method to set items from wrapper"""
-        self.get_custom_widget().setItems(items)
+        self.get_custom_widget().setItems(items, colors)
     
     def wire_signals(self):
         self.combobox_widget.widget_updaeted.connect(

@@ -35,7 +35,13 @@ from fretGUI.custom_widgets.node_sidebar import (
 )
 from fretGUI.custom_widgets.plot_widget import (
     TemplatePlotWidget,
+    install_plot_context_menu_guard,
+    plot_area_at,
     set_matplotlib_theme,
+)
+from fretGUI.custom_widgets.sliders import (
+    ComboBoxWidget,
+    qcolor_from_item_data,
 )
 from fretGUI.main import THEME_COLORS, build_theme_palette
 
@@ -136,6 +142,53 @@ class TestGraph(unittest.TestCase):
          
             
 class TestWidgets(unittest.TestCase):
+    def test_graph_context_menu_keeps_file_edit_and_skips_plot_area(self):
+        import json
+
+        hotkeys_path = Path(__file__).resolve().parents[1] / 'fretGUI' / 'hotkeys' / 'hotkeys.json'
+        with hotkeys_path.open(encoding='utf-8') as handle:
+            menu_items = json.load(handle)
+
+        labels = [
+            item.get('label', '').replace('&', '')
+            for item in menu_items
+            if item.get('type') == 'menu'
+        ]
+        self.assertEqual(labels, ['File', 'Edit'])
+
+        graph = BaseUtils.init_graph()
+        viewer = graph.viewer()
+        install_plot_context_menu_guard(viewer)
+        node = graph.create_node('Plot.EHistPlotterNode')
+        graph.widget.resize(900, 700)
+        graph.widget.show()
+        app.processEvents()
+
+        plot_proxy = node.get_widget('plot_widget')
+        plot_center = viewer.mapFromScene(plot_proxy.sceneBoundingRect().center())
+        empty_pos = viewer.mapFromScene(
+            plot_proxy.sceneBoundingRect().topRight() + QtCore.QPointF(80, 80)
+        )
+
+        self.assertTrue(plot_area_at(viewer, plot_center))
+        self.assertFalse(plot_area_at(viewer, empty_pos))
+
+        guard = viewer._plot_context_menu_guard
+        plot_event = QtGui.QContextMenuEvent(
+            QtGui.QContextMenuEvent.Mouse,
+            plot_center,
+            viewer.mapToGlobal(plot_center),
+        )
+        empty_event = QtGui.QContextMenuEvent(
+            QtGui.QContextMenuEvent.Mouse,
+            empty_pos,
+            viewer.mapToGlobal(empty_pos),
+        )
+        self.assertTrue(guard.eventFilter(viewer, plot_event))
+        self.assertTrue(guard.eventFilter(viewer.viewport(), plot_event))
+        self.assertFalse(guard.eventFilter(viewer, empty_event))
+        self.assertFalse(guard.eventFilter(viewer.viewport(), empty_event))
+
     def test_timetrace_explorer_is_compact_recomputable_node(self):
         graph = BaseUtils.init_graph()
         graph.register_node(custom_nodes.TimetraceExplorerNode)
@@ -218,6 +271,21 @@ class TestWidgets(unittest.TestCase):
 
         self.assertEqual(sidebar.minimumWidth(), NodeSidebar.WIDTH)
         self.assertEqual(sidebar.maximumWidth(), NodeSidebar.WIDTH)
+        sidebar.resize(NodeSidebar.WIDTH, 600)
+        sidebar.collapse_button.setChecked(True)
+        self.assertTrue(sidebar.node_container.isHidden())
+        self.assertLess(sidebar.height(), 600)
+        self.assertEqual(sidebar.width(), NodeSidebar.WIDTH)
+        self.assertFalse(run_button.isHidden())
+        self.assertFalse(auto_toggle.isHidden())
+        self.assertFalse(sidebar.progress_container.isHidden())
+
+        sidebar.collapse_button.setChecked(False)
+        self.assertFalse(sidebar.node_container.isHidden())
+        self.assertEqual(
+            sidebar.maximumHeight(),
+            NodeSidebar.MAX_WIDGET_SIZE,
+        )
         self.assertEqual(sidebar.node_tree.indentation(), 6)
         self.assertFalse(sidebar.node_tree.rootIsDecorated())
         self.assertEqual(
@@ -573,6 +641,39 @@ class TestWidgets(unittest.TestCase):
 
         checkbox.setChecked(False)
         self.assertFalse(node.get_property('show_regression'))
+
+    def test_file_combobox_uses_file_colors(self):
+        widget = ComboBoxWidget()
+        widget.setItems(['one.h5', 'two.h5'], ['#336699', '#ffcc00'])
+        combo = widget.combobox
+
+        first = qcolor_from_item_data(
+            combo.itemData(0, QtCore.Qt.BackgroundRole)
+        )
+        second = qcolor_from_item_data(
+            combo.itemData(1, QtCore.Qt.BackgroundRole)
+        )
+        self.assertEqual(first.name(), '#336699')
+        self.assertEqual(second.name(), '#ffcc00')
+        self.assertIn('#336699', combo.styleSheet())
+
+        combo.setCurrentIndex(1)
+        self.assertIn('#ffcc00', combo.styleSheet())
+
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Plot.ScatterRateDaPlotterNode')
+        node.items_to_plot.set_items(
+            ['port1:1, first.h5', 'port1:2, second.h5'],
+            ['#112233', '#aabbcc'],
+        )
+        plot_combo = node.items_to_plot.get_custom_widget().combobox
+        self.assertEqual(
+            qcolor_from_item_data(
+                plot_combo.itemData(0, QtCore.Qt.BackgroundRole)
+            ).name(),
+            '#112233',
+        )
+        self.assertIn('#112233', plot_combo.styleSheet())
 
     def test_combobox_popup_temporarily_raises_owning_node(self):
         graph = BaseUtils.init_graph()

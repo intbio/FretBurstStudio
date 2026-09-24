@@ -860,7 +860,10 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
             map_name_to_data[f'{inport_name}:{fbid}, {fname}'] = cur_data
 
         self._plot_cache = map_name_to_data
-        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        self.items_to_plot.set_items(
+            list(map_name_to_data.keys()),
+            [fbsdata.color for fbsdata in map_name_to_data.values()],
+        )
         selected_val = self.items_to_plot.get_value()
         selected_fbsdata = map_name_to_data.get(selected_val)
 
@@ -1171,7 +1174,10 @@ class BVAPlotterNode(AbstractContentNode):
             fbid = cur_data.id
             map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
 
-        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        self.items_to_plot.set_items(
+            list(map_name_to_data.keys()),
+            [cur_data.color for cur_data in self.data_to_plot],
+        )
         selected_val = self.items_to_plot.get_value()
         selected_data = map_name_to_data.get(selected_val)
 
@@ -1295,7 +1301,10 @@ class InterBurstPlotterNode(AbstractContentNode):
             fbid = cur_data.id
             map_name_to_data[f'{fbid}, {fname}'] = cur_data
 
-        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        self.items_to_plot.set_items(
+            list(map_name_to_data.keys()),
+            [fbsdata.color for fbsdata in map_name_to_data.values()],
+        )
         selected_val = self.items_to_plot.get_value()
         selected_fbsdata = map_name_to_data.get(selected_val)
 
@@ -1390,13 +1399,15 @@ class TimetraceExplorerNode(AbstractRecomputable):
 
     def _update_data_options(self, data_items):
         map_name_to_data = {}
+        item_colors = []
         for cur_data in sorted(data_items, key=lambda item: item.id):
             fname = os.path.basename(cur_data.data.fname)
             fbid = cur_data.id
             map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+            item_colors.append(cur_data.color)
 
         self._map_name_to_data = map_name_to_data
-        self.items_to_plot.set_items(list(map_name_to_data.keys()))
+        self.items_to_plot.set_items(list(map_name_to_data.keys()), item_colors)
         self._sync_open_window()
 
     def _selected_data(self):

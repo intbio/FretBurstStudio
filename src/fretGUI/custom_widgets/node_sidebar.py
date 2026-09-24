@@ -237,9 +237,10 @@ class NodeTreeWidget(QtWidgets.QTreeWidget):
 
 
 class NodeSidebar(QtWidgets.QFrame):
-    """Fixed-width controls and node browser for the graph window."""
+    """Controls and a node browser that folds up over the graph."""
 
     WIDTH = 280
+    MAX_WIDGET_SIZE = 16777215
 
     def __init__(
         self,
@@ -264,23 +265,77 @@ class NodeSidebar(QtWidgets.QFrame):
         controls.addWidget(auto_toggle)
         layout.addLayout(controls)
 
-        progress_container = QtWidgets.QWidget(self)
-        progress_container.setFixedHeight(28)
-        progress_layout = QtWidgets.QVBoxLayout(progress_container)
+        self.progress_container = QtWidgets.QWidget(self)
+        self.progress_container.setFixedHeight(28)
+        progress_layout = QtWidgets.QVBoxLayout(self.progress_container)
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_bar.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Fixed,
         )
         progress_layout.addWidget(progress_bar)
-        layout.addWidget(progress_container)
+        layout.addWidget(self.progress_container)
 
-        title = QtWidgets.QLabel('Nodes')
+        self.collapse_button = QtWidgets.QToolButton(self)
+        self.collapse_button.setObjectName('nodeSidebarCollapseButton')
+        self.collapse_button.setCheckable(True)
+        self.collapse_button.setFixedHeight(16)
+        self.collapse_button.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed,
+        )
+        self.collapse_button.setText('▲')
+        self.collapse_button.setToolTip('Collapse node menu')
+        self.collapse_button.setAccessibleName('Collapse node menu')
+        self.collapse_button.toggled.connect(self.set_nodes_collapsed)
+        layout.addWidget(self.collapse_button)
+
+        self.node_container = QtWidgets.QWidget(self)
+        node_layout = QtWidgets.QVBoxLayout(self.node_container)
+        node_layout.setContentsMargins(0, 0, 0, 0)
+        node_layout.setSpacing(8)
+
+        title = QtWidgets.QLabel('Nodes', self.node_container)
         title.setObjectName('nodeSidebarTitle')
-        layout.addWidget(title)
+        node_layout.addWidget(title)
 
-        self.node_tree = NodeTreeWidget(node_graph, self)
-        layout.addWidget(self.node_tree, stretch=1)
+        self.node_tree = NodeTreeWidget(node_graph, self.node_container)
+        node_layout.addWidget(self.node_tree, stretch=1)
+        layout.addWidget(self.node_container, stretch=1)
+
+    def set_nodes_collapsed(self, collapsed):
+        """Fold the node menu up while leaving its controls over the graph."""
+        self.node_container.setVisible(not collapsed)
+        self.setProperty('collapsed', collapsed)
+        parent = self.parentWidget()
+        parent_layout = parent.layout() if parent is not None else None
+        if collapsed:
+            self.setSizePolicy(
+                QtWidgets.QSizePolicy.Fixed,
+                QtWidgets.QSizePolicy.Fixed,
+            )
+            self.setFixedHeight(self.sizeHint().height())
+            if parent_layout is not None:
+                parent_layout.setAlignment(
+                    self,
+                    QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop,
+                )
+        else:
+            self.setMinimumHeight(0)
+            self.setMaximumHeight(self.MAX_WIDGET_SIZE)
+            self.setSizePolicy(
+                QtWidgets.QSizePolicy.Fixed,
+                QtWidgets.QSizePolicy.Expanding,
+            )
+            if parent_layout is not None:
+                parent_layout.setAlignment(self, QtCore.Qt.AlignLeft)
+        self.collapse_button.setText('▼' if collapsed else '▲')
+        action = 'Expand' if collapsed else 'Collapse'
+        self.collapse_button.setToolTip(f'{action} node menu')
+        self.collapse_button.setAccessibleName(f'{action} node menu')
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
 
     def set_theme(self, colors):
         self.setStyleSheet(
@@ -290,10 +345,23 @@ class NodeSidebar(QtWidgets.QFrame):
                 border: 0px;
                 border-right: 1px solid rgb{colors['grid']};
             }}
+            QFrame#nodeSidebar[collapsed="true"] {{
+                border-bottom: 1px solid rgb{colors['grid']};
+            }}
             QLabel#nodeSidebarTitle {{
                 color: rgb{colors['text']};
                 font-weight: bold;
                 padding: 2px;
+            }}
+            QToolButton#nodeSidebarCollapseButton {{
+                background-color: rgb{colors['button']};
+                color: rgb{colors['text']};
+                border: 1px solid rgb{colors['grid']};
+                border-radius: 3px;
+                padding: 0px;
+            }}
+            QToolButton#nodeSidebarCollapseButton:hover {{
+                background-color: rgb{colors['button_hover']};
             }}
             QTreeWidget {{
                 background-color: rgb{colors['base']};
