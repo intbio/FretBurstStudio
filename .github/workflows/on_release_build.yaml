@@ -34,9 +34,6 @@ jobs:
       
     - name: Build project
       run: |
-        echo CONDA_PREFIX=%CONDA_PREFIX%
-        where python
-        python -c "import sys; print(sys.executable)"
         cd pyinstaller
         conda run -n FBSTUDIO build.bat
 
