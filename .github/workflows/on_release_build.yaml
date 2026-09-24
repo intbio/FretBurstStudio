@@ -31,7 +31,6 @@ jobs:
       run: conda run -n FBSTUDIO pip install pyinstaller
 
     - name: Build project
-      shell: cmd
       run: |
         call "%CONDA%\Scripts\activate.bat" FBSTUDIO
         echo CONDA_PREFIX=%CONDA_PREFIX%
