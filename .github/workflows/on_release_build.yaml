@@ -28,7 +28,7 @@ jobs:
         conda env list
 
     - name: install pyinstaller
-      run: conda install conda-forge::pyinstaller
+      run: conda install -n FBSTUDIO -y -c conda-forge pyinstaller
 
     - name: Build project
       run: |
