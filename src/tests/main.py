@@ -699,12 +699,26 @@ class TestWidgets(unittest.TestCase):
         second_node = graph.create_node('Plot.ScatterRateDaPlotterNode')
         first_plot = first_node.get_widget('plot_widget').get_custom_widget()
         second_plot = second_node.get_widget('plot_widget').get_custom_widget()
+        self.assertFalse(first_plot.keep_view_check.isChecked())
+        self.assertFalse(second_plot.keep_view_check.isChecked())
 
         first_ax = first_plot.figure.add_subplot()
         first_ax.plot([0, 10], [0, 20])
         first_plot.canvas.draw()
         first_ax.set_xlim(2, 4)
         first_ax.set_ylim(6, 9)
+        first_plot.canvas.draw()
+
+        first_plot.figure.clear()
+        replotted_ax = first_plot.figure.add_subplot()
+        replotted_ax.plot([0, 100], [0, 200])
+        first_plot.canvas.draw()
+        self.assertNotEqual(replotted_ax.get_xlim(), (2.0, 4.0))
+        self.assertNotEqual(replotted_ax.get_ylim(), (6.0, 9.0))
+
+        first_plot.keep_view_check.setChecked(True)
+        replotted_ax.set_xlim(2, 4)
+        replotted_ax.set_ylim(6, 9)
         first_plot.canvas.draw()
 
         first_plot.figure.clear()
@@ -744,6 +758,17 @@ class TestWidgets(unittest.TestCase):
         unretained_ax.plot([0, 100], [0, 200])
         unretained_plot.canvas.draw()
         self.assertNotEqual(unretained_ax.get_xlim(), (2.0, 4.0))
+
+    def test_unchecking_keep_view_requests_recalculation(self):
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Plot.ScatterRateDaPlotterNode')
+        keep_view = node.get_widget('plot_widget').get_custom_widget().keep_view_check
+        keep_view.setChecked(True)
+        spy = QSignalSpy(ThreadSignalManager().run_btn_clicked)
+        keep_view.setChecked(False)
+        self.assertEqual(spy.count(), 1)
+        keep_view.setChecked(True)
+        self.assertEqual(spy.count(), 1)
 
     def test_dark_theme_updates_qt_controls_and_matplotlib(self):
         original_palette = app.palette()

@@ -46,10 +46,12 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         parent=None,
         mpl_width=None,
         mpl_height=None,
-        retain_limits=True,
+        retain_limits=False,
     ):
         super().__init__()
-        self._retain_limits_enabled = retain_limits
+        self._retain_limits_enabled = False
+        self._retain_cid = None
+        self._home_overridden = False
 
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.setAutoFillBackground(False)
@@ -94,10 +96,8 @@ class TemplatePlotWidget(QtWidgets.QWidget):
                     action.setIcon(self.toolbar._icon(image_name))
         self._toolbar_left_inset = 0
         self._hide_history_actions()
-        self._toolbar_left_spacer = QtWidgets.QWidget(self.toolbar)
+        self._toolbar_left_spacer = QtWidgets.QWidget()
         self._toolbar_left_spacer.setFixedWidth(0)
-        first_action = self.toolbar.actions()[0]
-        self.toolbar.insertWidget(first_action, self._toolbar_left_spacer)
         self._graph_render_scale = 1.0
         self._oversample_timer = QtCore.QTimer(self)
         self._oversample_timer.setSingleShot(True)
@@ -106,17 +106,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self._drawn_axes = ()
         self._retained_limits = []
         self._default_limits = []
-        if self._retain_limits_enabled:
-            self.canvas.mpl_connect("draw_event", self._retain_plot_limits)
 
-        home_action = self.toolbar._actions.get('home')
-        if self._retain_limits_enabled and home_action is not None:
-            try:
-                home_action.triggered.disconnect()
-            except TypeError:
-                pass
-            home_action.triggered.connect(self._reset_plot_limits)
-        
         # Method 1: Try to find save action by iterating actions
         save_action = None
         for action in self.toolbar.actions():
@@ -169,8 +159,67 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self._apply_absolute_margins()
         self.canvas.mpl_connect("resize_event", self._on_canvas_resize)
 
-        self.mainLayout.addWidget(self.toolbar)
+        self.keep_view_check = QtWidgets.QCheckBox("Keep view")
+        self.keep_view_check.setToolTip(
+            "Restore the current zoom and pan after the plot updates. "
+            "Unchecking recalculates the plot."
+        )
+        self.keep_view_check.setChecked(bool(retain_limits))
+        self.keep_view_check.toggled.connect(self._on_keep_view_toggled)
+
+        toolbar_row = QtWidgets.QHBoxLayout()
+        toolbar_row.setContentsMargins(0, 0, 0, 0)
+        toolbar_row.setSpacing(4)
+        toolbar_row.addWidget(self._toolbar_left_spacer)
+        toolbar_row.addWidget(self.keep_view_check)
+        toolbar_row.addWidget(self.toolbar, stretch=1)
+        self.mainLayout.addLayout(toolbar_row)
         self.mainLayout.addWidget(self.canvas)
+        self._set_limit_retention(self.keep_view_check.isChecked())
+
+    def _on_keep_view_toggled(self, checked):
+        self._set_limit_retention(bool(checked))
+
+    def _set_limit_retention(self, enabled):
+        """Keep the current axes limits across replots only while enabled."""
+        self._retain_limits_enabled = bool(enabled)
+        if self._retain_limits_enabled:
+            if self._retain_cid is None:
+                self._retain_cid = self.canvas.mpl_connect(
+                    "draw_event",
+                    self._retain_plot_limits,
+                )
+            axes = tuple(self.figure.axes)
+            if axes:
+                self._drawn_axes = axes
+                self._retained_limits = [
+                    (ax.get_xlim(), ax.get_ylim())
+                    for ax in axes
+                ]
+        elif self._retain_cid is not None:
+            self.canvas.mpl_disconnect(self._retain_cid)
+            self._retain_cid = None
+        self._set_home_override(self._retain_limits_enabled)
+
+    def _set_home_override(self, enabled):
+        """Use the recalculated view for Home while limit retention is on."""
+        home_action = self.toolbar._actions.get('home')
+        if home_action is None:
+            return
+        if enabled and not self._home_overridden:
+            try:
+                home_action.triggered.disconnect()
+            except TypeError:
+                pass
+            home_action.triggered.connect(self._reset_plot_limits)
+            self._home_overridden = True
+        elif not enabled and self._home_overridden:
+            try:
+                home_action.triggered.disconnect()
+            except TypeError:
+                pass
+            home_action.triggered.connect(self.toolbar.home)
+            self._home_overridden = False
 
     def _retain_plot_limits(self, event):
         """Restore view limits when a replot replaces this widget's axes."""
@@ -205,6 +254,8 @@ class TemplatePlotWidget(QtWidgets.QWidget):
 
     def _reset_plot_limits(self):
         """Restore the limits produced by the most recent recalculation."""
+        if not self._default_limits:
+            return
         axes = tuple(self.figure.axes)
         for ax, (xlim, ylim) in zip(axes, self._default_limits):
             ax.set_xlim(xlim)
@@ -264,7 +315,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
                 action.setVisible(False)
 
     def set_toolbar_left_inset(self, pixels):
-        """Move toolbar controls past labels drawn over the canvas edge."""
+        """Move Keep view and the toolbar past the input port name."""
         inset = max(0, int(round(pixels)))
         if inset == self._toolbar_left_inset:
             return

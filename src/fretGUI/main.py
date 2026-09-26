@@ -7,7 +7,7 @@ from Qt import QtWidgets, QtCore, QtGui
 import fretGUI.custom_nodes.custom_nodes as custom_nodes
 import fretGUI.custom_nodes.selector_nodes as selector_nodes
 import fretGUI.graph_engene as graph_engene
-from fretGUI.custom_widgets.toogle_widget import IconToggleButton
+from fretGUI.custom_widgets.toogle_widget import AutoRunCheckBox
 from fretGUI.singletons import (
     NodeStateManager,
     RunCoordinator,
@@ -57,6 +57,79 @@ THEME_COLORS = {
         'highlighted_text': (255, 255, 255),
     },
 }
+
+
+MAX_RECENT_FILES = 10
+_SETTINGS_THEME = "theme"
+_SETTINGS_RECENT = "recentFiles"
+
+
+def read_saved_theme():
+    """Theme last chosen in the Theme menu, or light."""
+    kind = QtCore.QSettings().value(_SETTINGS_THEME, "light")
+    if not isinstance(kind, str) or kind not in THEME_COLORS:
+        return "light"
+    return kind
+
+
+def write_saved_theme(kind):
+    settings = QtCore.QSettings()
+    settings.setValue(_SETTINGS_THEME, kind)
+    settings.sync()
+
+
+def _normalize_session_path(path):
+    file_path = Path(path)
+    try:
+        return str(file_path.resolve())
+    except OSError:
+        return str(file_path)
+
+
+def read_recent_files():
+    """Session paths newest first, as stored by QSettings."""
+    value = QtCore.QSettings().value(_SETTINGS_RECENT, [])
+    if value is None or value == "":
+        return []
+    if isinstance(value, str):
+        paths = [value]
+    else:
+        try:
+            paths = list(value)
+        except TypeError:
+            return []
+    return [str(path) for path in paths if path]
+
+
+def write_recent_files(paths):
+    settings = QtCore.QSettings()
+    settings.setValue(_SETTINGS_RECENT, list(paths))
+    settings.sync()
+
+
+def remember_recent_file(path):
+    """Move ``path`` to the front of the recent-file list."""
+    if not path:
+        return read_recent_files()
+    normalized = _normalize_session_path(path)
+    recent = [
+        item for item in read_recent_files()
+        if _normalize_session_path(item) != normalized
+    ]
+    recent.insert(0, normalized)
+    recent = recent[:MAX_RECENT_FILES]
+    write_recent_files(recent)
+    return recent
+
+
+def forget_recent_file(path):
+    normalized = _normalize_session_path(path)
+    recent = [
+        item for item in read_recent_files()
+        if item != path and _normalize_session_path(item) != normalized
+    ]
+    write_recent_files(recent)
+    return recent
 
 
 def build_theme_palette(kind):
@@ -189,6 +262,10 @@ def main():
     
     # Create QApplication immediately
     app = QtWidgets.QApplication(sys.argv)
+    # QSettings uses these names on Windows (registry), macOS (Preferences),
+    # and Linux (~/.config). The store is outside a PyInstaller bundle.
+    app.setOrganizationName("FretBurstStudio")
+    app.setApplicationName("FretBurstStudio")
     # The native Windows style only applies some palette roles (notably text),
     # leaving several controls light when the application palette is dark.
     app.setStyle('Fusion')
@@ -434,7 +511,7 @@ def main():
     coordinator.busy_changed.connect(run_button.setDisabled)
     run_button.clicked.connect(ThreadSignalManager().run_btn_clicked.emit)
     
-    toggle_btn = IconToggleButton(parent=app_window)
+    toggle_btn = AutoRunCheckBox(parent=app_window)
     toggle_btn.toggled.connect(lambda: on_toogle_clicked(graph, toggle_btn))   
     toggle_btn.toggled.connect(NodeStateManager().on_change_node_state) 
     
@@ -521,6 +598,7 @@ def main():
             kind = THEME
         theme_changed = kind != previous_theme
         THEME = kind
+        write_saved_theme(kind)
         colors = THEME_COLORS[kind]
         app.setPalette(build_theme_palette(kind))
         app.setStyleSheet(build_theme_stylesheet(kind))
@@ -642,16 +720,45 @@ def main():
             )
        
     # ----- menu bar -----
+    def open_session(path):
+        graph.load_session(path)
+        remember_recent_file(path)
+        rebuild_recent_menu()
+        apply_theme()
+
     def open_file():
-        path = QtWidgets.QFileDialog.getOpenFileName(app_window, "Open File",filter="*.json")
-        if path:
-            graph.load_session(path[0])
-            apply_theme()
+        filename, _selected_filter = QtWidgets.QFileDialog.getOpenFileName(
+            app_window,
+            "Open File",
+            filter="*.json",
+        )
+        if not filename:
+            return
+        open_session(filename)
+
+    def open_recent(path):
+        if not Path(path).is_file():
+            forget_recent_file(path)
+            rebuild_recent_menu()
+            QtWidgets.QMessageBox.warning(
+                app_window,
+                "Recent file",
+                f"Could not open:\n{path}",
+            )
+            return
+        open_session(path)
 
     def save_file():
-        path = QtWidgets.QFileDialog.getSaveFileName(app_window, "Save File",filter="*.json")
-        if path[0]:
-            graph.save_session(path[0])
+        filename, _selected_filter = QtWidgets.QFileDialog.getSaveFileName(
+            app_window,
+            "Save File",
+            filter="*.json",
+        )
+        if not filename:
+            return
+        graph.save_session(filename)
+        remember_recent_file(filename)
+        rebuild_recent_menu()
 
     def close_app():
         app.quit()
@@ -670,7 +777,24 @@ def main():
     file_menu.addAction("Open").triggered.connect(open_file)
     file_menu.addAction("Save").triggered.connect(save_file)
     file_menu.addSeparator()
+    recent_menu = file_menu.addMenu("Recent")
+    file_menu.addSeparator()
     file_menu.addAction("Close").triggered.connect(close_app)
+
+    def rebuild_recent_menu():
+        recent_menu.clear()
+        paths = read_recent_files()
+        if not paths:
+            empty = recent_menu.addAction("No recent files")
+            empty.setEnabled(False)
+            return
+        for path in paths:
+            action = recent_menu.addAction(path)
+            action.triggered.connect(
+                lambda checked=False, session_path=path: open_recent(session_path)
+            )
+
+    rebuild_recent_menu()
 
     theme_menu = menu_bar.addMenu("Theme")
     theme_menu.addAction("Light").triggered.connect(lambda: apply_theme('light'))
@@ -698,7 +822,7 @@ def main():
     about_menu = menu_bar.addMenu("About")
     about_menu.addAction("About").triggered.connect(show_about)
 
-    apply_theme('light')
+    apply_theme(read_saved_theme())
     app.exec()
 
     

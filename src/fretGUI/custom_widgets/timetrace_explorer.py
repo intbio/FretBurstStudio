@@ -34,6 +34,7 @@ BURST_INDEX_ROLE = QtCore.Qt.UserRole + 1
 # Non-zero arrow slots parked in the margin so Linux can still drag the handle.
 SCROLL_GUTTER = 16
 SCROLL_REDRAW_MS = 40
+_ICON_BUTTON_SIZE = 32
 
 _BG_PAIRS = (
     ("nd", "bg_dd"),
@@ -60,6 +61,114 @@ def _nice_tick_step(span, target_ticks=8):
     else:
         nice = 10.0
     return nice * magnitude
+
+
+def _blank_icon_pixmap(size):
+    pixmap = QtGui.QPixmap(size, size)
+    pixmap.fill(QtCore.Qt.transparent)
+    return pixmap
+
+
+def _ruler_icon(color="#202020", size=20):
+    """Ruler glyph drawn in code so the app needs no image file."""
+    pixmap = _blank_icon_pixmap(size)
+    painter = QtGui.QPainter(pixmap)
+    painter.setPen(QtGui.QPen(QtGui.QColor(color), 2))
+    baseline = size - 4
+    painter.drawLine(1, baseline, size - 2, baseline)
+    tick_heights = (11, 6, 6, 11, 6, 6, 11)
+    span = size - 4
+    last = len(tick_heights) - 1
+    for index, height in enumerate(tick_heights):
+        x = 2 + int(round(index * span / last))
+        painter.drawLine(x, baseline, x, baseline - height)
+    painter.end()
+    return QtGui.QIcon(pixmap)
+
+
+def _arrow_icon(direction, color, size=20):
+    """Filled triangle. Qt's standard arrows become solid circles when recolored."""
+    pixmap = _blank_icon_pixmap(size)
+    painter = QtGui.QPainter(pixmap)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    painter.setPen(QtCore.Qt.NoPen)
+    painter.setBrush(QtGui.QColor(color))
+    margin = 3
+    mid = size / 2.0
+    if direction == "left":
+        points = (
+            (size - margin, margin),
+            (margin, mid),
+            (size - margin, size - margin),
+        )
+    else:
+        points = (
+            (margin, margin),
+            (size - margin, mid),
+            (margin, size - margin),
+        )
+    painter.drawPolygon(QtGui.QPolygonF([
+        QtCore.QPointF(x, y) for x, y in points
+    ]))
+    painter.end()
+    return QtGui.QIcon(pixmap)
+
+
+def _save_icon(color, size=20):
+    """Down arrow into a tray. The standard save pixmap collapses to a square."""
+    pixmap = _blank_icon_pixmap(size)
+    painter = QtGui.QPainter(pixmap)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    ink = QtGui.QColor(color)
+    pen = QtGui.QPen(ink)
+    pen.setWidth(2)
+    pen.setCapStyle(QtCore.Qt.RoundCap)
+    pen.setJoinStyle(QtCore.Qt.RoundJoin)
+    painter.setPen(pen)
+    mid = size / 2.0
+    painter.drawLine(QtCore.QPointF(mid, 2), QtCore.QPointF(mid, size - 9))
+    painter.setPen(QtCore.Qt.NoPen)
+    painter.setBrush(ink)
+    painter.drawPolygon(QtGui.QPolygonF([
+        QtCore.QPointF(mid - 5, size - 12),
+        QtCore.QPointF(mid + 5, size - 12),
+        QtCore.QPointF(mid, size - 6),
+    ]))
+    painter.setPen(pen)
+    painter.setBrush(QtCore.Qt.NoBrush)
+    painter.drawPolyline(QtGui.QPolygonF([
+        QtCore.QPointF(3, size - 6),
+        QtCore.QPointF(3, size - 3),
+        QtCore.QPointF(size - 3, size - 3),
+        QtCore.QPointF(size - 3, size - 6),
+    ]))
+    painter.end()
+    return QtGui.QIcon(pixmap)
+
+
+def _icon_button(icon, tooltip):
+    button = QtWidgets.QToolButton()
+    button.setIcon(icon)
+    button.setIconSize(QtCore.QSize(20, 20))
+    button.setToolTip(tooltip)
+    button.setAutoRaise(False)
+    button.setFixedSize(_ICON_BUTTON_SIZE, _ICON_BUTTON_SIZE)
+    return button
+
+
+def _tinted_icon(icon, color, size=18):
+    """Recolor a standard icon so it stays visible on light and dark buttons."""
+    pixmap = icon.pixmap(QtCore.QSize(size, size))
+    if pixmap.isNull():
+        return icon
+    tinted = QtGui.QPixmap(pixmap.size())
+    tinted.fill(QtCore.Qt.transparent)
+    painter = QtGui.QPainter(tinted)
+    painter.drawPixmap(0, 0, pixmap)
+    painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceIn)
+    painter.fillRect(tinted.rect(), QtGui.QColor(color))
+    painter.end()
+    return QtGui.QIcon(tinted)
 
 
 def brightness_kcps(size_raw, width_ms):
@@ -278,6 +387,18 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
 
     def set_theme(self, kind, colors=None):
         self.plot_widget.set_theme(kind, colors)
+        if colors and "text" in colors:
+            color = QtGui.QColor(*colors["text"])
+        else:
+            color = self.palette().color(QtGui.QPalette.ButtonText)
+        self._apply_icon_colors(color)
+
+    def _apply_icon_colors(self, color):
+        self.prev_btn.setIcon(_arrow_icon("left", color))
+        self.next_btn.setIcon(_arrow_icon("right", color))
+        self.ruler_check.setIcon(_ruler_icon(color))
+        self.save_btn.setIcon(_save_icon(color))
+        self.refresh_btn.setIcon(_tinted_icon(self._refresh_source, color))
 
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
@@ -294,8 +415,16 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         )
         self.file_combo.setFixedWidth(280)
 
-        self.prev_btn = QtWidgets.QPushButton("Prev burst")
-        self.next_btn = QtWidgets.QPushButton("Next burst")
+        style = QtWidgets.QApplication.style()
+        ink = self.palette().color(QtGui.QPalette.ButtonText)
+        self.prev_btn = _icon_button(
+            _arrow_icon("left", ink),
+            "Previous burst",
+        )
+        self.next_btn = _icon_button(
+            _arrow_icon("right", ink),
+            "Next burst",
+        )
         self.fit_btn = QtWidgets.QPushButton("Fit to selected")
 
         self.span_spin = QtWidgets.QDoubleSpinBox()
@@ -335,13 +464,36 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
             "(counts/bin or kcps)"
         )
 
-        self.ruler_check = QtWidgets.QCheckBox("Ruler")
-        self.ruler_check.setToolTip(
-            "Drag a time window on the plot to count photons and intensity"
+        self.ruler_check = _icon_button(
+            _ruler_icon(ink),
+            "Drag a time window on the plot to count photons and intensity",
+        )
+        self.ruler_check.setCheckable(True)
+        self.ruler_check.setStyleSheet(
+            """
+            QToolButton:checked {
+                background-color: palette(highlight);
+                border: 1px solid palette(highlight);
+            }
+            QToolButton:!checked {
+                background-color: palette(button);
+                border: 1px solid palette(mid);
+            }
+            """
         )
 
-        self.refresh_btn = QtWidgets.QPushButton("Refresh")
-        self.save_btn = QtWidgets.QPushButton("Save image")
+        self._refresh_source = style.standardIcon(
+            QtWidgets.QStyle.SP_BrowserReload
+        )
+        self.refresh_btn = _icon_button(
+            self._refresh_source,
+            "Refresh",
+        )
+        self.save_btn = _icon_button(
+            _save_icon(ink),
+            "Save image",
+        )
+        self._apply_icon_colors(ink)
 
         # Row 1: pick a file and step through bursts. Row 2: plot appearance.
         browse_row = QtWidgets.QHBoxLayout()
@@ -386,6 +538,10 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred,
+            QtWidgets.QSizePolicy.Expanding,
+        )
         # Qt's header defaults to column 0, descending. Set ascending before
         # sorting is enabled so the first sort (and the first header click
         # toggle) starts from low to high.
@@ -394,6 +550,10 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         splitter.addWidget(self.table)
 
         plot_panel = QtWidgets.QWidget()
+        plot_panel.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding,
+        )
         plot_layout = QtWidgets.QVBoxLayout(plot_panel)
         plot_layout.setContentsMargins(0, 0, 0, 0)
         plot_layout.setSpacing(4)
@@ -405,6 +565,7 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
             retain_limits=False,
         )
         self.plot_widget.toolbar.setVisible(False)
+        self.plot_widget.keep_view_check.setVisible(False)
 
         self.time_scroll = QtWidgets.QScrollBar(QtCore.Qt.Horizontal)
         self.time_scroll.setToolTip("Browse timetrace (independent of burst selection)")
@@ -460,8 +621,9 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         plot_layout.addWidget(self.time_scroll)
         plot_layout.addWidget(self.scroll_axis)
         splitter.addWidget(plot_panel)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([420, 640])
 
         layout.addWidget(splitter, stretch=1)
 
@@ -549,7 +711,7 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
                 self.table.selectRow(visual)
                 self.table.blockSignals(False)
                 self._apply_table_row_highlight(visual)
-            self._set_burst_count_status()
+            self._update_selected_burst_status()
         elif self._df_bursts is not None and len(self._df_bursts) > 0:
             t0 = float(self._df_bursts["t_start"].iloc[0])
             t1 = float(self._df_bursts["t_stop"].iloc[0])
@@ -578,6 +740,56 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
             self.status_label.setText(f"{len(self._df_bursts)} bursts")
         else:
             self.status_label.setText("No bursts")
+
+    def _format_window_status(self, t0, t1, prefix=None):
+        """Same photon and intensity line used by the ruler and a selected burst."""
+        t0 = float(t0)
+        t1 = float(t1)
+        duration = max(t1 - t0, 0.0)
+        parts = []
+        if prefix:
+            parts.append(prefix)
+        parts.append(
+            f"region {t0:.4f}–{t1:.4f} s ({duration * 1000.0:.2f} ms)"
+        )
+        if self._data is None:
+            return " | ".join(parts)
+        d = self._data
+        clk_p = float(d.clk_p)
+        ich = self._ich
+        for ph_sel, _invert, label, _color in _streams_for_data(d):
+            try:
+                ph = d.get_ph_times(ich, ph_sel=ph_sel)
+            except Exception:
+                continue
+            n_ph = _photons_in_window(ph, t0, t1, clk_p)
+            kcps = (n_ph / duration / 1000.0) if duration > 0 else 0.0
+            parts.append(f"{label}: {n_ph} ph, {kcps:.2f} kcps")
+        return " | ".join(parts)
+
+    def _update_selected_burst_status(self):
+        if self._ruler_span is not None:
+            self._update_ruler_status()
+            return
+        burst_index = self._selected_burst_index()
+        if (
+            burst_index is None
+            or self._df_bursts is None
+            or self._data is None
+            or burst_index < 0
+            or burst_index >= len(self._df_bursts)
+        ):
+            self._set_burst_count_status()
+            return
+        t0 = float(self._df_bursts["t_start"].iloc[burst_index])
+        t1 = float(self._df_bursts["t_stop"].iloc[burst_index])
+        self.status_label.setText(
+            self._format_window_status(
+                t0,
+                t1,
+                prefix=f"burst {burst_index}",
+            )
+        )
 
     def _column_values(self, df, row):
         width_ms = float(df["width_ms"].iloc[row]) if "width_ms" in df.columns else None
@@ -773,8 +985,10 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         self._apply_table_row_highlight(visual)
         burst_index = self._burst_index_for_row(visual)
         if burst_index is None or self._df_bursts is None:
+            self._update_selected_burst_status()
             return
         if burst_index < 0 or burst_index >= len(self._df_bursts):
+            self._update_selected_burst_status()
             return
         t0 = float(self._df_bursts["t_start"].iloc[burst_index])
         t1 = float(self._df_bursts["t_stop"].iloc[burst_index])
@@ -786,6 +1000,7 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
             self.span_spin.setValue(max(width_s * 5.0, 0.1))
             self._updating_controls = False
         self._set_t_center(mid, redraw=True)
+        self._update_selected_burst_status()
 
     def _burst_index_at_time(self, t):
         """Return burst row index containing time ``t``, or None."""
@@ -933,7 +1148,7 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         self._ruler_mode = bool(checked)
         if not self._ruler_mode:
             self._ruler_span = None
-            self._set_burst_count_status()
+            self._update_selected_burst_status()
         self.redraw()
 
     def _on_ruler_span(self, t0, t1):
@@ -951,20 +1166,7 @@ class TimetraceExplorerWindow(QtWidgets.QDialog):
         if self._ruler_span is None or self._data is None:
             return
         t0, t1 = self._ruler_span
-        duration = max(t1 - t0, 0.0)
-        parts = [f"region {t0:.4f}–{t1:.4f} s ({duration * 1000.0:.2f} ms)"]
-        d = self._data
-        clk_p = float(d.clk_p)
-        ich = self._ich
-        for ph_sel, _invert, label, _color in _streams_for_data(d):
-            try:
-                ph = d.get_ph_times(ich, ph_sel=ph_sel)
-            except Exception:
-                continue
-            n_ph = _photons_in_window(ph, t0, t1, clk_p)
-            kcps = (n_ph / duration / 1000.0) if duration > 0 else 0.0
-            parts.append(f"{label}: {n_ph} ph, {kcps:.2f} kcps")
-        self.status_label.setText(" | ".join(parts))
+        self.status_label.setText(self._format_window_status(t0, t1))
 
     def _clear_span_selector(self):
         selector = self._span_selector

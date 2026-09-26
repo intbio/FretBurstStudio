@@ -119,6 +119,17 @@ class NodeBuilder():
         plot_widget = TemplatePlotWidgetWtapper(parent=self.node.view, mpl_width=mpl_width, mpl_height=mpl_height)
         plot_widget.set_name(widget_name)
         self.node.add_custom_widget(plot_widget, tab='custom')
+        plot_widget.plot_widget.keep_view_check.toggled.connect(
+            self._on_keep_view_toggled
+        )
+
+    def _on_keep_view_toggled(self, checked):
+        """Dropping Keep view should redraw at the newly calculated limits."""
+        if checked:
+            return
+        trigger = getattr(self.node, 'on_widget_triggered', None)
+        if callable(trigger):
+            trigger()
     
         
 

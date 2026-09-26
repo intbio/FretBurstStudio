@@ -266,12 +266,12 @@ class NodeSidebar(QtWidgets.QFrame):
         layout.addLayout(controls)
 
         self.progress_container = QtWidgets.QWidget(self)
-        self.progress_container.setFixedHeight(28)
+        self.progress_container.setFixedHeight(36)
         progress_layout = QtWidgets.QVBoxLayout(self.progress_container)
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_bar.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding,
-            QtWidgets.QSizePolicy.Fixed,
+            QtWidgets.QSizePolicy.Expanding,
         )
         progress_layout.addWidget(progress_bar)
         layout.addWidget(self.progress_container)

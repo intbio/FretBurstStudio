@@ -1,6 +1,6 @@
 from Qt import QtWidgets
 from Qt.QtWidgets import QVBoxLayout, QProgressBar
-from Qt.QtCore import QTimer, Signal
+from Qt.QtCore import Qt, QTimer, Signal
 from fretGUI.singletons import ThreadSignalManager
 
 
@@ -61,9 +61,14 @@ class ProgressBar2(QtWidgets.QWidget):
         self.total_current = 0
         
         self.layout = QVBoxLayout(self)
-        self.layout.setSpacing(2)
-        
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
+
         self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimumHeight(28)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setAlignment(Qt.AlignCenter)
+        self.progress_bar.setFormat("%p%")
         self.layout.addWidget(self.progress_bar)
         
         self.hide()
