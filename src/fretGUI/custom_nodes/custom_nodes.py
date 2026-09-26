@@ -1367,6 +1367,7 @@ class TimetraceExplorerNode(AbstractRecomputable):
             tooltip="Select a file to explore",
             min_width=200,
         )
+        self.items_to_plot.widget_changed_signal.connect(self._on_node_file_changed)
 
         coordinator = RunCoordinator()
         coordinator.run_started.connect(self._on_run_started)
@@ -1417,9 +1418,31 @@ class TimetraceExplorerNode(AbstractRecomputable):
             return selected_data
         return None
 
+    def _push_files_to_window(self):
+        if self._explorer_window is None:
+            return
+        self._explorer_window.set_files(
+            list(self._map_name_to_data.keys()),
+            self.items_to_plot.get_value(),
+        )
+
     def _sync_open_window(self):
         if self._explorer_window is None or not self._explorer_window.isVisible():
             return
+        self._push_files_to_window()
+        self._explorer_window.set_data(self._selected_data(), preserve_view=True)
+
+    def _on_explorer_file_changed(self, label):
+        # set_value does not emit activated, so this does not rerun the pipeline.
+        self.items_to_plot.set_value(label)
+        if self._explorer_window is None:
+            return
+        self._explorer_window.set_data(self._selected_data())
+
+    def _on_node_file_changed(self):
+        if self._explorer_window is None or not self._explorer_window.isVisible():
+            return
+        self._push_files_to_window()
         self._explorer_window.set_data(self._selected_data(), preserve_view=True)
 
     def set_theme(self, kind, colors):
@@ -1437,10 +1460,12 @@ class TimetraceExplorerNode(AbstractRecomputable):
             except Exception:
                 parent = None
             self._explorer_window = TimetraceExplorerWindow(parent=parent)
+            self._explorer_window.file_changed.connect(self._on_explorer_file_changed)
             self._explorer_window.set_theme(
                 self._theme_kind,
                 self._theme_colors,
             )
+        self._push_files_to_window()
         self._explorer_window.set_data(data)
         self._explorer_window.show()
         self._explorer_window.raise_()
