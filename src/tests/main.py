@@ -35,6 +35,7 @@ from fretGUI.custom_widgets.node_sidebar import (
 )
 from fretGUI.custom_widgets.graph_file_drop import enable_graph_file_drop
 from fretGUI.custom_widgets.graph_pan import enable_right_button_pan
+from fretGUI.custom_widgets.graph_scale import keep_graph_scale_on_resize
 from fretGUI.custom_widgets.plot_widget import (
     TemplatePlotWidget,
     install_plot_context_menu_guard,
@@ -194,10 +195,56 @@ class TestWidgets(unittest.TestCase):
         self.assertFalse(guard.eventFilter(viewer, empty_event))
         self.assertFalse(guard.eventFilter(viewer.viewport(), empty_event))
 
+    def test_window_resize_keeps_graph_scale(self):
+        graph = BaseUtils.init_graph()
+        viewer = graph.viewer()
+        keep_graph_scale_on_resize(viewer)
+        viewer.resize(800, 600)
+        viewer.show()
+        app.processEvents()
+        viewer.set_zoom(-0.4)
+        app.processEvents()
+
+        def scale():
+            return abs(viewer.transform().m11())
+
+        def corner():
+            point = viewer.mapToScene(QtCore.QPoint(0, 0))
+            return point.x(), point.y()
+
+        start_scale = scale()
+        start_corner = corner()
+        for width, height in ((820, 600), (1100, 760), (700, 500), (800, 600)):
+            viewer.resize(width, height)
+            app.processEvents()
+
+        self.assertAlmostEqual(scale(), start_scale, places=2)
+        end_corner = corner()
+        self.assertAlmostEqual(end_corner[0], start_corner[0], delta=1.5)
+        self.assertAlmostEqual(end_corner[1], start_corner[1], delta=1.5)
+
+    def test_startup_zoom_is_readable_with_stable_scale(self):
+        graph = BaseUtils.init_graph()
+        viewer = graph.viewer()
+        keep_graph_scale_on_resize(viewer)
+        window = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout(window)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(graph.widget, 0, 0)
+        window.resize(1280, 800)
+        window.show()
+        app.processEvents()
+        graph.set_zoom(-0.9)
+        app.processEvents()
+        scale = abs(viewer.transform().m11())
+        self.assertGreater(scale, 0.8)
+        self.assertLess(scale, 1.0)
+
     def test_right_drag_pans_and_click_does_not(self):
         graph = BaseUtils.init_graph()
         viewer = graph.viewer()
         enable_right_button_pan(viewer)
+        keep_graph_scale_on_resize(viewer)
         graph.widget.resize(900, 700)
         graph.widget.show()
         app.processEvents()
@@ -261,6 +308,15 @@ class TestWidgets(unittest.TestCase):
         )
         self.assertNotEqual(center(), before_click)
         self.assertTrue(viewer._rmb_pan)
+        panned = center()
+        viewer.resize(960, 740)
+        app.processEvents()
+        self.assertNotEqual(center(), before_click)
+        moved = (
+            abs(center()[0] - panned[0]),
+            abs(center()[1] - panned[1]),
+        )
+        self.assertLess(max(moved), 80)
 
         menu_event = QtGui.QContextMenuEvent(
             QtGui.QContextMenuEvent.Mouse,

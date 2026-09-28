@@ -17,6 +17,7 @@ from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
 from fretGUI.custom_widgets.node_sidebar import NodeSidebar
 from fretGUI.custom_widgets.graph_file_drop import enable_graph_file_drop
 from fretGUI.custom_widgets.graph_pan import enable_right_button_pan
+from fretGUI.custom_widgets.graph_scale import keep_graph_scale_on_resize
 from fretGUI.custom_widgets.plot_widget import (
     install_plot_context_menu_guard,
     set_matplotlib_theme,
@@ -350,6 +351,7 @@ def main():
     graph = NodeGraph()
     install_plot_context_menu_guard(graph.viewer())
     enable_right_button_pan(graph.viewer())
+    keep_graph_scale_on_resize(graph.viewer())
     enable_graph_file_drop(graph)
     
     graph_widget = graph.widget
