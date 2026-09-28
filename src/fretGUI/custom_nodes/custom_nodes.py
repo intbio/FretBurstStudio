@@ -477,15 +477,17 @@ class JoinDataNode(AbstractRecomputable):
 
     def _on_run_completed(self, run_id):
         with self._lock:
-            arrived = self._buffers.pop(run_id, {})
-        if not arrived:
-            return
+            if run_id not in self._buffers:
+                return
+            arrived = self._buffers.pop(run_id)
         ordered = sorted(
             arrived.values(),
             key=lambda item: (getattr(item, 'source_order', 0), item.id),
         )
+        # An empty loader run still completes. Drop the previous rows so the
+        # list does not keep a measurement the pipeline no longer has.
         self._replace_inputs(ordered)
-        if RunCoordinator().is_busy:
+        if not ordered or RunCoordinator().is_busy:
             return
         self._join_checked()
 

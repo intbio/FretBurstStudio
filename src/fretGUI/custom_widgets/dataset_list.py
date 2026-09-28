@@ -9,7 +9,6 @@ from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 LABEL_WIDTH = 176
 ROW_HEIGHT = 32
 EMPTY_HEIGHT = 28
-LIST_WIDTH = 280
 
 
 def measurement_list_for(widget):
@@ -20,6 +19,28 @@ def measurement_list_for(widget):
             return current
         current = current.parentWidget()
     return None
+
+
+def _graphics_proxy(widget):
+    """Proxy that embeds this widget. Child widgets do not store it themselves."""
+    current = widget
+    while current is not None:
+        proxy = current.graphicsProxyWidget()
+        if proxy is not None:
+            return proxy
+        current = current.parentWidget()
+    return None
+
+
+def measurement_row_width():
+    """Packed row width, so the node matches a loader instead of stretching."""
+    cached = getattr(measurement_row_width, 'cached', None)
+    if cached is None:
+        probe = _DatasetRow(0, '', '#888888', '')
+        cached = probe.sizeHint().width()
+        probe.deleteLater()
+        measurement_row_width.cached = cached
+    return cached
 
 
 class _DragHandle(QtWidgets.QWidget):
@@ -151,7 +172,6 @@ class DatasetListWidget(QtWidgets.QWidget):
         self._row_dragged = False
         self._drag_preview = None
         self._drag_row = None
-        self._applied_list_height = EMPTY_HEIGHT
 
         self._placeholder = QtWidgets.QLabel('Run to list measurements')
         self._placeholder.setAlignment(QtCore.Qt.AlignCenter)
@@ -162,8 +182,7 @@ class DatasetListWidget(QtWidgets.QWidget):
         self._layout.setSpacing(0)
         self._layout.setAlignment(QtCore.Qt.AlignTop)
         self._layout.addWidget(self._placeholder)
-        self.setMinimumWidth(LIST_WIDTH)
-        self.setFixedHeight(EMPTY_HEIGHT)
+        self.setFixedSize(self.sizeHint())
 
     def sync(self, items):
         """Keep current order, append new keys, and drop keys that disappeared."""
@@ -246,7 +265,7 @@ class DatasetListWidget(QtWidgets.QWidget):
             height = EMPTY_HEIGHT
         else:
             height = len(self._rows) * ROW_HEIGHT
-        return QtCore.QSize(LIST_WIDTH, height)
+        return QtCore.QSize(measurement_row_width(), height)
 
     def _append_row(self, item):
         row = _DatasetRow(
@@ -298,35 +317,34 @@ class DatasetListWidget(QtWidgets.QWidget):
 
     def _apply_node_size(self):
         hint = self.sizeHint()
-        previous_list_height = self._applied_list_height
-        self._applied_list_height = hint.height()
-        self.setFixedHeight(hint.height())
+        self.setFixedSize(hint)
         self.updateGeometry()
 
-        proxy = self.graphicsProxyWidget()
+        proxy = _graphics_proxy(self)
         if proxy is not None and proxy.widget() is not None:
             container = proxy.widget()
+            layout = container.layout()
+            if layout is not None:
+                layout.activate()
             container.updateGeometry()
             container_hint = container.sizeHint()
+            # The proxy grows with its size hint on its own, and keeps that
+            # size after rows are removed. Resize it explicitly so the node
+            # can shrink as well as grow.
+            proxy.setMinimumSize(0, 0)
             proxy.resize(
                 max(container_hint.width(), hint.width()),
                 max(container_hint.height(), hint.height()),
             )
 
         view = self._node_view
-        if view is None or not hasattr(view, '_height'):
+        if view is None or not hasattr(view, 'draw_node'):
             return
-        before = view._height
-        if hasattr(view, 'draw_node'):
-            view.draw_node()
-        delta = hint.height() - previous_list_height
-        if delta > 0 and view._height <= before:
-            view.prepareGeometryChange()
-            view._height = before + delta
-            view.update()
-            scene = view.scene()
-            if scene is not None:
-                scene.update()
+        view.prepareGeometryChange()
+        view.draw_node()
+        scene = view.scene()
+        if scene is not None:
+            scene.update()
 
     def _show_drag_preview(self, row_widget, local_y):
         if self._drag_preview is None or self._drag_row is not row_widget:

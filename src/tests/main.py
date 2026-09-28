@@ -1392,21 +1392,30 @@ class TestWidgets(unittest.TestCase):
         graph = BaseUtils.init_graph()
         node = graph.create_node('Loaders.JoinDataNode')
         before = node.view._height
-        node.dataset_list.sync([
-            {
-                'key': 1,
-                'label': 'L2-dCas-NS_1to500.001-extra-long-measurement-name',
-                'color': '#3366cc',
-                'tooltip': r'C:\data\L2-dCas-NS_1to500.001',
-            },
-            {
-                'key': 2,
-                'label': 'L2-dCas-NS_1to500.002',
-                'color': '#ff8800',
-                'tooltip': r'C:\data\L2-dCas-NS_1to500.002',
-            },
-        ])
-        self.assertGreater(node.view._height, before)
+        first = {
+            'key': 1,
+            'label': 'L2-dCas-NS_1to500.001-extra-long-measurement-name',
+            'color': '#3366cc',
+            'tooltip': r'C:\data\L2-dCas-NS_1to500.001',
+        }
+        second = {
+            'key': 2,
+            'label': 'L2-dCas-NS_1to500.002',
+            'color': '#ff8800',
+            'tooltip': r'C:\data\L2-dCas-NS_1to500.002',
+        }
+        node.dataset_list.sync([first])
+        one_row = node.view._height
+        node.dataset_list.sync([first, second])
+        two_rows = node.view._height
+        self.assertGreater(one_row, before)
+        self.assertGreaterEqual(two_rows - one_row, 30)
+        node.dataset_list.sync([first])
+        self.assertEqual(node.view._height, one_row)
+        node.dataset_list.sync([])
+        self.assertEqual(node.view._height, before)
+        node.dataset_list.sync([first, second])
+        self.assertEqual(node.view._height, two_rows)
         row = node.dataset_list._rows[1]
         self.assertIs(measurement_list_for(row), node.dataset_list)
         self.assertEqual(
@@ -1415,6 +1424,43 @@ class TestWidgets(unittest.TestCase):
         )
         self.assertTrue(row._label.text().endswith('\u2026'))
         self.assertIn(r'C:\data\L2-dCas-NS_1to500.001', row._label.toolTip())
+
+        loader = graph.create_node('Loaders.PhHDF5Node')
+        join = graph.create_node('Loaders.MergePhotonsNode')
+        self.assertAlmostEqual(join.view._width, loader.view._width, delta=8)
+        join.dataset_list.sync([
+            {
+                'key': 1,
+                'label': 'a-very-long-measurement-name.h5',
+                'color': '#3366cc',
+                'tooltip': r'C:\data\long.h5',
+            },
+        ])
+        self.assertAlmostEqual(join.view._width, loader.view._width, delta=8)
+
+    def test_join_clears_rows_when_the_run_has_no_measurements(self):
+        RunCoordinator().reset_for_tests()
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.MergePhotonsNode')
+        item = FBSData(
+            data=SimpleNamespace(name='Alpha'),
+            path='alpha.hdf5',
+        )
+        item.display_name = 'Alpha'
+        item.run_id = 1
+        node._on_run_started(1)
+        node.execute(item)
+        node._on_run_completed(1)
+        self.assertEqual(node.dataset_list.labels(), ['Alpha'])
+
+        node._on_run_completed(99)
+        self.assertEqual(node.dataset_list.labels(), ['Alpha'])
+
+        node._on_run_started(2)
+        node.execute(None)
+        node._on_run_completed(2)
+        self.assertEqual(node.dataset_list.keys(), [])
+        self.assertEqual(node._by_key, {})
 
     def test_join_and_export_stay_on_auto_run(self):
         from fretGUI.singletons import ThreadSignalManager
