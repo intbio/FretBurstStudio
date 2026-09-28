@@ -15,6 +15,8 @@ from fretGUI.singletons import (
 )
 from fretGUI.custom_widgets.progressbar_widget import ProgressBar2
 from fretGUI.custom_widgets.node_sidebar import NodeSidebar
+from fretGUI.custom_widgets.graph_file_drop import enable_graph_file_drop
+from fretGUI.custom_widgets.graph_pan import enable_right_button_pan
 from fretGUI.custom_widgets.plot_widget import (
     install_plot_context_menu_guard,
     set_matplotlib_theme,
@@ -347,6 +349,8 @@ def main():
     # create graph controller.
     graph = NodeGraph()
     install_plot_context_menu_guard(graph.viewer())
+    enable_right_button_pan(graph.viewer())
+    enable_graph_file_drop(graph)
     
     graph_widget = graph.widget
     app_window = QtWidgets.QMainWindow()
@@ -422,7 +426,10 @@ def main():
         [
              
             custom_nodes.LSM510Node,    
-            custom_nodes.PhHDF5Node,  
+            custom_nodes.PhHDF5Node,
+            custom_nodes.JoinDataNode,
+            custom_nodes.MergePhotonsNode,
+            custom_nodes.ExportPhotonHdf5Node,
 
             
             custom_nodes.CalcBGNode,

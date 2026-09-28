@@ -33,6 +33,8 @@ from fretGUI.custom_widgets.node_sidebar import (
     NODE_TYPE_ROLE,
     NodeSidebar,
 )
+from fretGUI.custom_widgets.graph_file_drop import enable_graph_file_drop
+from fretGUI.custom_widgets.graph_pan import enable_right_button_pan
 from fretGUI.custom_widgets.plot_widget import (
     TemplatePlotWidget,
     install_plot_context_menu_guard,
@@ -43,7 +45,7 @@ from fretGUI.custom_widgets.sliders import (
     ComboBoxWidget,
     qcolor_from_item_data,
 )
-from fretGUI.main import THEME_COLORS, build_theme_palette
+from fretGUI.main import THEME_COLORS, build_theme_palette, build_theme_stylesheet
 
 from PySide6.QtTest import QSignalSpy
 
@@ -64,7 +66,10 @@ class BaseUtils():
         graph.register_nodes(
                 [
                     custom_nodes.LSM510Node,    
-                    custom_nodes.PhHDF5Node,  
+                    custom_nodes.PhHDF5Node,
+                    custom_nodes.JoinDataNode,
+                    custom_nodes.MergePhotonsNode,
+                    custom_nodes.ExportPhotonHdf5Node,
                     custom_nodes.CalcBGNode,
                     custom_nodes.CorrectionsNode,
                     custom_nodes.BurstSearchNodeFromBG,
@@ -189,6 +194,211 @@ class TestWidgets(unittest.TestCase):
         self.assertFalse(guard.eventFilter(viewer, empty_event))
         self.assertFalse(guard.eventFilter(viewer.viewport(), empty_event))
 
+    def test_right_drag_pans_and_click_does_not(self):
+        graph = BaseUtils.init_graph()
+        viewer = graph.viewer()
+        enable_right_button_pan(viewer)
+        graph.widget.resize(900, 700)
+        graph.widget.show()
+        app.processEvents()
+
+        def center():
+            point = viewer._scene_range.center()
+            return (point.x(), point.y())
+
+        def send(event_type, pos, button, buttons):
+            viewport = viewer.viewport()
+            local = QtCore.QPointF(pos)
+            global_pos = QtCore.QPointF(viewport.mapToGlobal(pos))
+            event = QtGui.QMouseEvent(
+                event_type,
+                local,
+                global_pos,
+                button,
+                buttons,
+                QtCore.Qt.NoModifier,
+            )
+            QtWidgets.QApplication.sendEvent(viewport, event)
+
+        start = QtCore.QPoint(80, 80)
+        before_click = center()
+        send(
+            QtCore.QEvent.MouseButtonPress,
+            start,
+            QtCore.Qt.RightButton,
+            QtCore.Qt.RightButton,
+        )
+        send(
+            QtCore.QEvent.MouseButtonRelease,
+            start,
+            QtCore.Qt.RightButton,
+            QtCore.Qt.NoButton,
+        )
+        app.processEvents()
+        self.assertEqual(center(), before_click)
+        self.assertFalse(viewer._rmb_pan)
+
+        send(
+            QtCore.QEvent.MouseButtonPress,
+            start,
+            QtCore.Qt.RightButton,
+            QtCore.Qt.RightButton,
+        )
+        send(
+            QtCore.QEvent.MouseMove,
+            start + QtCore.QPoint(4, 0),
+            QtCore.Qt.NoButton,
+            QtCore.Qt.RightButton,
+        )
+        self.assertEqual(center(), before_click)
+
+        dragged = start + QtCore.QPoint(80, 30)
+        send(
+            QtCore.QEvent.MouseMove,
+            dragged,
+            QtCore.Qt.NoButton,
+            QtCore.Qt.RightButton,
+        )
+        self.assertNotEqual(center(), before_click)
+        self.assertTrue(viewer._rmb_pan)
+
+        menu_event = QtGui.QContextMenuEvent(
+            QtGui.QContextMenuEvent.Mouse,
+            dragged,
+            viewer.viewport().mapToGlobal(dragged),
+        )
+        self.assertTrue(
+            viewer._right_button_pan.eventFilter(viewer, menu_event)
+        )
+        self.assertFalse(viewer._rmb_pan)
+
+    def test_right_drag_on_active_plot_tool_does_not_pan_graph(self):
+        graph = BaseUtils.init_graph()
+        viewer = graph.viewer()
+        enable_right_button_pan(viewer)
+        node = graph.create_node('Plot.EHistPlotterNode')
+        graph.widget.resize(900, 700)
+        graph.widget.show()
+        app.processEvents()
+
+        plot = node.get_widget('plot_widget').get_custom_widget()
+        plot.toolbar.mode = 'zoom rect'
+        plot_center = viewer.mapFromScene(
+            node.get_widget('plot_widget').sceneBoundingRect().center()
+        )
+
+        def center():
+            point = viewer._scene_range.center()
+            return (point.x(), point.y())
+
+        def send(event_type, pos, button, buttons):
+            viewport = viewer.viewport()
+            event = QtGui.QMouseEvent(
+                event_type,
+                QtCore.QPointF(pos),
+                QtCore.QPointF(viewport.mapToGlobal(pos)),
+                button,
+                buttons,
+                QtCore.Qt.NoModifier,
+            )
+            QtWidgets.QApplication.sendEvent(viewport, event)
+
+        before = center()
+        send(
+            QtCore.QEvent.MouseButtonPress,
+            plot_center,
+            QtCore.Qt.RightButton,
+            QtCore.Qt.RightButton,
+        )
+        send(
+            QtCore.QEvent.MouseMove,
+            plot_center + QtCore.QPoint(80, 40),
+            QtCore.Qt.NoButton,
+            QtCore.Qt.RightButton,
+        )
+        self.assertEqual(center(), before)
+        self.assertFalse(viewer._rmb_pan)
+        self.assertTrue(viewer._rmb_plot_tool)
+
+    def test_file_drop_highlights_loader_and_rejects_other_files(self):
+        graph = BaseUtils.init_graph()
+        viewer = graph.viewer()
+        enable_graph_file_drop(graph)
+        graph.widget.resize(900, 700)
+        graph.widget.show()
+        hdf = graph.create_node('Loaders.PhHDF5Node')
+        raw = graph.create_node('Loaders.LSM510Node')
+        hdf.set_pos(80, 80)
+        raw.set_pos(520, 80)
+        app.processEvents()
+
+        def view_pos(node):
+            return viewer.mapFromScene(node.view.sceneBoundingRect().center())
+
+        empty = QtCore.QPoint(20, 20)
+
+        def drag(kind, pos, filename):
+            mime = QtCore.QMimeData()
+            mime.setUrls([QtCore.QUrl.fromLocalFile(filename)])
+            event = kind(
+                QtCore.QPoint(pos),
+                QtCore.Qt.CopyAction,
+                mime,
+                QtCore.Qt.LeftButton,
+                QtCore.Qt.NoModifier,
+            )
+            return viewer._graph_file_drop.eventFilter(viewer, event), event
+
+        hdf_pos = view_pos(hdf)
+        raw_pos = view_pos(raw)
+
+        handled, entered = drag(QtGui.QDragEnterEvent, empty, r'C:\data\trace.h5')
+        self.assertTrue(handled)
+        self.assertTrue(entered.isAccepted())
+
+        handled, over_hdf = drag(QtGui.QDragMoveEvent, hdf_pos, r'C:\data\trace.h5')
+        self.assertTrue(handled)
+        self.assertTrue(over_hdf.isAccepted())
+        self.assertTrue(hdf.view._file_drop_highlight.isVisible())
+
+        handled, over_empty = drag(QtGui.QDragMoveEvent, empty, r'C:\data\trace.h5')
+        self.assertTrue(handled)
+        self.assertFalse(over_empty.isAccepted())
+        self.assertFalse(hdf.view._file_drop_highlight.isVisible())
+
+        handled, over_json = drag(QtGui.QDragMoveEvent, empty, r'C:\data\session.json')
+        self.assertFalse(handled)
+
+        handled, rejected = drag(QtGui.QDragMoveEvent, hdf_pos, r'C:\data\notes.txt')
+        self.assertTrue(handled)
+        self.assertFalse(rejected.isAccepted())
+        self.assertFalse(hdf.view._file_drop_highlight.isVisible())
+
+        handled, over_raw = drag(QtGui.QDragMoveEvent, raw_pos, r'C:\data\measurement.raw')
+        self.assertTrue(handled)
+        self.assertTrue(over_raw.isAccepted())
+        self.assertTrue(raw.view._file_drop_highlight.isVisible())
+        self.assertFalse(hdf.view._file_drop_highlight.isVisible())
+
+        handled, dropped = drag(QtGui.QDropEvent, raw_pos, r'C:\data\measurement.raw')
+        self.assertTrue(handled)
+        self.assertTrue(dropped.isAccepted())
+        self.assertEqual(
+            [Path(path) for path in raw.file_widget.path_widget.get_paths()],
+            [Path(r'C:\data\measurement.raw')],
+        )
+        self.assertFalse(raw.view._file_drop_highlight.isVisible())
+
+        imported = []
+        handler = viewer._graph_file_drop
+        handler._original_drop = lambda *args: imported.append(args)
+        handler._last_drop = None
+        stray = QtCore.QMimeData()
+        stray.setUrls([QtCore.QUrl.fromLocalFile(r'C:\data\trace.h5')])
+        handler.on_viewer_data_dropped(stray, QtCore.QPoint(-1000, -1000))
+        self.assertEqual(imported, [])
+        self.assertEqual(hdf.file_widget.path_widget.get_paths(), [])
+
     def test_timetrace_explorer_is_compact_recomputable_node(self):
         graph = BaseUtils.init_graph()
         graph.register_node(custom_nodes.TimetraceExplorerNode)
@@ -287,6 +497,10 @@ class TestWidgets(unittest.TestCase):
             NodeSidebar.MAX_WIDGET_SIZE,
         )
         self.assertEqual(sidebar.node_tree.indentation(), 6)
+        self.assertEqual(
+            sidebar.node_tree.verticalScrollMode(),
+            QtWidgets.QAbstractItemView.ScrollPerPixel,
+        )
         self.assertFalse(sidebar.node_tree.rootIsDecorated())
         self.assertEqual(
             sidebar.node_tree.selectionMode(),
@@ -299,6 +513,7 @@ class TestWidgets(unittest.TestCase):
             for index in range(sidebar.node_tree.topLevelItemCount())
         }
         self.assertIn('Loaders', categories)
+        self.assertEqual(categories['Loaders'].text(0), 'Data')
         self.assertIn('Analysis', categories)
         self.assertIn('Selectors', categories)
         self.assertIn('Plot', categories)
@@ -401,7 +616,7 @@ class TestWidgets(unittest.TestCase):
         path_widget = node.file_widget.path_widget
         path_widget.process_files(['/tmp/deleted-file.h5'])
 
-        path_id, _, _, _ = path_widget.get_file_entries()[0]
+        path_id = path_widget.get_file_entries()[0][0]
         row_widget = path_widget.rowwidget_map[path_id]
         self.assertEqual(row_widget.del_button.size(), QtCore.QSize(25, 25))
         row_widget.on_button_click()
@@ -420,7 +635,7 @@ class TestWidgets(unittest.TestCase):
         path_widget = node.file_widget.path_widget
         path_widget.process_files(['/tmp/color-file.h5'])
 
-        path_id, _, _, initial_color = path_widget.get_file_entries()[0]
+        path_id, _, _, initial_color, _display_name = path_widget.get_file_entries()[0]
         color_cycle = matplotlib.rcParams[
             'axes.prop_cycle'
         ].by_key()['color']
@@ -435,6 +650,34 @@ class TestWidgets(unittest.TestCase):
         self.assertEqual(
             path_widget.get_file_entries()[0][3],
             '#12ab34',
+        )
+        self.assertEqual(row_widget.id_label.text(), '')
+
+    def test_file_row_drag_changes_listed_order(self):
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.PhHDF5Node')
+        path_widget = node.file_widget.path_widget
+        path_widget.process_files([
+            '/tmp/first.h5',
+            '/tmp/second.h5',
+            '/tmp/third.h5',
+        ])
+        app.processEvents()
+        rows = path_widget._ordered_rows()
+        self.assertEqual(
+            [row.get_text() for row in rows],
+            ['/tmp/first.h5', '/tmp/second.h5', '/tmp/third.h5'],
+        )
+        third = rows[2]
+        target_y = rows[0].geometry().center().y()
+        path_widget.move_row_to_pointer(
+            third,
+            path_widget.mapToGlobal(QtCore.QPoint(10, target_y)),
+        )
+        path_widget.finish_row_drag()
+        self.assertEqual(
+            path_widget.get_paths(),
+            ['/tmp/third.h5', '/tmp/first.h5', '/tmp/second.h5'],
         )
 
     def test_fbsdata_copy_preserves_file_color(self):
@@ -770,6 +1013,37 @@ class TestWidgets(unittest.TestCase):
         keep_view.setChecked(True)
         self.assertEqual(spy.count(), 1)
 
+    def test_matplotlib_zoom_button_shows_when_checked(self):
+        previous_sheet = app.styleSheet()
+        app.setStyleSheet(build_theme_stylesheet('light'))
+        try:
+            graph = BaseUtils.init_graph()
+            plot = graph.create_node(
+                'Plot.ScatterRateDaPlotterNode'
+            ).get_widget('plot_widget').get_custom_widget()
+            toolbar = plot.toolbar
+            zoom = toolbar._actions['zoom']
+            button = toolbar.widgetForAction(zoom)
+            toolbar.resize(420, 48)
+            toolbar.show()
+            app.processEvents()
+
+            def corner_color():
+                image = button.grab().toImage()
+                return image.pixelColor(2, 2)
+
+            zoom.setChecked(False)
+            app.processEvents()
+            off = corner_color()
+            zoom.setChecked(True)
+            app.processEvents()
+            on = corner_color()
+            self.assertNotEqual(off.rgb(), on.rgb())
+            self.assertGreater(on.blue(), on.red())
+            self.assertGreater(on.blue(), 180)
+        finally:
+            app.setStyleSheet(previous_sheet)
+
     def test_dark_theme_updates_qt_controls_and_matplotlib(self):
         original_palette = app.palette()
         graph = BaseUtils.init_graph()
@@ -887,6 +1161,436 @@ class TestWidgets(unittest.TestCase):
                 self.assertEqual(view._width, old_size[0] + 20)
                 self.assertEqual(view._height, old_size[1] + 30)
                 self.assertFalse(view._resizing)
+
+    def test_join_data_uses_checked_rows_in_list_order(self):
+        from collections import deque
+
+        RunCoordinator().reset_for_tests()
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.JoinDataNode')
+        node.set_property('result_name', 'Combined', push_undo=False)
+
+        def measurement(name, order, color):
+            item = FBSData(data=SimpleNamespace(name=name), path=f'{name}.hdf5', color=color)
+            item.display_name = name
+            item.source_order = order
+            item.run_id = 7
+            return item
+
+        alpha = measurement('Alpha', 0, '#aa0000')
+        beta = measurement('Beta', 1, '#00aa00')
+        gamma = measurement('Gamma', 2, '#0000aa')
+
+        class Child:
+            def __init__(self):
+                self.received = None
+
+            def execute(self, data):
+                self.received = data
+                return []
+
+            def iter_children_nodes(self):
+                return []
+
+        child = Child()
+        calls = []
+
+        def fake_join(d_list, gap=0):
+            calls.append((list(d_list), gap))
+            return SimpleNamespace()
+
+        self.assertEqual(node.execute(gamma), [])
+        self.assertEqual(node.dataset_list.keys(), [])
+        node.execute(alpha)
+        node.execute(beta)
+
+        with patch('fretbursts.burstlib_ext.join_data', side_effect=fake_join):
+            with patch.object(node, 'iter_children_nodes', return_value=[child]):
+                node._on_run_completed(7)
+                self.assertEqual(
+                    node.dataset_list.labels(),
+                    ['Alpha', 'Beta', 'Gamma'],
+                )
+                self.assertTrue(node.dataset_list.is_checked(beta.id))
+                self.assertIn('#aa0000', node.dataset_list._rows[alpha.id]._swatch.styleSheet())
+                self.assertEqual(
+                    [item.name for item in calls[0][0]],
+                    ['Alpha', 'Beta', 'Gamma'],
+                )
+                self.assertEqual(calls[0][1], 0.0)
+
+                node.dataset_list.set_checked(beta.id, False)
+                node.dataset_list.move_key_to_index(gamma.id, 0)
+                node.gap_spinbox.set_value(1.5)
+                node._join_checked()
+
+                joined, gap = calls[-1]
+                self.assertEqual([item.name for item in joined], ['Gamma', 'Alpha'])
+                self.assertEqual(gap, 1.5)
+                self.assertEqual(
+                    node.dataset_list.keys(),
+                    [gamma.id, alpha.id, beta.id],
+                )
+                self.assertFalse(node.dataset_list.is_checked(beta.id))
+                self.assertEqual(child.received.display_name, 'Combined')
+                self.assertEqual(child.received.source_order, 0)
+
+                delta = measurement('Delta', 3, '#111111')
+                for item in (gamma, alpha, beta, delta):
+                    item.run_id = 8
+                    node.execute(item)
+                node._on_run_completed(8)
+                self.assertEqual(
+                    node.dataset_list.keys(),
+                    [gamma.id, alpha.id, beta.id, delta.id],
+                )
+                self.assertFalse(node.dataset_list.is_checked(beta.id))
+
+                alpha.run_id = 9
+                node.execute(alpha)
+                node._on_run_completed(9)
+                self.assertEqual(node.dataset_list.keys(), [alpha.id])
+
+        class Halt:
+            halt_downstream = True
+
+            def execute(self, data):
+                return []
+
+        class Recorder:
+            def __init__(self):
+                self.seen = []
+
+            def execute(self, data):
+                self.seen.append(data)
+                return [data]
+
+        recorder = Recorder()
+        context = RunContext(55)
+        worker = NodeWorker(
+            Halt(),
+            FBSData(data=object(), path='x'),
+            deque([Halt(), recorder]),
+            need_fill=False,
+            context=context,
+        )
+        worker.run()
+        self.assertEqual(recorder.seen, [])
+
+    def test_merge_photons_concatenates_checked_streams_in_order(self):
+        import fretbursts
+
+        from fretGUI.photon_merge import PhotonMergeError, merge_smfret_streams
+
+        RunCoordinator().reset_for_tests()
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.MergePhotonsNode')
+        node.set_property('result_name', 'Combined', push_undo=False)
+        self.assertEqual(node.input_ports()[0].color[:3], (255, 0, 0))
+        self.assertEqual(node.output_ports()[0].color[:3], (255, 0, 0))
+
+        def stream(name, order, times, mask, clk=12.5e-9):
+            data = fretbursts.Data(
+                ph_times_m=[np.asarray(times, dtype='int64')],
+                A_em=[np.asarray(mask, dtype=bool)],
+                clk_p=clk,
+                nch=1,
+                alternated=False,
+                meas_type='smFRET',
+            )
+            item = FBSData(data, path=f'{name}.hdf5')
+            item.display_name = name
+            item.source_order = order
+            item.run_id = 3
+            return item
+
+        alpha = stream('Alpha', 0, [10, 20, 30], [False, True, False])
+        beta = stream('Beta', 1, [1, 2], [True, False])
+        gamma = stream('Gamma', 2, [5, 9], [False, True])
+
+        class Child:
+            def __init__(self):
+                self.received = None
+
+            def execute(self, data):
+                self.received = data
+                return []
+
+            def iter_children_nodes(self):
+                return []
+
+        child = Child()
+        node.execute(gamma)
+        node.execute(alpha)
+        node.execute(beta)
+        with patch.object(node, 'iter_children_nodes', return_value=[child]):
+            node._on_run_completed(3)
+            node.dataset_list.set_checked(beta.id, False)
+            node.dataset_list.move_key_to_index(gamma.id, 0)
+            node.gap_spinbox.set_value(0.1)
+            node._join_checked()
+
+        merged = child.received.data
+        self.assertIn('ph_times_m', merged)
+        self.assertEqual(child.received.display_name, 'Combined')
+        self.assertEqual(child.received.source_order, 0)
+        self.assertTrue(np.array_equal(
+            merged.ph_times_m[0],
+            np.array([5, 9, 8000010, 8000020, 8000030], dtype='int64'),
+        ))
+        self.assertTrue(np.array_equal(
+            merged.A_em[0],
+            np.array([False, True, False, True, False]),
+        ))
+
+        mismatched = graph.create_node('Loaders.MergePhotonsNode')
+        slow = stream('Slow', 0, [1, 2, 3], [False, True, False], clk=50e-9)
+        fast = stream('Fast', 1, [4, 5], [True, False], clk=12.5e-9)
+        slow.run_id = 4
+        fast.run_id = 4
+        missed = Child()
+        mismatched.execute(slow)
+        mismatched.execute(fast)
+        with patch.object(mismatched, 'iter_children_nodes', return_value=[missed]):
+            mismatched._on_run_completed(4)
+        self.assertIsNone(missed.received)
+
+        with_nano = {
+            'ph_times_m': [np.array([1, 2, 3], dtype='int64')],
+            'A_em': [np.array([False, True, False])],
+            'nanotimes': [np.array([4, 5, 6])],
+            'clk_p': 12.5e-9,
+            'nch': 1,
+            'meas_type': 'smFRET',
+        }
+        with_nano_too = {
+            'ph_times_m': [np.array([8, 9], dtype='int64')],
+            'A_em': [np.array([True, False])],
+            'nanotimes': [np.array([1, 2])],
+            'clk_p': 12.5e-9,
+            'nch': 1,
+            'meas_type': 'smFRET',
+        }
+        combined = merge_smfret_streams([with_nano, with_nano_too], gap=0)
+        self.assertTrue(np.array_equal(
+            combined.nanotimes[0],
+            np.array([4, 5, 6, 1, 2]),
+        ))
+        plain = {
+            'ph_times_m': [np.array([1, 2], dtype='int64')],
+            'A_em': [np.array([False, True])],
+            'clk_p': 12.5e-9,
+            'nch': 1,
+            'meas_type': 'smFRET',
+        }
+        with self.assertRaises(PhotonMergeError):
+            merge_smfret_streams([with_nano, plain], gap=0)
+
+    def test_measurement_list_grows_and_drag_targets_the_list(self):
+        from fretGUI.custom_widgets.dataset_list import measurement_list_for
+
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.JoinDataNode')
+        before = node.view._height
+        node.dataset_list.sync([
+            {
+                'key': 1,
+                'label': 'L2-dCas-NS_1to500.001-extra-long-measurement-name',
+                'color': '#3366cc',
+                'tooltip': r'C:\data\L2-dCas-NS_1to500.001',
+            },
+            {
+                'key': 2,
+                'label': 'L2-dCas-NS_1to500.002',
+                'color': '#ff8800',
+                'tooltip': r'C:\data\L2-dCas-NS_1to500.002',
+            },
+        ])
+        self.assertGreater(node.view._height, before)
+        row = node.dataset_list._rows[1]
+        self.assertIs(measurement_list_for(row), node.dataset_list)
+        self.assertEqual(
+            row.label(),
+            'L2-dCas-NS_1to500.001-extra-long-measurement-name',
+        )
+        self.assertTrue(row._label.text().endswith('\u2026'))
+        self.assertIn(r'C:\data\L2-dCas-NS_1to500.001', row._label.toolTip())
+
+    def test_join_and_export_stay_on_auto_run(self):
+        from fretGUI.singletons import ThreadSignalManager
+
+        graph = BaseUtils.init_graph()
+        join = graph.create_node('Loaders.MergePhotonsNode')
+        export = graph.create_node('Loaders.ExportPhotonHdf5Node')
+        join.unwire_wrappers()
+        export.unwire_wrappers()
+        spy = QSignalSpy(ThreadSignalManager().run_btn_clicked)
+
+        join.dataset_widget.debounced_signal.emit()
+        export.export_panel.debounced_signal.emit()
+        join.get_widget('result_name').on_value_changed()
+
+        self.assertGreaterEqual(spy.count(), 3)
+        self.assertTrue(join.event_debouncer.isactive)
+        self.assertTrue(export.event_debouncer.isactive)
+
+    def test_export_file_name_uses_display_name(self):
+        import os
+        import tempfile
+
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.ExportPhotonHdf5Node')
+        renamed = FBSData(data={}, path=r'C:\data\original.h5')
+        renamed.display_name = 'renamed'
+        untouched = FBSData(data={}, path=r'C:\data\original.h5')
+        node._datasets = [renamed, untouched]
+
+        with tempfile.TemporaryDirectory() as folder:
+            node.export_panel.set_value(folder)
+            with patch(
+                'fretGUI.photon_hdf5_export.data_dict_from_fretbursts',
+                return_value={'description': 'x'},
+            ):
+                with patch('phconvert.hdf5.save_photon_hdf5') as save:
+                    def remember_busy(*_args, **_kwargs):
+                        self.assertEqual(
+                            node.export_panel.folder_widget.status.text(),
+                            'Exporting…',
+                        )
+                        self.assertFalse(
+                            node.export_panel.folder_widget.export_button.isEnabled()
+                        )
+
+                    save.side_effect = remember_busy
+                    node.export_datasets()
+
+        names = [
+            os.path.basename(call.kwargs['h5_fname'])
+            for call in save.call_args_list
+        ]
+        self.assertEqual(names, ['renamed.hdf5', 'original.hdf5'])
+        self.assertEqual(
+            node.export_panel.folder_widget.status.text(),
+            'Finished. Wrote 2 files.',
+        )
+        self.assertTrue(node.export_panel.folder_widget.export_button.isEnabled())
+
+    def test_photon_hdf5_export_matches_measurement_kind(self):
+        import os
+        import tempfile
+
+        import tables
+
+        from fretGUI.photon_hdf5_export import (
+            PhotonHdf5ExportError,
+            data_dict_from_fretbursts,
+        )
+        import phconvert.hdf5 as photon_hdf5
+
+        with self.assertRaises(PhotonHdf5ExportError):
+            data_dict_from_fretbursts({'nch': 1, 'meas_type': 'smFRET'})
+
+        smfret = {
+            'ph_times_m': [np.array([10, 20, 30, 40], dtype='int64')],
+            'A_em': [np.array([False, True, False, True])],
+            'clk_p': 12.5e-9,
+            'nch': 1,
+            'meas_type': 'smFRET',
+            'description': 'single spot',
+            'setup': {'excitation_wavelengths': np.array([532e-9])},
+            'sample': {'buffer_name': 'TE'},
+        }
+        usalex = {
+            'ph_times_t': [np.arange(8, dtype='int64')],
+            'det_t': [np.array([0, 1, 0, 1, 0, 1, 0, 1], dtype='uint8')],
+            'clk_p': 12.5e-9,
+            'nch': 1,
+            'ALEX': True,
+            'meas_type': 'smFRET-usALEX',
+            'alex_period': 4000,
+            'offset': 700,
+            'D_ON': (2850, 580),
+            'A_ON': (900, 2580),
+            'det_donor_accept': [(np.array([0]), np.array([1]))],
+        }
+        pax = dict(usalex)
+        pax['meas_type'] = 'PAX'
+        pax['ALEX'] = True
+        nsalex = {
+            'ph_times_m': [np.arange(8, dtype='int64')],
+            'A_em': [np.array([False, True, False, True, False, True, False, True])],
+            'nanotimes': [np.array([10, 100, 20, 200, 30, 300, 40, 400], dtype='int64')],
+            'clk_p': 12.5e-9,
+            'nch': 1,
+            'ALEX': True,
+            'lifetime': True,
+            'meas_type': 'smFRET-nsALEX',
+            'laser_repetition_rate': 8e7,
+            'D_ON': (10, 1500),
+            'A_ON': (2000, 3500),
+            'nanotimes_params': [{
+                'tcspc_unit': 1e-12,
+                'tcspc_num_bins': 4096,
+            }],
+        }
+
+        smfret_dict = data_dict_from_fretbursts(smfret)
+        usalex_dict = data_dict_from_fretbursts(usalex)
+        pax_dict = data_dict_from_fretbursts(pax)
+        nsalex_dict = data_dict_from_fretbursts(nsalex)
+        self.assertEqual(
+            smfret_dict['photon_data']['measurement_specs']['measurement_type'],
+            'smFRET',
+        )
+        self.assertEqual(
+            float(smfret_dict['setup']['excitation_wavelengths'][0]),
+            532e-9,
+        )
+        self.assertEqual(smfret_dict['sample']['buffer_name'], 'TE')
+        self.assertEqual(
+            usalex_dict['photon_data']['measurement_specs']['measurement_type'],
+            'smFRET-usALEX',
+        )
+        self.assertEqual(
+            nsalex_dict['photon_data']['measurement_specs']['measurement_type'],
+            'smFRET-nsALEX',
+        )
+        self.assertIn('nanotimes', nsalex_dict['photon_data'])
+        self.assertEqual(pax_dict['photon_data']['measurement_specs']['measurement_type'], 'generic')
+        self.assertEqual(
+            tuple(bool(value) for value in pax_dict['setup']['excitation_alternated']),
+            (False, True),
+        )
+
+        spots = dict(smfret)
+        spots['nch'] = 2
+        spots['ph_times_m'] = [
+            np.array([1, 2, 3], dtype='int64'),
+            np.array([4, 5, 6], dtype='int64'),
+        ]
+        spots['A_em'] = [
+            np.array([False, True, False]),
+            np.array([True, False, True]),
+        ]
+        multi = data_dict_from_fretbursts(spots)
+        self.assertIn('photon_data0', multi)
+        self.assertIn('photon_data1', multi)
+        self.assertEqual(multi['setup']['num_spots'], 2)
+
+        with tempfile.TemporaryDirectory() as folder:
+            for name, payload in (
+                ('smfret.hdf5', smfret_dict),
+                ('usalex.hdf5', usalex_dict),
+                ('pax.hdf5', pax_dict),
+                ('nsalex.hdf5', nsalex_dict),
+            ):
+                path = os.path.join(folder, name)
+                photon_hdf5.save_photon_hdf5(payload, h5_fname=path, overwrite=True)
+                with tables.open_file(path) as handle:
+                    stored = handle.root.photon_data.measurement_specs.measurement_type.read()
+                if isinstance(stored, bytes):
+                    stored = stored.decode()
+                self.assertEqual(stored, payload['photon_data']['measurement_specs']['measurement_type'])
     
         
         

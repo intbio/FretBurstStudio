@@ -79,7 +79,14 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self.toolbar.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.toolbar.setAutoFillBackground(False)
         self.toolbar.setStyleSheet(
-            'QToolBar { background: transparent; border: 0; }'
+            """
+            QToolBar { background: transparent; border: 0; }
+            QToolBar QToolButton:checked {
+                background-color: #2f6fed;
+                border: 1px solid #1d4ed8;
+                border-radius: 3px;
+            }
+            """
         )
         # Keep Matplotlib's toolbar independent from the application theme.
         # Its source icons are black and remain clear over both node colors.
@@ -458,24 +465,49 @@ def plot_widget_under(global_pos):
     return _is_plot_widget(QtWidgets.QApplication.widgetAt(global_pos))
 
 
-def plot_area_at(viewer, view_pos):
-    """Return True when a graph view position is over a matplotlib plot widget."""
+def _plot_widget_from(widget):
+    while widget is not None:
+        if isinstance(widget, TemplatePlotWidget):
+            return widget
+        widget = widget.parentWidget()
+    return None
+
+
+def plot_widget_at(viewer, view_pos):
+    """Return the matplotlib plot under a graph view position, if any."""
     viewport = viewer.viewport()
-    global_pos = viewport.mapToGlobal(view_pos)
-    if plot_widget_under(global_pos):
-        return True
+    widget = _plot_widget_from(
+        QtWidgets.QApplication.widgetAt(viewport.mapToGlobal(view_pos))
+    )
+    if widget is not None:
+        return widget
 
     scene_pos = viewer.mapToScene(view_pos)
     for item in viewer.scene().items(scene_pos):
         if not isinstance(item, QtWidgets.QGraphicsProxyWidget):
             continue
-        widget = item.widget()
-        if widget is None:
+        root = item.widget()
+        if root is None:
             continue
         local_pos = item.mapFromScene(scene_pos).toPoint()
-        if _is_plot_widget(widget.childAt(local_pos)) or _is_plot_widget(widget):
-            return True
-    return False
+        child = root.childAt(local_pos)
+        widget = _plot_widget_from(child if child is not None else root)
+        if widget is not None:
+            return widget
+    return None
+
+
+def plot_area_at(viewer, view_pos):
+    """Return True when a graph view position is over a matplotlib plot widget."""
+    return plot_widget_at(viewer, view_pos) is not None
+
+
+def matplotlib_tool_active_at(viewer, view_pos):
+    """True when Matplotlib's zoom or pan tool is active under this position."""
+    plot = plot_widget_at(viewer, view_pos)
+    if plot is None:
+        return False
+    return bool(getattr(plot.toolbar, 'mode', ''))
 
 
 class PlotContextMenuGuard(QtCore.QObject):

@@ -192,6 +192,21 @@ class AbstractRecomputable(AbstractExecutable):
         print("TRIGGERED", type(self))
         ThreadSignalManager().run_btn_clicked.emit()
 
+    def enable_locked_auto_run(self):
+        """Run when this node's controls or connections change, even if Auto Run is off."""
+        import warnings
+
+        self.event_debouncer.connect(self.on_connection)
+        for widget_wrapper in self.widget_wrappers:
+            signal = widget_wrapper.debounced_signal
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                try:
+                    signal.disconnect(self.on_widget_triggered)
+                except (TypeError, RuntimeError):
+                    pass
+            signal.connect(self.on_widget_triggered)
+
 
 
 class ResizableContentNode(AbstractRecomputable):

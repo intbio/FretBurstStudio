@@ -101,6 +101,8 @@ class NodeWorker(AbstractNodeWorker):
             else:
                 if self.context.obsolete:
                     break
+                if getattr(cur_node, 'halt_downstream', False):
+                    break
                 for i, cur_data in enumerate(data_container):
                     
                     if cur_data is None:

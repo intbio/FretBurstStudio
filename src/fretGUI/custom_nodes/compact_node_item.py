@@ -1,3 +1,4 @@
+from Qt import QtCore, QtGui, QtWidgets
 from NodeGraphQt.qgraphics.node_base import NodeItem
 
 
@@ -15,6 +16,23 @@ class CompactNodeItem(NodeItem):
         description = getattr(self, '_description_tooltip', '')
         if description:
             self.setToolTip(description)
+
+    def set_file_drop_target(self, active):
+        """Show or hide the highlight used while files are dragged over this node."""
+        highlight = getattr(self, '_file_drop_highlight', None)
+        if highlight is None:
+            highlight = QtWidgets.QGraphicsRectItem(self)
+            highlight.setPen(QtGui.QPen(QtGui.QColor(47, 111, 237), 3))
+            highlight.setBrush(QtGui.QColor(47, 111, 237, 40))
+            highlight.setZValue(2000)
+            highlight.setAcceptedMouseButtons(QtCore.Qt.NoButton)
+            highlight.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable, False)
+            self._file_drop_highlight = highlight
+        if active:
+            highlight.setRect(self.boundingRect().adjusted(1, 1, -1, -1))
+            highlight.show()
+        else:
+            highlight.hide()
 
     def _calc_size_horizontal(self):
         _, height = super()._calc_size_horizontal()

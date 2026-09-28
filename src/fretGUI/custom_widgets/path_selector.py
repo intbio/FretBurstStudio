@@ -32,20 +32,23 @@ class _CloseButton(QtWidgets.QPushButton):
 
         painter.setPen(QtGui.QPen(border, 1))
         painter.setBrush(background)
-        painter.drawEllipse(QtCore.QRectF(1, 1, 23, 23))
+        # QRect.center() is half a pixel off on an odd-sized button, which
+        # shifts the cross relative to the circle.
+        circle = QtCore.QRectF(self.rect()).adjusted(1.0, 1.0, -1.0, -1.0)
+        painter.drawEllipse(circle)
 
-        center = self.rect().center()
+        center = circle.center()
         pen = QtGui.QPen(palette.color(QtGui.QPalette.ButtonText), 1.7)
         pen.setCapStyle(QtCore.Qt.RoundCap)
         painter.setPen(pen)
-        offset = 4
+        offset = 4.0
         painter.drawLine(
-            center.x() - offset, center.y() - offset,
-            center.x() + offset, center.y() + offset,
+            QtCore.QPointF(center.x() - offset, center.y() - offset),
+            QtCore.QPointF(center.x() + offset, center.y() + offset),
         )
         painter.drawLine(
-            center.x() + offset, center.y() - offset,
-            center.x() - offset, center.y() + offset,
+            QtCore.QPointF(center.x() + offset, center.y() - offset),
+            QtCore.QPointF(center.x() - offset, center.y() + offset),
         )
 
 
@@ -111,10 +114,64 @@ class _ColorIdLabel(QtWidgets.QLabel):
         super().mousePressEvent(event)
 
 
+class _RowDragHandle(QtWidgets.QWidget):
+    """Grip that reorders a file row inside its loader list."""
+
+    def __init__(self, row):
+        super().__init__(row)
+        self._row = row
+        self._pressed = False
+        self.setFixedSize(14, 25)
+        self.setCursor(QtCore.Qt.SizeVerCursor)
+        self.setToolTip("Drag to reorder")
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        color = self.palette().color(QtGui.QPalette.WindowText)
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.setBrush(color)
+        center_x = self.width() / 2.0
+        center_y = self.height() / 2.0
+        for row in range(-1, 2):
+            for column in range(-1, 1):
+                painter.drawEllipse(
+                    QtCore.QPointF(center_x + column * 4, center_y + row * 4),
+                    1.2,
+                    1.2,
+                )
+
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self._pressed = True
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if not self._pressed or not (event.buttons() & QtCore.Qt.LeftButton):
+            return
+        parent = self._row.parentWidget()
+        if hasattr(parent, 'move_row_to_pointer'):
+            parent.move_row_to_pointer(self._row, event.globalPos())
+        event.accept()
+
+    def mouseReleaseEvent(self, event):
+        if self._pressed:
+            self._pressed = False
+            parent = self._row.parentWidget()
+            if hasattr(parent, 'finish_row_drag'):
+                parent.finish_row_drag()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+
 class PathRowWidget(QtWidgets.QWidget):
     del_signal = Signal()
     changed_state = Signal(bool)
     color_changed = Signal(str)
+    label_changed = Signal(str)
     
     def __init__(self, parent=None, path_id=None, color=None):
         super(PathRowWidget, self).__init__(parent)
@@ -125,27 +182,37 @@ class PathRowWidget(QtWidgets.QWidget):
         self.del_button = _CloseButton(parent=self)
         self.del_button.setToolTip("Close file")
         
-        # ID label on the left
-        self.id_label = _ColorIdLabel(parent=self, text='-')
+        self.drag_handle = _RowDragHandle(self)
+        self.id_label = _ColorIdLabel(parent=self, text='')
         if color is not None:
             self.id_label.set_color(color)
         
         self.text_field = QtWidgets.QLineEdit(parent=self, text='...')
-        self.text_field.setFixedSize(200, 25)
-        self.text_field.setReadOnly(True)  # Make it read-only
+        self.text_field.setFixedHeight(25)
+        # Between the truncated field and the oversized 225px minimum.
+        self.text_field.setFixedWidth(176)
+        self.text_field.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed,
+            QtWidgets.QSizePolicy.Fixed,
+        )
+        self.text_field.setToolTip("Name shown on plots. The file path is unchanged.")
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed,
+        )
         
-        # Store full path internally while displaying only basename
         self._full_path = ''
+        self._display_name = ''
                 
         row_layout = QtWidgets.QHBoxLayout(self)
         row_layout.setContentsMargins(2, 2, 2, 2)
         
+        row_layout.addWidget(self.drag_handle)
         row_layout.addWidget(self.id_label)
-        row_layout.addWidget(self.text_field)
+        row_layout.addWidget(self.text_field, stretch=1)
         row_layout.addWidget(self.del_button)
         row_layout.addWidget(self.checkbox)
         
-        # Set ID if provided
         if path_id is not None:
             self.set_id(path_id)
         
@@ -158,6 +225,7 @@ class PathRowWidget(QtWidgets.QWidget):
         self.del_button.clicked.connect(self.on_button_click)
         self.checkbox.stateChanged.connect(self.on_state_chenged)
         self.id_label.color_changed.connect(self.color_changed.emit)
+        self.text_field.editingFinished.connect(self._on_label_edited)
         
     def on_state_chenged(self, state: bool):
         print("state  changed")
@@ -179,20 +247,38 @@ class PathRowWidget(QtWidgets.QWidget):
         self.del_signal.emit()
         
     def set_text(self, new_text):
-        """Set the full path, but display only the basename"""
+        """Remember the full path and show its filename until the user renames it."""
         self._full_path = new_text
-        # Display only the basename
         basename = os.path.basename(new_text) if new_text else '...'
+        self._display_name = basename
         self.text_field.setText(basename)
-        
+        if new_text:
+            self.text_field.setToolTip(new_text)
+
     def get_text(self):
         """Return the full path"""
         return self._full_path if self._full_path else self.text_field.text()
+
+    def get_display_name(self):
+        name = (self._display_name or self.text_field.text()).strip()
+        if name:
+            return name
+        return os.path.basename(self._full_path) if self._full_path else 'file'
+
+    def _on_label_edited(self):
+        name = self.text_field.text().strip()
+        if not name:
+            name = os.path.basename(self._full_path) if self._full_path else 'file'
+            self.text_field.setText(name)
+        if name == self._display_name:
+            return
+        self._display_name = name
+        self.label_changed.emit(name)
     
     def set_id(self, path_id):
-        """Set the ID displayed in the label"""
+        """Keep the internal id. The row shows a color, not the number."""
         self._path_id = path_id
-        self.id_label.setText(str(path_id))
+        self.id_label.setText('')
     
     def get_id(self):
         """Get the ID from the label"""
@@ -217,6 +303,8 @@ class PathSelectorWidget(QtWidgets.QWidget):
     del_btn_clicked = Signal()
     checkbox_clicked = Signal()
     color_changed = Signal()
+    label_changed = Signal()
+    order_changed = Signal()
     paths_added = Signal(list)  # Signal emitted when paths are added, with list of paths
     _get_path_to_id_callback = None  # Callback to get path_to_id mapping
     _wrapper = None  # Reference to the wrapper widget
@@ -233,6 +321,8 @@ class PathSelectorWidget(QtWidgets.QWidget):
         self.rowwidget_map = dict()
         self.path_state = dict()
         self._state_lock = RLock()
+        self._drag_preview = None
+        self._drag_row = None
         
         self.parentView = parent
                
@@ -260,22 +350,101 @@ class PathSelectorWidget(QtWidgets.QWidget):
         button = self.open_button
         button.clicked.connect(self.on_button_click)
         
+    def _ordered_rows(self):
+        rows = []
+        for index in range(self.layout.count()):
+            item = self.layout.itemAt(index)
+            if item is None:
+                continue
+            widget = item.widget()
+            if isinstance(widget, PathRowWidget):
+                rows.append(widget)
+        return rows
+
     def get_paths(self) -> list:
-        with self._state_lock:
-            return [state['path'] for state in self.path_state.values()]
+        return [row.get_text() for row in self._ordered_rows()]
 
     def get_file_entries(self):
-        """Return a worker-safe snapshot without reading Qt child widgets."""
+        """Return rows in the order shown in the loader."""
+        entries = []
         with self._state_lock:
-            return [
-                (
+            for row in self._ordered_rows():
+                path_id = row.get_id()
+                state = self.path_state.get(path_id)
+                if state is None:
+                    continue
+                entries.append((
                     path_id,
                     state['path'],
                     state['checked'],
                     state['color'],
-                )
-                for path_id, state in self.path_state.items()
-            ]
+                    state.get('display_name') or os.path.basename(state['path']),
+                ))
+        return entries
+
+    def _global_point(self, global_pos):
+        if hasattr(global_pos, 'toPoint'):
+            return global_pos.toPoint()
+        return global_pos
+
+    def move_row_to_pointer(self, row_widget, global_pos):
+        """Slide a preview with the pointer and move the row when it crosses another."""
+        global_pos = self._global_point(global_pos)
+        local = self.mapFromGlobal(global_pos)
+        self._show_drag_preview(row_widget, local.y())
+        insert_at = self.layout.count()
+        for widget in self._ordered_rows():
+            if widget is row_widget:
+                continue
+            if local.y() < widget.geometry().center().y():
+                insert_at = self.layout.indexOf(widget)
+                break
+        current = self.layout.indexOf(row_widget)
+        if current < 0:
+            return
+        if current < insert_at:
+            insert_at -= 1
+        if current == insert_at:
+            return
+        self.layout.removeWidget(row_widget)
+        self.layout.insertWidget(insert_at, row_widget)
+        self._row_dragged = True
+
+    def _show_drag_preview(self, row_widget, local_y):
+        if self._drag_preview is None or self._drag_row is not row_widget:
+            self._clear_drag_preview()
+            preview = QtWidgets.QLabel(self)
+            preview.setPixmap(row_widget.grab())
+            preview.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+            preview.resize(row_widget.size())
+            effect = QtWidgets.QGraphicsOpacityEffect(row_widget)
+            effect.setOpacity(0.35)
+            row_widget.setGraphicsEffect(effect)
+            self._drag_preview = preview
+            self._drag_row = row_widget
+        preview_y = local_y - (row_widget.height() // 2)
+        lower = self.open_button.geometry().bottom()
+        upper = max(lower, self.height() - row_widget.height())
+        preview_y = min(max(preview_y, lower), upper)
+        self._drag_preview.move(row_widget.x(), preview_y)
+        self._drag_preview.show()
+        self._drag_preview.raise_()
+
+    def _clear_drag_preview(self):
+        if self._drag_row is not None:
+            self._drag_row.setGraphicsEffect(None)
+            self._drag_row = None
+        if self._drag_preview is not None:
+            self._drag_preview.hide()
+            self._drag_preview.deleteLater()
+            self._drag_preview = None
+
+    def finish_row_drag(self):
+        self._clear_drag_preview()
+        if not getattr(self, '_row_dragged', False):
+            return
+        self._row_dragged = False
+        self.order_changed.emit()
     
     def count_path_rows(self) -> int:
         """Count the number of path row widgets"""
@@ -395,6 +564,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
                     'path': path,
                     'checked': True,
                     'color': new_row_widget.get_color(),
+                    'display_name': new_row_widget.get_display_name(),
                 }
             self.layout.addWidget(new_row_widget)
             
@@ -408,6 +578,9 @@ class PathSelectorWidget(QtWidgets.QWidget):
         row_widget.del_signal.connect(self.del_btn_clicked.emit)
         row_widget.color_changed.connect(
             lambda color, row=row_widget: self._on_color_changed(row, color)
+        )
+        row_widget.label_changed.connect(
+            lambda name, row=row_widget: self._on_label_changed(row, name)
         )
 
     def _on_checked_changed(self, row_widget, checked):
@@ -429,6 +602,13 @@ class PathSelectorWidget(QtWidgets.QWidget):
             if path_id in self.path_state:
                 self.path_state[path_id]['color'] = color
         self.color_changed.emit()
+
+    def _on_label_changed(self, row_widget, name):
+        path_id = row_widget.get_id()
+        with self._state_lock:
+            if path_id in self.path_state:
+                self.path_state[path_id]['display_name'] = name
+        self.label_changed.emit()
         
     
     def update_path_ids(self, path_to_id):
@@ -577,6 +757,10 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
         self.path_widget.checkbox_clicked.connect(
             self.widget_changed_signal.emit)
         self.path_widget.color_changed.connect(
+            self.widget_changed_signal.emit)
+        self.path_widget.order_changed.connect(
+            self.widget_changed_signal.emit)
+        self.path_widget.label_changed.connect(
             self.widget_changed_signal.emit)
         
         # Forward paths_added signal

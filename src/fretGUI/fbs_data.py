@@ -21,7 +21,10 @@ class FBSData():
         self.__node_metadata = node_metadata if node_metadata else []
         self.__color = color
         self.run_id = run_id
-        self.prev_nodeid = None        
+        self.prev_nodeid = None
+        # Position in the loader file list. Plots use this, not worker finish order.
+        self.source_order = 0
+        self.display_name = ''        
         
     def add_node_metadata(self, metadata: dict):
         self.__node_metadata.append(metadata)
@@ -75,6 +78,8 @@ class FBSData():
                           run_id=self.run_id,
                           )
         new_obj.prev_nodeid = self.prev_nodeid
+        new_obj.source_order = self.source_order
+        new_obj.display_name = self.display_name
         return new_obj
     
     def __repr__(self):

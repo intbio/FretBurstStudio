@@ -3,6 +3,7 @@ from fretGUI.custom_nodes.abstract_nodes import AbstractRecomputable, ResizableC
 import fretbursts, os
 from fretGUI.node_builder import NodeBuilder
 import NodeGraphQt
+from Qt.QtCore import Qt
 from fretGUI.singletons import NodeStateManager, RunCoordinator
 
 
@@ -16,6 +17,8 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.markers import MarkerStyle
 from threading import RLock
+from fretGUI.custom_widgets.dataset_list import DatasetListWrapper
+from fretGUI.custom_widgets.export_folder import ExportFolderWrapper
 from fretGUI.custom_widgets.timetrace_explorer import (
     OpenExplorerButtonWrapper,
     TimetraceExplorerWindow,
@@ -99,6 +102,11 @@ def _style_new_data_artists(
     return artists
 
 
+def _source_order(item):
+    """Loader list position, so plot order ignores which worker finished first."""
+    return getattr(item, 'source_order', getattr(item, 'id', 0))
+
+
 def _port_number(port):
     if port is None:
         return 1
@@ -116,11 +124,36 @@ def _marker_for_port(port):
     return PORT_MARKERS[(port_number - 1) % len(PORT_MARKERS)]
 
 
-def _multifile_legend_label(cur_data, input_port, show_port):
-    file_label = (
-        f'{cur_data.id}: {cur_data.data.name}, '
-        f'N {cur_data.data.num_bursts[0]}'
-    )
+def _file_basename(item):
+    label = getattr(item, 'display_name', None)
+    if label:
+        return str(label)
+    data = item.data if hasattr(item, 'data') else item
+    fname = os.path.basename(getattr(data, 'fname', '') or '')
+    if fname:
+        return fname
+    return str(getattr(data, 'name', '') or 'file')
+
+
+def _unique_file_labels(items):
+    """Filenames in list order. A repeated name gets a (2), (3), … suffix."""
+    names = [_file_basename(item) for item in items]
+    seen = {}
+    labels = []
+    for name in names:
+        if names.count(name) == 1:
+            labels.append(name)
+            continue
+        seen[name] = seen.get(name, 0) + 1
+        if seen[name] == 1:
+            labels.append(name)
+        else:
+            labels.append(f'{name} ({seen[name]})')
+    return labels
+
+
+def _multifile_legend_label(cur_data, input_port, show_port, file_label):
+    file_label = f'{file_label}, N {cur_data.data.num_bursts[0]}'
     if not show_port:
         return file_label
     port_name = input_port.name() if input_port is not None else 'port1'
@@ -128,6 +161,23 @@ def _multifile_legend_label(cur_data, input_port, show_port):
 
 
 class AbstractLoader(AbstractRecomputable):
+    # None accepts every extension. Subclasses set a tuple of suffixes.
+    ACCEPTED_EXTENSIONS = None
+
+    def accepts_dropped_files(self, paths):
+        """True when every path is a file this loader can import."""
+        paths = [str(path) for path in paths if path]
+        if not paths:
+            return False
+        allowed = type(self).ACCEPTED_EXTENSIONS
+        if allowed is None:
+            return True
+        allowed = {suffix.lower() for suffix in allowed}
+        return all(
+            os.path.splitext(path)[1].lower() in allowed
+            for path in paths
+        )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
@@ -222,11 +272,11 @@ class AbstractLoader(AbstractRecomputable):
     
     def execute(self, fbsdata: FBSData=None):
         file_entries = self.file_widget.get_file_entries()
-        selected_paths = [path for _, path, _, _ in file_entries]
+        selected_paths = [path for _, path, *_rest in file_entries]
         self.__delete_closed_files(selected_paths)
         
         # Ensure all selected paths have IDs assigned
-        for path_id, path, _, _ in file_entries:
+        for path_id, path, *_rest in file_entries:
             if path not in self.path_to_id:
                 # Assign ID if somehow missing (shouldn't happen, but safety check)
                 new_id = (
@@ -237,7 +287,7 @@ class AbstractLoader(AbstractRecomputable):
                 self.path_to_id[path] = new_id
         
         data_list = []
-        for path_id, cur_path, is_checked, color in file_entries:
+        for path_id, cur_path, is_checked, color, display_name in file_entries:
             path_hash = hash(cur_path)
             # Use the immutable row snapshot rather than a live Qt widget.
             assigned_id = path_id
@@ -246,13 +296,16 @@ class AbstractLoader(AbstractRecomputable):
             
             if not is_checked:
                 continue
-            
+            list_order = len(data_list)
+
             if path_hash in self.opened_paths:
                 # Use existing FBSData (which already has an ID)
                 existing_fbsdata = self.opened_paths[path_hash]
                 fbsdata_copy = existing_fbsdata.copy()
                 fbsdata_copy.set_checked(is_checked)
                 fbsdata_copy.color = color
+                fbsdata_copy.source_order = list_order
+                fbsdata_copy.display_name = display_name
                 data_list.append(fbsdata_copy)
                 # Update tooltip for loaded file
                 tooltip_text = self._format_metadata_tooltip(existing_fbsdata)
@@ -265,6 +318,8 @@ class AbstractLoader(AbstractRecomputable):
                     checked=is_checked,
                 )
                 loaded_fbsdata.color = color
+                loaded_fbsdata.source_order = list_order
+                loaded_fbsdata.display_name = display_name
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
                 # self.__wire_fbsdata(self.opened_paths[path_hash])
                 data_list.append(loaded_fbsdata)
@@ -290,6 +345,7 @@ class PhHDF5Node(AbstractLoader):
 
     __identifier__ = 'Loaders'
     NODE_NAME  = 'Photon HDF5'
+    ACCEPTED_EXTENSIONS = ('.h5', '.hdf5')
     DESCRIPTION = 'Load photon timestamps, detector streams, and measurement metadata from a Photon-HDF5 file.'
 
     def __init__(self):
@@ -330,8 +386,347 @@ class LSM510Node(AbstractLoader):
         data.name = os.path.basename(path)
         fbsdata = FBSData(data, path, id=id, checked=checked)
         return fbsdata   
-        
-    
+
+
+def _measurement_label(fbsdata):
+    name = (getattr(fbsdata, 'display_name', '') or '').strip()
+    if name:
+        return name
+    path = getattr(fbsdata, 'path', '') or ''
+    if path:
+        return os.path.basename(path)
+    return f'Measurement {fbsdata.id}'
+
+
+def _measurement_color(fbsdata):
+    color = getattr(fbsdata, 'color', None)
+    return '#888888' if not color else str(color)
+
+
+class JoinDataNode(AbstractRecomputable):
+    """Collect burst-searched measurements and publish one joined dataset."""
+
+    __identifier__ = 'Loaders'
+    NODE_NAME = 'Join Bursts'
+    DESCRIPTION = (
+        'Join checked, burst-searched measurements that share a background '
+        'period into one dataset for filtering and plots.'
+    )
+    halt_downstream = True
+    PORT_COLOR = None
+
+    def __init__(self):
+        super().__init__()
+        self._lock = RLock()
+        self._buffers = {}
+        self._by_key = {}
+        node_builder = NodeBuilder(self)
+        port_kwargs = {'color': self.PORT_COLOR} if self.PORT_COLOR else {}
+        self.add_input('inport', **port_kwargs)
+        self.add_output('outport', **port_kwargs)
+        self.add_text_input(
+            'result_name',
+            label='Name',
+            text='Merged',
+            tooltip='Label of the merged measurement on downstream plots.',
+        )
+        self.gap_spinbox = node_builder.build_float_spinbox(
+            'Gap, s',
+            [0, 3600, 0.1],
+            0,
+            tooltip='Seconds inserted between joined measurements.',
+            min_width=80,
+        )
+        self.dataset_widget = DatasetListWrapper(self.view)
+        self.add_custom_widget(self.dataset_widget, tab='custom')
+        self.dataset_list = self.dataset_widget.dataset_list
+        name_widget = self.get_widget('result_name')
+        if name_widget is not None:
+            name_widget.value_changed.connect(
+                lambda *_args: self.on_widget_triggered()
+            )
+        self.enable_locked_auto_run()
+
+        coordinator = RunCoordinator()
+        coordinator.run_started.connect(self._on_run_started)
+        coordinator.run_discarded.connect(self._on_run_discarded)
+        coordinator.run_completed.connect(
+            self._on_run_completed,
+            Qt.QueuedConnection,
+        )
+
+    def execute(self, fbsdata=None):
+        if fbsdata is None:
+            return []
+        run_id = getattr(fbsdata, 'run_id', None)
+        if run_id is None:
+            self._replace_inputs([fbsdata])
+            self._join_checked()
+            return []
+        with self._lock:
+            self._buffers.setdefault(run_id, {})[fbsdata.id] = fbsdata
+        return []
+
+    def _on_run_started(self, run_id):
+        with self._lock:
+            self._buffers[run_id] = {}
+
+    def _on_run_discarded(self, run_id):
+        with self._lock:
+            self._buffers.pop(run_id, None)
+
+    def _on_run_completed(self, run_id):
+        with self._lock:
+            arrived = self._buffers.pop(run_id, {})
+        if not arrived:
+            return
+        ordered = sorted(
+            arrived.values(),
+            key=lambda item: (getattr(item, 'source_order', 0), item.id),
+        )
+        self._replace_inputs(ordered)
+        if RunCoordinator().is_busy:
+            return
+        self._join_checked()
+
+    def _replace_inputs(self, items):
+        self._by_key = {item.id: item for item in items}
+        self.dataset_list.sync([
+            {
+                'key': item.id,
+                'label': _measurement_label(item),
+                'color': _measurement_color(item),
+                'tooltip': getattr(item, 'path', '') or _measurement_label(item),
+            }
+            for item in sorted(
+                items,
+                key=lambda item: (getattr(item, 'source_order', 0), item.id),
+            )
+        ])
+
+    def _join_checked(self):
+        merged = self._build_merged()
+        if merged is not None:
+            self._deliver(merged)
+
+    def _build_merged(self):
+        selected = [
+            self._by_key[key]
+            for key in self.dataset_list.checked_keys()
+            if key in self._by_key
+        ]
+        if not selected:
+            print(f'{type(self).NODE_NAME}: check at least one measurement.')
+            return None
+        gap = 0.0
+        if self.gap_spinbox is not None:
+            gap = float(self.gap_spinbox.get_value())
+        name = (self.get_property('result_name') or '').strip() or 'Merged'
+        try:
+            merged_data = self._combine(selected, gap)
+        except Exception as error:
+            print(f'{type(self).NODE_NAME}: {error}')
+            return None
+        try:
+            merged_data.add(name=name)
+        except Exception:
+            pass
+        merged = FBSData(
+            merged_data,
+            path='',
+            checked=True,
+            color=selected[0].color,
+        )
+        merged.display_name = name
+        merged.source_order = 0
+        merged.prev_nodeid = id(self)
+        return merged
+
+    def wire_wrappers(self):
+        self.enable_locked_auto_run()
+
+    def unwire_wrappers(self):
+        self.enable_locked_auto_run()
+
+    def _combine(self, selected, gap):
+        import fretbursts.burstlib_ext as burstlib_ext
+        return burstlib_ext.join_data(
+            [item.data for item in selected],
+            gap=gap,
+        )
+
+    def _deliver(self, fbsdata):
+        children = [child for child in self.iter_children_nodes() if child is not self]
+        for index, child in enumerate(children):
+            payload = fbsdata if index == len(children) - 1 else fbsdata.copy()
+            payload.prev_nodeid = id(self)
+            self._deliver_to(child, payload, set())
+
+    def _deliver_to(self, node, fbsdata, seen):
+        if node is self or id(node) in seen:
+            return
+        seen.add(id(node))
+        try:
+            outputs = node.execute(fbsdata) or []
+        except Exception as error:
+            print(f'{type(self).NODE_NAME}: {type(node).__name__} failed: {error}')
+            return
+        if hasattr(node, 'on_refresh_canvas'):
+            node.was_executed = True
+            try:
+                node.on_refresh_canvas()
+            finally:
+                node.was_executed = False
+        for item in outputs:
+            if item is None:
+                continue
+            item.prev_nodeid = id(node)
+            for grandchild in node.iter_children_nodes():
+                if grandchild is self:
+                    continue
+                self._deliver_to(grandchild, item, seen)
+
+
+class MergePhotonsNode(JoinDataNode):
+    """Concatenate raw single-spot smFRET streams before background estimation."""
+
+    __identifier__ = 'Loaders'
+    NODE_NAME = 'Join Measurements'
+    DESCRIPTION = (
+        'Join checked single-spot smFRET recordings into one photon stream '
+        'before background estimation. Files must share a clock period; '
+        'ALEX, PIE, PAX, and multi-spot data are not supported, and '
+        'nanotimes must be present on every file or on none.'
+    )
+    PORT_COLOR = (255, 0, 0)
+
+    def _combine(self, selected, gap):
+        from fretGUI.photon_merge import merge_smfret_streams
+        return merge_smfret_streams(
+            [item.data for item in selected],
+            gap=gap,
+        )
+
+
+class ExportPhotonHdf5Node(AbstractRecomputable):
+    __identifier__ = 'Loaders'
+    NODE_NAME = 'Export HDF5'
+    DESCRIPTION = (
+        'Write each measurement from the last run into the chosen folder '
+        'as a Photon-HDF5 file.'
+    )
+
+    def __init__(self):
+        super().__init__()
+        self._lock = RLock()
+        self._buffers = {}
+        self._datasets = []
+        self.add_input('inport')
+        self.export_panel = ExportFolderWrapper(self.view)
+        self.add_custom_widget(self.export_panel, tab='custom')
+        self.export_panel.export_requested.connect(self.export_datasets)
+        self.enable_locked_auto_run()
+        coordinator = RunCoordinator()
+        coordinator.run_started.connect(self._on_run_started)
+        coordinator.run_discarded.connect(self._on_run_discarded)
+        coordinator.run_completed.connect(self._on_run_completed)
+
+    def wire_wrappers(self):
+        self.enable_locked_auto_run()
+
+    def unwire_wrappers(self):
+        self.enable_locked_auto_run()
+
+    def are_ports_acceptable(self, inport, outport) -> bool:
+        return True
+
+    def execute(self, fbsdata=None):
+        if fbsdata is None:
+            return [None]
+        run_id = getattr(fbsdata, 'run_id', None)
+        if run_id is None:
+            self._remember([fbsdata])
+            return [fbsdata]
+        with self._lock:
+            self._buffers.setdefault(run_id, {})[fbsdata.id] = fbsdata
+        return [fbsdata]
+
+    def _on_run_started(self, run_id):
+        with self._lock:
+            self._buffers[run_id] = {}
+
+    def _on_run_discarded(self, run_id):
+        with self._lock:
+            self._buffers.pop(run_id, None)
+
+    def _on_run_completed(self, run_id):
+        with self._lock:
+            stored = self._buffers.pop(run_id, {})
+        if not stored:
+            return
+        self._remember(stored.values())
+
+    def _remember(self, items):
+        self._datasets = sorted(
+            items,
+            key=lambda item: (getattr(item, 'source_order', 0), item.id),
+        )
+        count = len(self._datasets)
+        noun = 'measurement' if count == 1 else 'measurements'
+        self.export_panel.set_status(f'{count} {noun} ready')
+
+    def export_datasets(self):
+        folder = self.export_panel.folder()
+        if not folder or not os.path.isdir(folder):
+            print('Export HDF5: choose an existing folder.')
+            self.export_panel.set_status('Choose an existing folder.', 'error')
+            return
+        if not self._datasets:
+            print('Export HDF5: no measurements from the last run.')
+            self.export_panel.set_status('No measurements yet.', 'error')
+            return
+        from fretGUI.photon_hdf5_export import (
+            data_dict_from_fretbursts,
+            destination_paths,
+            export_file_name,
+        )
+        import phconvert.hdf5 as photon_hdf5
+
+        total = len(self._datasets)
+        written = 0
+        self.export_panel.set_busy(True)
+        self.export_panel.set_status('Exporting…', 'busy')
+        from Qt import QtWidgets
+        QtWidgets.QApplication.processEvents()
+        paths = destination_paths(self._datasets, folder)
+        try:
+            for item, path in zip(self._datasets, paths):
+                try:
+                    payload = data_dict_from_fretbursts(item.data)
+                    photon_hdf5.save_photon_hdf5(
+                        payload,
+                        h5_fname=path,
+                        overwrite=True,
+                    )
+                except Exception as error:
+                    print(f'Export HDF5: {export_file_name(item)} failed: {error}')
+                else:
+                    written += 1
+                    print(f'Export HDF5: wrote {path}')
+        finally:
+            self.export_panel.set_busy(False)
+        if written == total:
+            noun = 'file' if written == 1 else 'files'
+            self.export_panel.set_status(f'Finished. Wrote {written} {noun}.', 'done')
+        elif written == 0:
+            self.export_panel.set_status('Finished. Export failed.', 'error')
+        else:
+            self.export_panel.set_status(
+                f'Finished. Wrote {written} of {total} files.',
+                'error',
+            )
+
+
 class AlexNode(AbstractRecomputable):
     __identifier__ = 'Analysis'
     NODE_NAME = 'Apply ALEX Periods'
@@ -596,7 +991,10 @@ class AbstractContentNode(ResizableContentNode):
 
     def _on_run_completed(self, run_id):
         with self.__plot_lock:
-            self.data_to_plot = self.__run_buffers.pop(run_id, [])
+            self.data_to_plot = sorted(
+                self.__run_buffers.pop(run_id, []),
+                key=_source_order,
+            )
             self.__prevnodeid_data_map = self.__run_port_maps.pop(
                 run_id, {}
             )
@@ -851,13 +1249,10 @@ class BaseSingleFilePlotterNode(AbstractContentNode):
         ax = fig.add_subplot()
 
         map_name_to_data = {}
-        self.data_to_plot.sort(key = lambda x: x.id)
-        for cur_data in self.data_to_plot:
-            fname = os.path.basename(cur_data.data.fname)
+        labels = _unique_file_labels(self.data_to_plot)
+        for cur_data, label in zip(self.data_to_plot, labels):
             inport_name = self.get_input_port(cur_data).name()
-            
-            fbid = cur_data.id
-            map_name_to_data[f'{inport_name}:{fbid}, {fname}'] = cur_data
+            map_name_to_data[f'{inport_name}: {label}'] = cur_data
 
         self._plot_cache = map_name_to_data
         self.items_to_plot.set_items(
@@ -956,7 +1351,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
             input_port = self.get_input_port(cur_data)
             plotted_data.append((input_port, cur_data))
         plotted_data.sort(
-            key=lambda item: (_port_number(item[0]), item[1].id)
+            key=lambda item: (_port_number(item[0]), _source_order(item[1]))
         )
 
         connected_port_count = sum(
@@ -965,6 +1360,13 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
         )
         show_port_in_legend = connected_port_count > 1
 
+        file_labels = {
+            id(cur_data): label
+            for (_, cur_data), label in zip(
+                plotted_data,
+                _unique_file_labels([item[1] for item in plotted_data]),
+            )
+        }
         for input_port, cur_data in plotted_data:
             if not isinstance(cur_data.data, Data):
                 continue
@@ -977,6 +1379,7 @@ class BaseMultiFilePlotterNode(AbstractContentNode):
                 cur_data,
                 input_port,
                 show_port_in_legend,
+                file_labels[id(cur_data)],
             )
             _style_new_data_artists(
                 self.ax,
@@ -1168,11 +1571,11 @@ class BVAPlotterNode(AbstractContentNode):
         ax = fig.add_subplot()
 
         map_name_to_data = {}
-        self.data_to_plot.sort(key = lambda x: x.id)
-        for cur_data in self.data_to_plot:
-            fname = os.path.basename(cur_data.data.fname)
-            fbid = cur_data.id
-            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+        for cur_data, label in zip(
+            self.data_to_plot,
+            _unique_file_labels(self.data_to_plot),
+        ):
+            map_name_to_data[label] = cur_data.data
 
         self.items_to_plot.set_items(
             list(map_name_to_data.keys()),
@@ -1295,11 +1698,11 @@ class InterBurstPlotterNode(AbstractContentNode):
         ax = fig.add_subplot()
 
         map_name_to_data = {}
-        self.data_to_plot.sort(key = lambda x: x.id)
-        for cur_data in self.data_to_plot:
-            fname = os.path.basename(cur_data.data.fname)
-            fbid = cur_data.id
-            map_name_to_data[f'{fbid}, {fname}'] = cur_data
+        for cur_data, label in zip(
+            self.data_to_plot,
+            _unique_file_labels(self.data_to_plot),
+        ):
+            map_name_to_data[label] = cur_data
 
         self.items_to_plot.set_items(
             list(map_name_to_data.keys()),
@@ -1401,10 +1804,9 @@ class TimetraceExplorerNode(AbstractRecomputable):
     def _update_data_options(self, data_items):
         map_name_to_data = {}
         item_colors = []
-        for cur_data in sorted(data_items, key=lambda item: item.id):
-            fname = os.path.basename(cur_data.data.fname)
-            fbid = cur_data.id
-            map_name_to_data[f'{fbid}, {fname}'] = cur_data.data
+        data_items = sorted(data_items, key=_source_order)
+        for cur_data, label in zip(data_items, _unique_file_labels(data_items)):
+            map_name_to_data[label] = cur_data.data
             item_colors.append(cur_data.color)
 
         self._map_name_to_data = map_name_to_data

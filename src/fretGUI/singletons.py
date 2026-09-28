@@ -267,6 +267,12 @@ class FBSDataCash(metaclass=SingletonMeta):
         # Plot color is presentation metadata and should follow the current
         # loader row without invalidating expensive analysis cache entries.
         cached_data.color = data.color
+        cached_data.source_order = getattr(
+            data,
+            'source_order',
+            cached_data.source_order,
+        )
+        cached_data.display_name = getattr(data, 'display_name', '') or ''
         cached_data.run_id = data.run_id
         return cached_data
     

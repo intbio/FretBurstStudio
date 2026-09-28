@@ -78,6 +78,7 @@ class NodeTreeWidget(QtWidgets.QTreeWidget):
     """Collapsible tree of node types that can be dragged onto a graph."""
 
     CATEGORY_LABELS = {
+        'Loaders': 'Data',
         'nodeGraphQt.nodes': 'Builtin Nodes',
         'nodes.custom.ports': 'Custom Port Nodes',
         'nodes.widget': 'Widget Nodes',
@@ -93,6 +94,8 @@ class NodeTreeWidget(QtWidgets.QTreeWidget):
         self._drag_item = None
         self.setHeaderHidden(True)
         self.setUniformRowHeights(True)
+        self.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
+        self.setHorizontalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
         self.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragOnly)
         self.setDragEnabled(True)
