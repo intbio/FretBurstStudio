@@ -1,6 +1,6 @@
 """Right-button drag pans the node graph without replacing a right-click menu."""
 
-from Qt import QtCore, QtWidgets
+from Qt import QtCore, QtGui, QtWidgets
 from fretGUI.custom_widgets.plot_widget import matplotlib_tool_active_at
 
 
@@ -12,6 +12,9 @@ class RightButtonPan(QtCore.QObject):
         self._viewer = viewer
         viewer._rmb_pan = False
         viewer._rmb_plot_tool = False
+        self._menu_deferred = False
+        self._menu_pos = QtCore.QPoint()
+        self._replaying_menu = False
 
     def eventFilter(self, obj, event):
         viewer = self._viewer
@@ -36,18 +39,66 @@ class RightButtonPan(QtCore.QObject):
             return False
 
         if (
-            obj is viewer.viewport()
+            obj is viewport
             and event_type == QtCore.QEvent.MouseButtonRelease
             and event.button() == QtCore.Qt.RightButton
         ):
+            replay = (
+                self._menu_deferred
+                and not viewer._rmb_pan
+                and not viewer._rmb_plot_tool
+            )
+            menu_pos = QtCore.QPoint(self._menu_pos)
+            self._menu_deferred = False
             QtCore.QTimer.singleShot(0, self._clear_pan_flag)
+            if replay:
+                QtCore.QTimer.singleShot(
+                    0, lambda pos=menu_pos: self._replay_context_menu(pos)
+                )
             return False
 
         if event_type == QtCore.QEvent.ContextMenu and viewer._rmb_pan:
             viewer._rmb_pan = False
             event.accept()
             return True
+        if (
+            event_type == QtCore.QEvent.ContextMenu
+            and not self._replaying_menu
+            and self._right_button_held(viewer)
+        ):
+            self._menu_deferred = True
+            self._menu_pos = self._viewport_pos(obj, event, viewport, viewer)
+            event.accept()
+            return True
         return False
+
+    def _right_button_held(self, viewer):
+        buttons = QtWidgets.QApplication.mouseButtons()
+        return bool(buttons & QtCore.Qt.RightButton) or bool(viewer.RMB_state)
+
+    def _viewport_pos(self, obj, event, viewport, viewer):
+        if obj is viewport:
+            return QtCore.QPoint(event.pos())
+        return viewport.mapFrom(viewer, event.pos())
+
+    def _replay_context_menu(self, pos):
+        viewer = self._viewer
+        try:
+            viewport = viewer.viewport()
+        except RuntimeError:
+            return
+        self._replaying_menu = True
+        try:
+            QtWidgets.QApplication.sendEvent(
+                viewport,
+                QtGui.QContextMenuEvent(
+                    QtGui.QContextMenuEvent.Mouse,
+                    pos,
+                    viewport.mapToGlobal(pos),
+                ),
+            )
+        finally:
+            self._replaying_menu = False
 
     def _pan_if_dragging(self, event):
         viewer = self._viewer
