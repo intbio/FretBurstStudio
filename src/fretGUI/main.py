@@ -484,6 +484,7 @@ def main():
             custom_nodes.BVAPlotterNode,
             custom_nodes.InterBurstPlotterNode,
             custom_nodes.TimetraceExplorerNode,
+            custom_nodes.StaticPdaNode,
         ]
     )
     

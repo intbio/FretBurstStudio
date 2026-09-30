@@ -23,6 +23,7 @@ from fretGUI.custom_widgets.timetrace_explorer import (
     OpenExplorerButtonWrapper,
     TimetraceExplorerWindow,
 )
+from fretGUI.custom_widgets.pda_explorer import PdaExplorerWindow
 
 
 PORT_MARKERS = ('o', 's', '^', 'D', 'v', '<', '>', 'P', 'X', '*')
@@ -1542,7 +1543,7 @@ class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
 
     
 class BVAPlotterNode(AbstractContentNode):
-    __identifier__ = 'Plot'
+    __identifier__ = 'BurstAnalysis'
     NODE_NAME = 'Burst Variance Analysis (BVA)'
     DESCRIPTION = 'Perform burst variance analysis by plotting sub-burst FRET-efficiency variation against burst FRET efficiency.'
 
@@ -1742,7 +1743,7 @@ class InterBurstPlotterNode(AbstractContentNode):
 class TimetraceExplorerNode(AbstractRecomputable):
     """Plot node that opens a separate window for fast burst timetrace exploration."""
 
-    __identifier__ = 'Plot'
+    __identifier__ = 'BurstAnalysis'
     NODE_NAME = 'Timetrace Explorer'
     DESCRIPTION = 'Open an interactive photon timetrace and burst browser for the selected measurement.'
 
@@ -1871,6 +1872,157 @@ class TimetraceExplorerNode(AbstractRecomputable):
             )
         self._push_files_to_window()
         self._explorer_window.set_data(data)
+        self._explorer_window.show()
+        self._explorer_window.raise_()
+        self._explorer_window.activateWindow()
+
+
+class StaticPdaNode(AbstractRecomputable):
+    """Plot node that opens photon-distribution fits, static or dynamic."""
+
+    __identifier__ = 'BurstAnalysis'
+    NODE_NAME = 'Photon Distribution Analysis'
+    DESCRIPTION = (
+        'Fit static or exchanging FRET states by photon-distribution '
+        'analysis on one central window per burst.'
+    )
+
+    def __init__(self, widget_name='open_btn', qgraphics_item=None):
+        if qgraphics_item is None:
+            super().__init__()
+        else:
+            super().__init__(qgraphics_item=qgraphics_item)
+        self.node_builder = NodeBuilder(self)
+        self._map_name_to_data = {}
+        self._run_buffers = {}
+        self._data_lock = RLock()
+        self._explorer_window = None
+        self._theme_kind = 'light'
+        self._theme_colors = None
+
+        self.add_input('inport')
+        self.open_btn = OpenExplorerButtonWrapper(
+            parent=self.view,
+            text='Open PDA',
+        )
+        self.open_btn.set_name('open_btn')
+        self.add_custom_widget(self.open_btn, tab='custom')
+        self.open_btn.clicked.connect(self._on_open_explorer)
+
+        self.items_to_plot = self.node_builder.build_combobox(
+            widget_name="File to plot:",
+            items=[],
+            value=None,
+            tooltip="Select a file to analyze",
+            min_width=200,
+        )
+        self.items_to_plot.widget_changed_signal.connect(self._on_node_file_changed)
+
+        coordinator = RunCoordinator()
+        coordinator.run_started.connect(self._on_run_started)
+        coordinator.run_completed.connect(self._on_run_completed)
+        coordinator.run_discarded.connect(self._on_run_discarded)
+
+    def _on_run_started(self, run_id):
+        with self._data_lock:
+            self._run_buffers[run_id] = []
+
+    def _on_run_discarded(self, run_id):
+        with self._data_lock:
+            self._run_buffers.pop(run_id, None)
+
+    def _on_run_completed(self, run_id):
+        with self._data_lock:
+            data_items = self._run_buffers.pop(run_id, [])
+        self._update_data_options(data_items)
+
+    def execute(self, fbsdata=None):
+        if fbsdata is None:
+            return [fbsdata]
+        run_id = getattr(fbsdata, 'run_id', None)
+        if run_id in (None, 0):
+            self._update_data_options([fbsdata])
+            return [fbsdata]
+        with self._data_lock:
+            self._run_buffers.setdefault(run_id, []).append(fbsdata)
+        return [fbsdata]
+
+    def _update_data_options(self, data_items):
+        map_name_to_data = {}
+        item_colors = []
+        data_items = sorted(data_items, key=_source_order)
+        for cur_data, label in zip(data_items, _unique_file_labels(data_items)):
+            map_name_to_data[label] = cur_data.data
+            item_colors.append(cur_data.color)
+
+        self._map_name_to_data = map_name_to_data
+        self.items_to_plot.set_items(list(map_name_to_data.keys()), item_colors)
+        self._sync_open_window()
+
+    def _selected_data(self):
+        selected_val = self.items_to_plot.get_value()
+        selected_data = self._map_name_to_data.get(selected_val)
+        if selected_data is not None and isinstance(selected_data, Data):
+            return selected_data
+        return None
+
+    def _push_files_to_window(self):
+        if self._explorer_window is None:
+            return
+        self._explorer_window.set_files(
+            list(self._map_name_to_data.keys()),
+            self.items_to_plot.get_value(),
+        )
+
+    def _set_window_data(self, preserve_view):
+        self._explorer_window.set_data(
+            self._selected_data(),
+            file_label=self.items_to_plot.get_value(),
+            preserve_view=preserve_view,
+        )
+
+    def _sync_open_window(self):
+        if self._explorer_window is None or not self._explorer_window.isVisible():
+            return
+        self._push_files_to_window()
+        self._set_window_data(preserve_view=True)
+
+    def _on_explorer_file_changed(self, label):
+        # set_value does not emit activated, so this does not rerun the pipeline.
+        self.items_to_plot.set_value(label)
+        if self._explorer_window is None:
+            return
+        self._push_files_to_window()
+        self._set_window_data(preserve_view=False)
+
+    def _on_node_file_changed(self):
+        if self._explorer_window is None or not self._explorer_window.isVisible():
+            return
+        self._push_files_to_window()
+        self._set_window_data(preserve_view=True)
+
+    def set_theme(self, kind, colors):
+        self._theme_kind = kind
+        self._theme_colors = colors
+        if self._explorer_window is not None:
+            self._explorer_window.set_theme(kind, colors)
+
+    def _on_open_explorer(self):
+        data_ready = self._explorer_window is not None
+        if self._explorer_window is None:
+            parent = None
+            try:
+                parent = self.graph.widget.window()
+            except Exception:
+                parent = None
+            self._explorer_window = PdaExplorerWindow(parent=parent)
+            self._explorer_window.file_changed.connect(self._on_explorer_file_changed)
+            self._explorer_window.set_theme(
+                self._theme_kind,
+                self._theme_colors,
+            )
+        self._push_files_to_window()
+        self._set_window_data(preserve_view=data_ready)
         self._explorer_window.show()
         self._explorer_window.raise_()
         self._explorer_window.activateWindow()

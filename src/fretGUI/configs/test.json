@@ -473,7 +473,7 @@
       }
     },
     "0x184382c87d0":{
-      "type_":"Plot.TimetraceExplorerNode",
+      "type_":"BurstAnalysis.TimetraceExplorerNode",
       "icon":null,
       "name":"Timetrace Explorer",
       "color":[
@@ -731,7 +731,7 @@
       }
     },
     "0x18430730290":{
-      "type_":"Plot.BVAPlotterNode",
+      "type_":"BurstAnalysis.BVAPlotterNode",
       "icon":null,
       "name":"BVA",
       "color":[

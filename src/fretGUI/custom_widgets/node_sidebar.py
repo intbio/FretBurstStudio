@@ -79,13 +79,14 @@ class NodeTreeWidget(QtWidgets.QTreeWidget):
 
     CATEGORY_LABELS = {
         'Loaders': 'Data',
+        'BurstAnalysis': 'Burst Analysis',
         'nodeGraphQt.nodes': 'Builtin Nodes',
         'nodes.custom.ports': 'Custom Port Nodes',
         'nodes.widget': 'Widget Nodes',
         'nodes.basic': 'Basic Nodes',
         'nodes.group': 'Group Nodes',
     }
-    CATEGORY_ORDER = ('Loaders', 'Analysis', 'Selectors', 'Plot')
+    CATEGORY_ORDER = ('Loaders', 'Analysis', 'Selectors', 'BurstAnalysis', 'Plot')
 
     def __init__(self, node_graph, parent=None):
         super().__init__(parent)

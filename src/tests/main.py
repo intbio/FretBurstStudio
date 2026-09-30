@@ -36,11 +36,26 @@ from fretGUI.custom_widgets.node_sidebar import (
 from fretGUI.custom_widgets.graph_file_drop import enable_graph_file_drop
 from fretGUI.custom_widgets.graph_pan import enable_right_button_pan
 from fretGUI.custom_widgets.graph_scale import keep_graph_scale_on_resize
+from fretGUI.custom_widgets.pda_explorer import PdaExplorerWindow
 from fretGUI.custom_widgets.plot_widget import (
     TemplatePlotWidget,
     install_plot_context_menu_guard,
     plot_area_at,
     set_matplotlib_theme,
+)
+from fretGUI.static_pda import (
+    Calibration,
+    Fit,
+    FitCancelled,
+    FitStart,
+    _occupation_parts,
+    compare_models,
+    describe_model_choice,
+    extract_group,
+    fit_dynamic,
+    fit_pda,
+    plot_check,
+    simulate_counts,
 )
 from fretGUI.custom_widgets.sliders import (
     ComboBoxWidget,
@@ -458,7 +473,7 @@ class TestWidgets(unittest.TestCase):
     def test_timetrace_explorer_is_compact_recomputable_node(self):
         graph = BaseUtils.init_graph()
         graph.register_node(custom_nodes.TimetraceExplorerNode)
-        node = graph.create_node('Plot.TimetraceExplorerNode')
+        node = graph.create_node('BurstAnalysis.TimetraceExplorerNode')
 
         self.assertIsInstance(node, AbstractRecomputable)
         self.assertNotIsInstance(node, ResizableContentNode)
@@ -482,6 +497,238 @@ class TestWidgets(unittest.TestCase):
         self.assertEqual(node.execute(wrapped), [wrapped])
         self.assertIs(node._selected_data(), data)
 
+    def test_static_pda_recovers_two_states(self):
+        calibration = Calibration(gamma=0.85, leakage=0.03, direct_ratio=0.015)
+        counts, _states = simulate_counts(
+            300,
+            [0.25, 0.72],
+            [0.4, 0.6],
+            calibration,
+            brightness_mean=30.0,
+            seed=13,
+        )
+        with self.assertRaises(FitCancelled):
+            compare_models(
+                counts,
+                calibration,
+                n_starts=1,
+                should_cancel=lambda: True,
+            )
+        fit = fit_pda(
+            counts,
+            calibration,
+            n_states=2,
+            n_starts=2,
+            seed=2026,
+        )
+        self.assertLess(abs(fit.efficiencies[0] - 0.25), 0.06)
+        self.assertLess(abs(fit.efficiencies[1] - 0.72), 0.06)
+        self.assertLess(abs(fit.fractions[0] - 0.4), 0.12)
+        self.assertLess(abs(fit.fractions[1] - 0.6), 0.12)
+
+        bounded = fit_pda(
+            counts,
+            calibration,
+            n_states=2,
+            n_starts=1,
+            seed=2026,
+            start=FitStart(
+                efficiencies=(
+                    (0.22, 0.15, 0.35),
+                    (0.78, 0.65, 0.85),
+                    (0.9, 0.01, 0.99),
+                ),
+            ),
+        )
+        self.assertGreaterEqual(bounded.efficiencies[0], 0.15)
+        self.assertLessEqual(bounded.efficiencies[0], 0.35)
+        self.assertGreaterEqual(bounded.efficiencies[1], 0.65)
+        self.assertLessEqual(bounded.efficiencies[1], 0.85)
+        figure = plot_check(counts, fit, repeats=2)
+        self.assertEqual(len(figure.axes), 2)
+        labels = [
+            text.get_text()
+            for text in figure.axes[0].get_legend().get_texts()
+        ]
+        self.assertTrue(any(label.startswith("State ") for label in labels))
+        self.assertIn("Sum of states", labels)
+        self.assertEqual(figure.axes[0].get_title(), "Fitted populations")
+        report = describe_model_choice([fit])
+        self.assertIn("Higher is better", report)
+        self.assertIn("Lower is better", report)
+        import matplotlib.pyplot as plt
+        plt.close(figure)
+
+        simpler = Fit(
+            efficiencies=np.array([0.4]),
+            fractions=np.array([1.0]),
+            brightness_shape=2.0,
+            brightness_mean=20.0,
+            log_likelihood=-500.0,
+            aic=1010.0,
+            bic=1040.0,
+            responsibilities=np.ones((10, 1)),
+            calibration=calibration,
+            n_observations=300,
+            converged_starts=1,
+            start_nll=np.array([500.0]),
+            bound_warning=False,
+            bg_tail=0.0,
+        )
+        richer = Fit(
+            efficiencies=np.array([0.25, 0.72]),
+            fractions=np.array([0.4, 0.6]),
+            brightness_shape=2.0,
+            brightness_mean=20.0,
+            log_likelihood=-400.0,
+            aic=820.0,
+            bic=860.0,
+            responsibilities=np.ones((10, 2)),
+            calibration=calibration,
+            n_observations=300,
+            converged_starts=1,
+            start_nll=np.array([400.0]),
+            bound_warning=False,
+            bg_tail=0.0,
+        )
+        comparison = describe_model_choice([richer, simpler])
+        self.assertIn("Lowest BIC on these windows: 2 states", comparison)
+        self.assertIn("improves the description a lot", comparison)
+
+    def test_dynamic_occupation_matches_a_markov_simulation(self):
+        duration = 0.001
+        rate = 2000.0
+        equilibrium = 0.35
+        _phi, log_mass, total = _occupation_parts(
+            duration, rate, equilibrium, n_quad=16,
+        )
+        self.assertAlmostEqual(total, 1.0, delta=0.02)
+        self.assertAlmostEqual(float(np.exp(log_mass).sum()), 1.0, places=6)
+        stay_low = equilibrium * np.exp(-rate * (1.0 - equilibrium) * duration)
+        stay_high = (1.0 - equilibrium) * np.exp(-rate * equilibrium * duration)
+        # Node 0 is all of the window in state 1; node 1 is none of it.
+        self.assertAlmostEqual(float(np.exp(log_mass[0])), stay_low, places=4)
+        self.assertAlmostEqual(float(np.exp(log_mass[1])), stay_high, places=4)
+
+    def test_dynamic_pda_recovers_two_exchanging_states(self):
+        calibration = Calibration(gamma=1.0, leakage=0.0, direct_ratio=0.0)
+        counts, _states = simulate_counts(
+            80,
+            [0.25, 0.75],
+            [0.4, 0.6],
+            calibration,
+            brightness_mean=20.0,
+            bD=0.2,
+            bA=0.2,
+            window_s=0.001,
+            seed=9,
+        )
+        # Static counts are a slow-exchange limit. A dynamic fit should
+        # still place the two efficiencies and not demand fast exchange.
+        fit = fit_dynamic(
+            counts,
+            calibration,
+            n_starts=1,
+            seed=9,
+            start=FitStart(
+                efficiencies=(
+                    (0.25, 0.05, 0.45),
+                    (0.75, 0.55, 0.95),
+                    (0.9, 0.01, 0.99),
+                ),
+                equilibrium=0.4,
+                exchanges_per_window=0.2,
+                exchange_low=0.01,
+                exchange_high=20.0,
+            ),
+        )
+        self.assertEqual(fit.model, "dynamic")
+        self.assertLess(abs(fit.efficiencies[0] - 0.25), 0.1)
+        self.assertLess(abs(fit.efficiencies[1] - 0.75), 0.1)
+        self.assertLess(fit.exchange_rate * counts.window_s, 5.0)
+
+    def test_static_pda_skips_fused_bursts_with_a_gap(self):
+        class Bursts:
+            def __init__(self):
+                self.start = np.array([0, 1000, 4000], dtype=np.int64)
+                self.stop = np.array([800, 2800, 4700], dtype=np.int64)
+                self.gap = np.array([0, 500, 0], dtype=np.int64)
+
+        photons = np.array([200, 4200], dtype=np.int64)
+
+        def get_ph_times(ich=0, ph_sel=None):
+            return photons
+
+        data = SimpleNamespace(
+            mburst=[Bursts()],
+            nch=1,
+            clk_p=1e-6,
+            alternated=False,
+            meas_type="",
+            get_ph_times=get_ph_times,
+        )
+        counts = extract_group(
+            data,
+            window_s=0.0005,
+            bg_rates_cps=(0.0, 0.0),
+        )
+        self.assertEqual(counts.info["requested_bursts"], 3)
+        self.assertEqual(counts.info["excluded_gapped"], 1)
+        self.assertEqual(counts.info["retained_bursts"], 2)
+        self.assertTrue(np.array_equal(counts.burst_id, np.array([0, 2])))
+
+    def test_static_pda_node_lists_selected_file(self):
+        graph = BaseUtils.init_graph()
+        graph.register_node(custom_nodes.StaticPdaNode)
+        node = graph.create_node('BurstAnalysis.StaticPdaNode')
+
+        self.assertIsInstance(node, AbstractRecomputable)
+        self.assertNotIsInstance(node, ResizableContentNode)
+        self.assertEqual(len(node.input_ports()), 1)
+        self.assertEqual(node.NODE_NAME, 'Photon Distribution Analysis')
+
+        data = custom_nodes.Data(
+            ph_times_m=[np.arange(5)],
+            A_em=[np.zeros(5, dtype=bool)],
+            clk_p=1e-6,
+            alternated=False,
+            nch=1,
+            fname='pda-test.h5',
+        )
+        data.gamma = 0.9
+        data.leakage = 0.04
+        wrapped = FBSData(data, 'pda-test.h5', id=11)
+        self.assertEqual(node.execute(wrapped), [wrapped])
+        self.assertIs(node._selected_data(), data)
+        self.assertIn('pda-test.h5', node.items_to_plot.get_value())
+
+        window = PdaExplorerWindow()
+        window.set_files(['pda-test.h5'], 'pda-test.h5')
+        window.set_data(data, file_label='pda-test.h5')
+        self.assertFalse(window.fit_btn.isEnabled())
+        self.assertTrue(window.preview_label.text())
+        self.assertTrue(window.spot_combo.isHidden())
+        self.assertAlmostEqual(window.gamma_spin.value(), 0.9)
+        self.assertAlmostEqual(window.leakage_spin.value(), 0.04)
+        self.assertAlmostEqual(window.direct_spin.value(), 0.0)
+        self.assertAlmostEqual(window.window_spin.value(), 0.5)
+        self.assertEqual(window.windowTitle(), "Photon Distribution Analysis")
+        self.assertEqual(
+            window._selected_models(),
+            ["static-1", "static-2", "dynamic-2"],
+        )
+        data.dir_ex = 0.2
+        window.gamma_spin.setValue(1.5)
+        window.set_data(data, file_label='pda-test.h5', preserve_view=True)
+        self.assertAlmostEqual(window.gamma_spin.value(), 1.5)
+        self.assertAlmostEqual(window.direct_spin.value(), 0.0)
+        data.nch = 2
+        window.set_data(data, file_label='pda-test.h5', preserve_view=True)
+        self.assertFalse(window.spot_combo.isHidden())
+        self.assertEqual(window.spot_combo.count(), 2)
+        self.assertEqual(window._spot_index(), 0)
+        window.close()
+
     def test_bva_contours_stay_on_each_nodes_own_axes(self):
         class Bursts(list):
             def recompute_index_reduce(self, _ph_times):
@@ -504,8 +751,8 @@ class TestWidgets(unittest.TestCase):
         plotted_data = SimpleNamespace(id=1, data=data)
 
         graph = BaseUtils.init_graph()
-        first = graph.create_node('Plot.BVAPlotterNode')
-        second = graph.create_node('Plot.BVAPlotterNode')
+        first = graph.create_node('BurstAnalysis.BVAPlotterNode')
+        second = graph.create_node('BurstAnalysis.BVAPlotterNode')
         self.assertEqual(len(first.input_ports()), 1)
         self.assertEqual(len(second.input_ports()), 1)
         first.data_to_plot = [plotted_data]
@@ -572,6 +819,8 @@ class TestWidgets(unittest.TestCase):
         self.assertEqual(categories['Loaders'].text(0), 'Data')
         self.assertIn('Analysis', categories)
         self.assertIn('Selectors', categories)
+        self.assertIn('BurstAnalysis', categories)
+        self.assertEqual(categories['BurstAnalysis'].text(0), 'Burst Analysis')
         self.assertIn('Plot', categories)
         self.assertNotIn('nodeGraphQt.nodes', categories)
         self.assertGreater(categories['Analysis'].childCount(), 0)
