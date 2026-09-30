@@ -13,6 +13,10 @@ from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingMo
 from abc import abstractmethod
 import numpy as np
 from fretbursts.burstlib import Data
+from fretGUI.burst_corrections import (
+    DIRECT_EXCITATION_TOOLTIP,
+    install_proportional_direct_excitation,
+)
 import pandas as pd
 import seaborn as sns
 from matplotlib.markers import MarkerStyle
@@ -24,6 +28,9 @@ from fretGUI.custom_widgets.timetrace_explorer import (
     TimetraceExplorerWindow,
 )
 from fretGUI.custom_widgets.pda_explorer import PdaExplorerWindow
+from fretGUI.measurement_kind import method_chips, method_type_line
+
+install_proportional_direct_excitation()
 
 
 PORT_MARKERS = ('o', 's', '^', 'D', 'v', '<', '>', 'P', 'X', '*')
@@ -223,9 +230,9 @@ class AbstractLoader(AbstractRecomputable):
         tooltip_parts = [f"Loaded: {path}"]
         
         try:
-            # Get experiment type
-            if hasattr(data, 'meas_type') and data.meas_type:
-                tooltip_parts.append(f"Type: {data.meas_type}")
+            type_line = method_type_line(data)
+            if type_line:
+                tooltip_parts.append(f"Type: {type_line}")
             
             # Get number of channels
             if hasattr(data, 'nch'):
@@ -270,6 +277,14 @@ class AbstractLoader(AbstractRecomputable):
             tooltip_parts.append(f"(Metadata extraction error: {str(e)})")
         
         return "\n".join(tooltip_parts)
+
+    def _publish_loaded_file(self, path, fbsdata):
+        self.file_widget.update_tooltip_for_path(
+            path,
+            self._format_metadata_tooltip(fbsdata),
+        )
+        data = None if fbsdata is None else fbsdata.data
+        self.file_widget.update_badges_for_path(path, method_chips(data))
     
     def execute(self, fbsdata: FBSData=None):
         file_entries = self.file_widget.get_file_entries()
@@ -308,9 +323,7 @@ class AbstractLoader(AbstractRecomputable):
                 fbsdata_copy.source_order = list_order
                 fbsdata_copy.display_name = display_name
                 data_list.append(fbsdata_copy)
-                # Update tooltip for loaded file
-                tooltip_text = self._format_metadata_tooltip(existing_fbsdata)
-                self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
+                self._publish_loaded_file(cur_path, existing_fbsdata)
             else:
                 # Load new FBSData with the pre-assigned ID
                 loaded_fbsdata = self.load(
@@ -324,9 +337,7 @@ class AbstractLoader(AbstractRecomputable):
                 self.opened_paths[path_hash] = loaded_fbsdata.copy()
                 # self.__wire_fbsdata(self.opened_paths[path_hash])
                 data_list.append(loaded_fbsdata)
-                # Update tooltip for newly loaded file
-                tooltip_text = self._format_metadata_tooltip(loaded_fbsdata)
-                self.file_widget.update_tooltip_for_path(cur_path, tooltip_text)
+                self._publish_loaded_file(cur_path, loaded_fbsdata)
         
         return data_list
     
@@ -590,6 +601,80 @@ class JoinDataNode(AbstractRecomputable):
                 self._deliver_to(grandchild, item, seen)
 
 
+def _paint_rounded_data_port(painter, rect, info):
+    """Draw a multi-input data port as a vertical rounded bullet."""
+    from Qt import QtCore, QtGui
+    from NodeGraphQt.constants import PortEnum
+
+    painter.save()
+    painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    center = rect.center()
+    width = rect.width() * 0.72
+    height = rect.height() * 1.7
+    bullet = QtCore.QRectF(
+        center.x() - width / 2.0,
+        center.y() - height / 2.0,
+        width,
+        height,
+    )
+    radius = width / 2.0
+    if info.get('hovered'):
+        painter.setPen(QtGui.QPen(QtGui.QColor(*PortEnum.HOVER_BORDER_COLOR.value), 1.8))
+        painter.setBrush(QtGui.QColor(*PortEnum.HOVER_COLOR.value))
+        painter.drawRoundedRect(bullet, radius, radius)
+    elif info.get('connected'):
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.setBrush(QtGui.QColor(0, 0, 0))
+        painter.drawRoundedRect(bullet, radius, radius)
+        inset = 1.7
+        inner = bullet.adjusted(inset, inset, -inset, -inset)
+        painter.setBrush(QtGui.QColor(*info['color']))
+        painter.drawRoundedRect(inner, max(0.0, radius - inset), max(0.0, radius - inset))
+    else:
+        painter.setPen(QtGui.QPen(QtGui.QColor(*info['border_color']), 1.8))
+        painter.setBrush(QtGui.QColor(*info['color']))
+        painter.drawRoundedRect(bullet, radius, radius)
+    painter.restore()
+
+
+class CollectMeasurementsNode(AbstractRecomputable):
+    """Pass separate loader measurements downstream without merging them."""
+
+    __identifier__ = 'Loaders'
+    NODE_NAME = 'Collect Measurements'
+    DESCRIPTION = (
+        'Gather separate measurements from several loaders into one stream '
+        'for analysis and plots. Files are not merged.'
+    )
+
+    def __init__(self):
+        super().__init__()
+        self.add_input(
+            'inport',
+            multi_input=True,
+            color=(255, 0, 0),
+            painter_func=_paint_rounded_data_port,
+        )
+        self.add_output('outport', color=(255, 0, 0))
+
+    def execute(self, fbsdata=None):
+        if fbsdata is None:
+            return []
+        fbsdata.source_order = self._list_order(fbsdata)
+        return [fbsdata]
+
+    def _list_order(self, fbsdata):
+        parents = list(self.iter_parent_nodes())
+        parent_index = 0
+        previous_id = getattr(fbsdata, 'prev_nodeid', None)
+        for index, parent in enumerate(parents):
+            if id(parent) == previous_id:
+                parent_index = index
+                break
+        original_order = int(getattr(fbsdata, 'source_order', 0))
+        return parent_index * 1_000_000 + original_order
+
+
 class MergePhotonsNode(JoinDataNode):
     """Concatenate raw single-spot smFRET streams before background estimation."""
 
@@ -628,6 +713,10 @@ class ExportPhotonHdf5Node(AbstractRecomputable):
         self.export_panel = ExportFolderWrapper(self.view)
         self.add_custom_widget(self.export_panel, tab='custom')
         self.export_panel.export_requested.connect(self.export_datasets)
+        self.export_panel.metadata_requested.connect(self.edit_metadata)
+        from fretGUI.photon_hdf5_metadata import load_metadata
+        self._metadata = load_metadata()
+        self._refresh_metadata_status()
         self.enable_locked_auto_run()
         coordinator = RunCoordinator()
         coordinator.run_started.connect(self._on_run_started)
@@ -693,6 +782,7 @@ class ExportPhotonHdf5Node(AbstractRecomputable):
             destination_paths,
             export_file_name,
         )
+        from fretGUI.photon_hdf5_metadata import apply_export_metadata
         import phconvert.hdf5 as photon_hdf5
 
         total = len(self._datasets)
@@ -705,7 +795,11 @@ class ExportPhotonHdf5Node(AbstractRecomputable):
         try:
             for item, path in zip(self._datasets, paths):
                 try:
-                    payload = data_dict_from_fretbursts(item.data)
+                    payload = apply_export_metadata(
+                        data_dict_from_fretbursts(item.data),
+                        self._metadata,
+                        filename=_measurement_label(item),
+                    )
                     photon_hdf5.save_photon_hdf5(
                         payload,
                         h5_fname=path,
@@ -728,6 +822,28 @@ class ExportPhotonHdf5Node(AbstractRecomputable):
                 f'Finished. Wrote {written} of {total} files.',
                 'error',
             )
+
+    def edit_metadata(self):
+        from Qt import QtWidgets
+        from fretGUI.custom_widgets.hdf5_metadata_dialog import (
+            PhotonHdf5MetadataDialog,
+        )
+        from fretGUI.photon_hdf5_metadata import save_metadata
+
+        dialog = PhotonHdf5MetadataDialog(
+            self._metadata,
+            QtWidgets.QApplication.activeWindow(),
+        )
+        if dialog.exec_():
+            self._metadata = save_metadata(dialog.values())
+            self._refresh_metadata_status()
+
+    def _refresh_metadata_status(self):
+        from fretGUI.photon_hdf5_metadata import metadata_is_blank
+        if metadata_is_blank(self._metadata):
+            self.export_panel.set_metadata_status('No metadata filled.')
+        else:
+            self.export_panel.set_metadata_status('Saved metadata will be applied.')
 
 
 class AlexNode(AbstractRecomputable):
@@ -800,7 +916,7 @@ class CorrectionsNode(AbstractRecomputable):
             'Direct ex.', 
             [0, 1, 0.01], 
             0,
-            tooltip='ALEX ONLY!!! The coefficient dir_ex_t expresses the direct excitation as n_dir = dir_ex_t * (na + gamma*nd). In terms of physical parameters it is the ratio of acceptor over donor absorption cross-sections at the donor-excitation wavelength.', 
+            tooltip=DIRECT_EXCITATION_TOOLTIP, 
             min_width=self.fields_width)
 
     
@@ -863,10 +979,10 @@ class BurstSearchNodeRate(AbstractRecomputable):
             20,
             tooltip='Minimum number of photons in burst.')
         self.int_slider = node_builder.build_int_slider(
-            'Min. rate cps',
-            [1000, 100000, 1000],
-            8000,
-            tooltip = "Minimum rate in cps for burst start.")
+            'Min. rate, kcps',
+            [1, 200, 1],
+            8,
+            tooltip='Minimum photon rate for burst start, in kcps. Burst search receives this value in counts per second.')
         
     def __burst_search(self, fbdata: str, m, L, min_rate_cps):
         fbdata.data.burst_search(m=m, L=L, min_rate_cps = min_rate_cps)
@@ -875,7 +991,7 @@ class BurstSearchNodeRate(AbstractRecomputable):
     def execute(self, fbsdata: FBSData):
         self.__burst_search(fbsdata, m=self.m_slider.get_value(),
                                     L=self.L_slider.get_value(),
-                                    min_rate_cps=self.int_slider.get_value())
+                                    min_rate_cps=self.int_slider.get_value() * 1000)
         return [fbsdata]
 
 class FuseBurstsNode(AbstractRecomputable):

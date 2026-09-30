@@ -8,6 +8,7 @@ from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
 
 class ExportFolderWidget(QtWidgets.QWidget):
     export_clicked = Signal()
+    metadata_clicked = Signal()
     folder_changed = Signal()
 
     def __init__(self, parent=None):
@@ -23,6 +24,12 @@ class ExportFolderWidget(QtWidgets.QWidget):
         self.export_button = QtWidgets.QPushButton('Export')
         self.export_button.clicked.connect(self.export_clicked.emit)
 
+        self.metadata_button = QtWidgets.QPushButton('Fill metadata')
+        self.metadata_button.clicked.connect(self.metadata_clicked.emit)
+
+        self.metadata_status = QtWidgets.QLabel('No metadata filled.')
+        self.metadata_status.setWordWrap(True)
+
         self.status = QtWidgets.QLabel('No measurements yet')
         self.status.setWordWrap(True)
 
@@ -31,10 +38,16 @@ class ExportFolderWidget(QtWidgets.QWidget):
         folder_row.addWidget(self.path_edit, stretch=1)
         folder_row.addWidget(browse)
 
+        action_row = QtWidgets.QHBoxLayout()
+        action_row.setContentsMargins(0, 0, 0, 0)
+        action_row.addWidget(self.export_button)
+        action_row.addWidget(self.metadata_button)
+
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(folder_row)
-        layout.addWidget(self.export_button)
+        layout.addLayout(action_row)
+        layout.addWidget(self.metadata_status)
         layout.addWidget(self.status)
         self.setMinimumWidth(230)
 
@@ -56,8 +69,12 @@ class ExportFolderWidget(QtWidgets.QWidget):
         else:
             self.status.setStyleSheet('')
 
+    def set_metadata_status(self, text):
+        self.metadata_status.setText(text)
+
     def set_busy(self, busy):
         self.export_button.setEnabled(not busy)
+        self.metadata_button.setEnabled(not busy)
         self.path_edit.setEnabled(not busy)
 
     def _browse(self):
@@ -73,6 +90,7 @@ class ExportFolderWidget(QtWidgets.QWidget):
 
 class ExportFolderWrapper(AbstractWidgetWrapper):
     export_requested = Signal()
+    metadata_requested = Signal()
 
     def __init__(self, parent=None):
         self.folder_widget = ExportFolderWidget()
@@ -83,6 +101,7 @@ class ExportFolderWrapper(AbstractWidgetWrapper):
 
     def wire_signals(self):
         self.folder_widget.export_clicked.connect(self.export_requested.emit)
+        self.folder_widget.metadata_clicked.connect(self.metadata_requested.emit)
         self.folder_widget.folder_changed.connect(self.widget_changed_signal.emit)
 
     def get_value(self):
@@ -93,6 +112,9 @@ class ExportFolderWrapper(AbstractWidgetWrapper):
 
     def set_status(self, text, kind='idle'):
         self.folder_widget.set_status(text, kind)
+
+    def set_metadata_status(self, text):
+        self.folder_widget.set_metadata_status(text)
 
     def set_busy(self, busy):
         self.folder_widget.set_busy(busy)

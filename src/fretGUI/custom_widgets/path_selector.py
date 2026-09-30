@@ -121,7 +121,7 @@ class _RowDragHandle(QtWidgets.QWidget):
         super().__init__(row)
         self._row = row
         self._pressed = False
-        self.setFixedSize(14, 25)
+        self.setFixedSize(8, 25)
         self.setCursor(QtCore.Qt.SizeVerCursor)
         self.setToolTip("Drag to reorder")
 
@@ -133,12 +133,15 @@ class _RowDragHandle(QtWidgets.QWidget):
         painter.setBrush(color)
         center_x = self.width() / 2.0
         center_y = self.height() / 2.0
-        for row in range(-1, 2):
-            for column in range(-1, 1):
+        for row in (-1, 0, 1):
+            for column in (-0.5, 0.5):
                 painter.drawEllipse(
-                    QtCore.QPointF(center_x + column * 4, center_y + row * 4),
-                    1.2,
-                    1.2,
+                    QtCore.QPointF(
+                        center_x + column * 3.0,
+                        center_y + row * 3.5,
+                    ),
+                    1.05,
+                    1.05,
                 )
 
     def mousePressEvent(self, event):
@@ -167,6 +170,51 @@ class _RowDragHandle(QtWidgets.QWidget):
         super().mouseReleaseEvent(event)
 
 
+_CHIP_LABELS = ('UNKN', 'Pulsed', 'ALEX', '2pol', 'PAX', 'PIE', '1C', 'CW', 'µt')
+_UNKNOWN_BADGE = {
+    'code': 'UNKN',
+    'tooltip': 'Not loaded yet. Press RUN to identify the measurement.',
+}
+
+
+class _MethodChip(QtWidgets.QWidget):
+    """Compact excitation or timing label that follows the application palette."""
+
+    def __init__(self, code, tooltip, parent=None):
+        super().__init__(parent)
+        self._code = code
+        self.setToolTip(tooltip)
+        font = self.font()
+        font.setPointSize(8)
+        self.setFont(font)
+        self.setFixedHeight(16)
+        self.setFixedWidth(self._plaque_width())
+
+    @staticmethod
+    def _plaque_width():
+        probe = QtWidgets.QWidget()
+        font = probe.font()
+        font.setPointSize(8)
+        probe.setFont(font)
+        metrics = probe.fontMetrics()
+        probe.deleteLater()
+        return max(metrics.horizontalAdvance(label) for label in _CHIP_LABELS) + 12
+
+    def text(self):
+        return self._code
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        palette = self.palette()
+        rect = QtCore.QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        painter.setPen(QtGui.QPen(palette.color(QtGui.QPalette.Mid), 1))
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.drawRoundedRect(rect, 3, 3)
+        painter.setPen(palette.color(QtGui.QPalette.Text))
+        painter.drawText(self.rect(), QtCore.Qt.AlignCenter, self._code)
+
+
 class PathRowWidget(QtWidgets.QWidget):
     del_signal = Signal()
     changed_state = Signal(bool)
@@ -189,8 +237,9 @@ class PathRowWidget(QtWidgets.QWidget):
         
         self.text_field = QtWidgets.QLineEdit(parent=self, text='...')
         self.text_field.setFixedHeight(25)
-        # Between the truncated field and the oversized 225px minimum.
-        self.text_field.setFixedWidth(176)
+        # A little under the old 176px name, so a method chip fits in the
+        # node without making the node wider.
+        self.text_field.setFixedWidth(148)
         self.text_field.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed,
             QtWidgets.QSizePolicy.Fixed,
@@ -203,13 +252,22 @@ class PathRowWidget(QtWidgets.QWidget):
         
         self._full_path = ''
         self._display_name = ''
+        self._badges = QtWidgets.QWidget(self)
+        self._badge_layout = QtWidgets.QHBoxLayout(self._badges)
+        self._badge_layout.setContentsMargins(0, 0, 0, 0)
+        self._badge_layout.setSpacing(3)
+        self._badge_layout.addWidget(
+            _MethodChip(_UNKNOWN_BADGE['code'], _UNKNOWN_BADGE['tooltip'], self._badges)
+        )
                 
         row_layout = QtWidgets.QHBoxLayout(self)
-        row_layout.setContentsMargins(2, 2, 2, 2)
+        row_layout.setContentsMargins(0, 2, 2, 2)
+        row_layout.setSpacing(4)
         
         row_layout.addWidget(self.drag_handle)
         row_layout.addWidget(self.id_label)
         row_layout.addWidget(self.text_field, stretch=1)
+        row_layout.addWidget(self._badges, alignment=QtCore.Qt.AlignVCenter)
         row_layout.addWidget(self.del_button)
         row_layout.addWidget(self.checkbox)
         
@@ -293,6 +351,28 @@ class PathRowWidget(QtWidgets.QWidget):
     def set_tooltip(self, tooltip_text):
         """Set tooltip for the row widget"""
         self.setToolTip(tooltip_text)
+
+    def set_badges(self, badges):
+        """Replace the method chips beside the file name."""
+        shown = list(badges or []) or [_UNKNOWN_BADGE]
+        while self._badge_layout.count():
+            item = self._badge_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+        for badge in shown:
+            self._badge_layout.addWidget(
+                _MethodChip(badge['code'], badge['tooltip'], self._badges)
+            )
+
+    def badge_codes(self):
+        codes = []
+        for index in range(self._badge_layout.count()):
+            widget = self._badge_layout.itemAt(index).widget()
+            if isinstance(widget, _MethodChip):
+                codes.append(widget.text())
+        return codes
         
     def is_checked(self):
         return self.checkbox.isChecked()
@@ -626,16 +706,26 @@ class PathSelectorWidget(QtWidgets.QWidget):
     
     def update_tooltip_for_path(self, path, tooltip_text):
         """Update tooltip for a specific path row widget"""
+        row_widget = self._row_for_path(path)
+        if row_widget is not None:
+            row_widget.set_tooltip(tooltip_text)
+
+    def update_badges_for_path(self, path, badges):
+        """Update method chips for a specific path row widget."""
+        row_widget = self._row_for_path(path)
+        if row_widget is not None:
+            row_widget.set_badges(badges)
+
+    def _row_for_path(self, path):
         total_widgets = self.layout.count()
         for i in range(total_widgets):
             item = self.layout.itemAt(i)
             if item is None:
                 continue
             row_widget = item.widget()
-            if row_widget and isinstance(item.widget(), PathRowWidget):
-                if row_widget.get_text() == path:
-                    row_widget.set_tooltip(tooltip_text)
-                    break
+            if isinstance(row_widget, PathRowWidget) and row_widget.get_text() == path:
+                return row_widget
+        return None
             
     def on_del_bttn_clicked(self):
         print(self.get_paths())
@@ -646,8 +736,8 @@ class PathSelectorWidget(QtWidgets.QWidget):
             self.layout.activate()
         self.adjustSize()
         self.updateGeometry()
-        
-        # Manually update node size based on widget count
+
+        # Manually update node height based on widget count. Width stays put.
         self.update_node_size()
         
         # Explicitly resize the wrapper's border frame if it exists
@@ -662,6 +752,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
 class PathSelectorWidgetWrapper(AbstractWidgetWrapper):    
     paths_added = Signal(list)  # Forward the signal from PathSelectorWidget
     tooltip_update_requested = Signal(str, str)
+    badges_update_requested = Signal(str, object)
     
     def __init__(self, parent=None):
         self.path_widget = PathSelectorWidget(parent=parent)
@@ -691,6 +782,9 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
         self.tooltip_update_requested.connect(
             self.path_widget.update_tooltip_for_path
         )
+        self.badges_update_requested.connect(
+            self.path_widget.update_badges_for_path
+        )
             
     def get_value(self):
         selected_paths = self.path_widget.get_paths()
@@ -713,6 +807,10 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
     def update_tooltip_for_path(self, path, tooltip_text):
         """Update tooltip for a specific path"""
         self.tooltip_update_requested.emit(path, tooltip_text)
+
+    def update_badges_for_path(self, path, badges):
+        """Update method chips for a specific path."""
+        self.badges_update_requested.emit(path, badges)
     
     def resize_border_frame(self):
         """Explicitly resize the border frame to match the path_widget size"""

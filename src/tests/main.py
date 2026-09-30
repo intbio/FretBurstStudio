@@ -84,6 +84,7 @@ class BaseUtils():
                     custom_nodes.LSM510Node,    
                     custom_nodes.PhHDF5Node,
                     custom_nodes.JoinDataNode,
+                    custom_nodes.CollectMeasurementsNode,
                     custom_nodes.MergePhotonsNode,
                     custom_nodes.ExportPhotonHdf5Node,
                     custom_nodes.CalcBGNode,
@@ -1767,6 +1768,133 @@ class TestWidgets(unittest.TestCase):
         self.assertEqual(node.dataset_list.keys(), [])
         self.assertEqual(node._by_key, {})
 
+    def test_selectors_run_and_rate_thresholds_are_kcps(self):
+        import copy
+
+        import fretbursts
+
+        clk = 50e-9
+        parts = []
+        cursor = 0.05
+        for _ in range(8):
+            background = cursor + np.arange(int(0.9 * 3000)) * (1 / 3000)
+            parts.append(background)
+            cursor = background[-1] + 0.002
+            burst = cursor + np.arange(60) * (0.0004 / 60)
+            parts.append(burst)
+            cursor = burst[-1] + 0.002
+        timestamps = np.unique(
+            np.round(np.concatenate(parts) / clk).astype('int64')
+        )
+        detectors = np.zeros(timestamps.size, dtype=bool)
+        detectors[1::2] = True
+        measurement = fretbursts.Data(
+            ph_times_m=[timestamps],
+            A_em=[detectors],
+            clk_p=clk,
+            nch=1,
+            alternated=False,
+            meas_type='smFRET',
+        )
+        measurement.calc_bg(fretbursts.bg.exp_fit, time_s=1, tail_min_us=100)
+        measurement.burst_search(m=10, L=20, F=5, mute=True)
+        self.assertGreater(int(measurement.num_bursts[0]), 0)
+        self.assertNotIn('max_rate', measurement)
+
+        graph = BaseUtils.init_graph()
+        selector_types = [
+            'Selectors.BurstSelectorSizeNode',
+            'Selectors.BurstSelectorENode',
+            'Selectors.BurstSelectorBrightnessNode',
+            'Selectors.BurstSelectorConsecutiveNode',
+            'Selectors.BurstSelectorNANode',
+            'Selectors.BurstSelectorNABGNode',
+            'Selectors.BurstSelectorNDNode',
+            'Selectors.BurstSelectorNDBGNode',
+            'Selectors.BurstSelectorPeakPhrateNode',
+            'Selectors.BurstSelectorPeriodNode',
+            'Selectors.BurstSelectorSBRNode',
+            'Selectors.BurstSelectorSingleNode',
+            'Selectors.BurstSelectorTimeNode',
+            'Selectors.BurstSelectorTopNMaxRateNode',
+            'Selectors.BurstSelectorTopNNDANode',
+            'Selectors.BurstSelectorTopNSBRNode',
+            'Selectors.BurstSelectorWidthNode',
+        ]
+        for node_type in selector_types:
+            node = graph.create_node(node_type)
+            source = copy.deepcopy(measurement)
+            try:
+                result = node.execute(FBSData(source))
+            except Exception as error:
+                self.fail(f'{node_type} failed: {type(error).__name__}: {error}')
+            self.assertGreaterEqual(int(result[0].data.num_bursts[0]), 0)
+            if node_type == 'Selectors.BurstSelectorTopNMaxRateNode':
+                self.assertIn('max_rate', source)
+                self.assertEqual(int(result[0].data.num_bursts[0]), 8)
+
+        peak = graph.create_node('Selectors.BurstSelectorPeakPhrateNode')
+        peak.th1.set_value(1)
+        peak.th2.set_value(1)
+        peak.update_select_kwargs()
+        self.assertEqual(peak.SELECT_KWARGS['th1'], 1000)
+        self.assertEqual(peak.SELECT_KWARGS['th2'], 1000)
+
+        brightness = graph.create_node('Selectors.BurstSelectorBrightnessNode')
+        brightness.th1.set_value(1)
+        brightness.th2.set_value(1)
+        brightness.update_select_kwargs()
+        self.assertEqual(brightness.SELECT_KWARGS['th1'], 1000)
+        self.assertEqual(brightness.SELECT_KWARGS['th2'], 1000)
+
+        search = graph.create_node('Analysis.BurstSearchNodeRate')
+        search.int_slider.set_value(1)
+        searched = copy.deepcopy(measurement)
+        recorded = {}
+        real_search = fretbursts.burstlib.Data.burst_search
+
+        def record_search(self, *args, **kwargs):
+            if self is searched:
+                recorded.update(kwargs)
+            return real_search(self, *args, **kwargs)
+
+        with patch.object(fretbursts.burstlib.Data, 'burst_search', record_search):
+            search.execute(FBSData(searched))
+        self.assertEqual(recorded['min_rate_cps'], 1000)
+
+    def test_collect_measurements_keeps_files_separate_in_loader_order(self):
+        from NodeGraphQt.qgraphics.port import CustomPortItem
+
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.CollectMeasurementsNode')
+        in_port = node.input_ports()[0]
+        out_port = node.output_ports()[0]
+        self.assertEqual(in_port.color[:3], (255, 0, 0))
+        self.assertEqual(out_port.color[:3], (255, 0, 0))
+        self.assertTrue(in_port.multi_connection())
+        self.assertIsInstance(in_port.view, CustomPortItem)
+
+        class Parent:
+            pass
+
+        first = Parent()
+        second = Parent()
+        alpha = FBSData(data=object(), path='a.hdf5')
+        alpha.source_order = 1
+        alpha.prev_nodeid = id(second)
+        beta = FBSData(data=object(), path='b.hdf5')
+        beta.source_order = 0
+        beta.prev_nodeid = id(first)
+
+        with patch.object(node, 'iter_parent_nodes', return_value=[first, second]):
+            self.assertEqual(node.execute(None), [])
+            returned = node.execute(beta)
+            self.assertIs(returned[0], beta)
+            self.assertEqual(beta.source_order, 0)
+            returned = node.execute(alpha)
+            self.assertIs(returned[0], alpha)
+            self.assertEqual(alpha.source_order, 1_000_001)
+
     def test_join_and_export_stay_on_auto_run(self):
         from fretGUI.singletons import ThreadSignalManager
 
@@ -1942,10 +2070,253 @@ class TestWidgets(unittest.TestCase):
                 if isinstance(stored, bytes):
                     stored = stored.decode()
                 self.assertEqual(stored, payload['photon_data']['measurement_specs']['measurement_type'])
-    
-        
-        
-        
+
+    def test_method_chips_describe_excitation(self):
+        from fretGUI.custom_widgets.path_selector import PathRowWidget
+        from fretGUI.measurement_kind import method_chips, method_type_line
+
+        def codes(data):
+            return [chip['code'] for chip in method_chips(data)]
+
+        micros = [np.array([1, 2], dtype='int64')]
+        self.assertEqual(codes({'meas_type': 'smFRET'}), ['CW'])
+        self.assertEqual(
+            codes({'meas_type': 'smFRET', 'nanotimes': micros}),
+            ['CW', 'µt'],
+        )
+        self.assertEqual(
+            codes({'meas_type': 'smFRET', 'lifetime': True, 'nanotimes': micros}),
+            ['Pulsed'],
+        )
+        self.assertEqual(codes({'meas_type': 'smFRET-usALEX'}), ['ALEX'])
+        self.assertEqual(
+            codes({'meas_type': 'smFRET-usALEX', 'nanotimes': micros}),
+            ['ALEX', 'µt'],
+        )
+        self.assertEqual(
+            codes({
+                'meas_type': 'smFRET-nsALEX',
+                'lifetime': True,
+                'nanotimes': micros,
+            }),
+            ['PIE'],
+        )
+        self.assertEqual(codes({'meas_type': 'PAX'}), ['PAX'])
+        self.assertEqual(
+            codes({'meas_type': 'PAX', 'nanotimes_t': micros}),
+            ['PAX', 'µt'],
+        )
+        self.assertEqual(codes({'meas_type': 'smFRET-1color'}), ['1C'])
+        self.assertEqual(
+            codes({'meas_type': 'smFRET', 'polarization': True}),
+            ['CW', '2pol'],
+        )
+        pie = method_type_line({
+            'meas_type': 'smFRET-nsALEX',
+            'lifetime': True,
+            'nanotimes': micros,
+        })
+        self.assertIn('Pulse-interleaved', pie)
+        self.assertIn('smFRET-nsALEX', pie)
+        self.assertNotIn('Microtimes', pie)
+
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.PhHDF5Node')
+        tooltip = node._format_metadata_tooltip(FBSData(
+            data={'meas_type': 'smFRET-nsALEX', 'lifetime': True, 'nanotimes': micros},
+            path='pie.h5',
+        ))
+        self.assertIn('Type: Pulse-interleaved', tooltip)
+
+        row = PathRowWidget()
+        self.assertEqual(row.badge_codes(), ['UNKN'])
+        unknown = row._badge_layout.itemAt(0).widget()
+        row.set_badges(method_chips({
+            'meas_type': 'smFRET-usALEX',
+            'nanotimes': micros,
+        }))
+        self.assertEqual(row.badge_codes(), ['ALEX', 'µt'])
+        loaded = row._badge_layout.itemAt(0).widget()
+        self.assertEqual(loaded.width(), unknown.width())
+        self.assertIn('microsecond', loaded.toolTip())
+
+    def test_export_metadata_overlays_filled_fields(self):
+        import os
+        import tempfile
+        from io import StringIO
+        from contextlib import redirect_stdout
+
+        from fretGUI.photon_hdf5_export import data_dict_from_fretbursts
+        from fretGUI.photon_hdf5_metadata import (
+            apply_export_metadata,
+            load_metadata,
+            save_metadata,
+        )
+        import phconvert.hdf5 as photon_hdf5
+
+        measurement = {
+            'ph_times_m': [np.array([10, 20, 30, 40], dtype='int64')],
+            'A_em': [np.array([False, True, False, True])],
+            'clk_p': 12.5e-9,
+            'nch': 1,
+            'meas_type': 'smFRET',
+            'description': 'from file',
+            'sample': {'buffer_name': 'TE', 'sample_name': 'old'},
+            'identity': {'author': 'From file'},
+            'provenance': {'filename': 'raw.spc', 'software': 'SPCM'},
+            'setup': {'excitation_wavelengths': np.array([532e-9])},
+        }
+        payload = data_dict_from_fretbursts(measurement)
+        self.assertEqual(payload['identity']['author'], 'From file')
+        self.assertEqual(payload['provenance']['software'], 'SPCM')
+        self.assertEqual(payload['sample']['buffer_name'], 'TE')
+
+        fields = {
+            'author': 'Ada',
+            'author_affiliation': 'Lab',
+            'sample_name': 'duplex',
+            'dye_names': 'Cy3B, ATTO647N',
+            'excitation_wavelengths_nm': '532, 640',
+            'detection_wavelengths_nm': '570, 670',
+            'excitation_powers_mw': '40',
+        }
+        messages = StringIO()
+        with redirect_stdout(messages):
+            result = apply_export_metadata(payload, fields)
+        self.assertIn('left unchanged', messages.getvalue())
+        self.assertEqual(result['description'], 'from file')
+        self.assertEqual(result['identity']['author'], 'Ada')
+        self.assertEqual(result['identity']['author_affiliation'], 'Lab')
+        self.assertEqual(result['sample']['buffer_name'], 'TE')
+        self.assertEqual(result['sample']['sample_name'], 'duplex')
+        from fretGUI.custom_widgets.hdf5_metadata_dialog import (
+            PhotonHdf5MetadataDialog,
+        )
+        named = apply_export_metadata(
+            payload,
+            {
+                'sample_name_from_filename': '1',
+                'sample_name': 'typed',
+            },
+            filename='_M2dCas-NS_09hOct_400x.001',
+        )
+        self.assertEqual(
+            named['sample']['sample_name'],
+            '_M2dCas-NS_09hOct_400x.001',
+        )
+        dialog = PhotonHdf5MetadataDialog({
+            'sample_name_from_filename': '1',
+            'sample_name': 'typed',
+        })
+        self.assertEqual(dialog._use_filename.text(), 'Use filename')
+        self.assertTrue(dialog._use_filename.isChecked())
+        self.assertFalse(dialog._editors['sample_name'].isEnabled())
+        dialog._use_filename.setChecked(False)
+        self.assertEqual(dialog.values()['sample_name'], 'typed')
+        self.assertEqual(dialog.values()['sample_name_from_filename'], '')
+        self.assertEqual(result['sample']['dye_names'], 'Cy3B, ATTO647N')
+        self.assertEqual(result['sample']['num_dyes'], 2)
+        np.testing.assert_allclose(
+            result['setup']['excitation_wavelengths'],
+            [532e-9],
+        )
+        np.testing.assert_allclose(
+            result['setup']['detection_wavelengths'],
+            [570e-9, 670e-9],
+        )
+        np.testing.assert_allclose(
+            result['setup']['excitation_input_powers'],
+            [0.04],
+        )
+
+        matched = apply_export_metadata(
+            payload,
+            {'excitation_wavelengths_nm': '488'},
+        )
+        np.testing.assert_allclose(
+            matched['setup']['excitation_wavelengths'],
+            [488e-9],
+        )
+        untouched = apply_export_metadata(payload, {})
+        self.assertEqual(untouched['sample']['buffer_name'], 'TE')
+        self.assertNotIn('detection_wavelengths', untouched['setup'])
+
+        invalid = StringIO()
+        with redirect_stdout(invalid):
+            kept = apply_export_metadata(
+                payload,
+                {'excitation_wavelengths_nm': 'red'},
+            )
+        self.assertIn('could not read', invalid.getvalue())
+        np.testing.assert_allclose(
+            kept['setup']['excitation_wavelengths'],
+            [532e-9],
+        )
+
+        with tempfile.TemporaryDirectory() as folder:
+            settings_path = os.path.join(folder, 'metadata.ini')
+            settings = QtCore.QSettings(settings_path, QtCore.QSettings.IniFormat)
+            save_metadata(
+                {'author': 'Ada', 'excitation_wavelengths_nm': '532, 640'},
+                settings,
+            )
+            stored = load_metadata(settings)
+            self.assertEqual(stored['author'], 'Ada')
+            self.assertEqual(stored['excitation_wavelengths_nm'], '532, 640')
+            self.assertEqual(stored['description'], '')
+
+            path = os.path.join(folder, 'described.hdf5')
+            with redirect_stdout(StringIO()):
+                photon_hdf5.save_photon_hdf5(
+                    result,
+                    h5_fname=path,
+                    overwrite=True,
+                )
+
+    def test_export_node_applies_saved_metadata(self):
+        import os
+        import tempfile
+
+        graph = BaseUtils.init_graph()
+        saved = {'author': 'Ada', 'description': 'batch'}
+        with patch(
+            'fretGUI.photon_hdf5_metadata.load_metadata',
+            return_value=saved,
+        ):
+            node = graph.create_node('Loaders.ExportPhotonHdf5Node')
+        self.assertEqual(
+            node.export_panel.folder_widget.metadata_button.text(),
+            'Fill metadata',
+        )
+        self.assertEqual(
+            node.export_panel.folder_widget.metadata_status.text(),
+            'Saved metadata will be applied.',
+        )
+
+        item = FBSData(
+            data={
+                'ph_times_m': [np.array([10, 20, 30], dtype='int64')],
+                'A_em': [np.array([False, True, False])],
+                'clk_p': 12.5e-9,
+                'nch': 1,
+                'meas_type': 'smFRET',
+                'sample': {'buffer_name': 'TE'},
+                'identity': {'author': 'From file'},
+            },
+            path='measure.h5',
+        )
+        node._datasets = [item]
+        with tempfile.TemporaryDirectory() as folder:
+            node.export_panel.set_value(folder)
+            with patch('phconvert.hdf5.save_photon_hdf5') as save:
+                node.export_datasets()
+        payload = save.call_args[0][0]
+        self.assertEqual(payload['identity']['author'], 'Ada')
+        self.assertEqual(payload['description'], 'batch')
+        self.assertEqual(payload['sample']['buffer_name'], 'TE')
+        self.assertTrue(os.path.basename(save.call_args.kwargs['h5_fname']).endswith('.hdf5'))
+
+
 class TestWorkers(unittest.TestCase):
     def __init__(self, methodName = "runTest"):
         super().__init__(methodName)

@@ -430,6 +430,7 @@ def main():
             custom_nodes.LSM510Node,    
             custom_nodes.PhHDF5Node,
             custom_nodes.JoinDataNode,
+            custom_nodes.CollectMeasurementsNode,
             custom_nodes.MergePhotonsNode,
             custom_nodes.ExportPhotonHdf5Node,
 

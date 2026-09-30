@@ -8,6 +8,50 @@ from fretGUI.singletons import FBSDataCash
 
 
 
+KCPS_TO_CPS = 1000
+
+
+def _kcps_to_cps(value):
+    """Selectors and burst search take counts per second; the UI is kcps."""
+    return float(value) * KCPS_TO_CPS
+
+
+def _ensure_photon_counts(data):
+    """Count donor and acceptor photons when burst search skipped that step."""
+    if 'nd' not in data or 'na' not in data:
+        data.calc_ph_num()
+
+
+def _ensure_fret(data):
+    """Compute corrected FRET efficiency when it has not been stored yet."""
+    if 'E' not in data:
+        _ensure_photon_counts(data)
+        data.calc_fret()
+
+
+def _ensure_max_rate(data):
+    """Store each burst's peak photon rate in counts per second.
+
+    calc_max_rate subtracts the background. A fixed-rate burst search
+    may have no background, so that path keeps the raw m-photon rate.
+    """
+    if 'max_rate' in data:
+        return
+    m = int(getattr(data, 'm', None) or 10)
+    if 'bg' in data and 'bp' in data:
+        data.calc_max_rate(m=m)
+        return
+    from fretbursts.phtools import phrates
+    rates = data.calc_burst_ph_func(
+        func=phrates.mtuple_rates_max,
+        func_kw=dict(m=m, c=phrates.default_c),
+    )
+    data.add(
+        max_rate=[rate / data.clk_p for rate in rates],
+        max_rate_params={'m': m, 'compact': False},
+    )
+
+
 class BaseSelectorNode(AbstractRecomputable):
     SELECT_FUNC = None
 
@@ -22,9 +66,13 @@ class BaseSelectorNode(AbstractRecomputable):
     def update_select_kwargs(self):
         pass
 
+    def prepare(self, data):
+        pass
+
     @FBSDataCash().fbscash
     def execute(self, fbsdata: FBSData):
         self.update_select_kwargs()
+        self.prepare(fbsdata.data)
         fbsdata.data = fbsdata.data.select_bursts(self.SELECT_FUNC, **self.SELECT_KWARGS)
         return [fbsdata]
 
@@ -41,6 +89,9 @@ class BurstSelectorSizeNode(BaseSelectorNode):
         self.SELECT_KWARGS['th1'] = self.th1.get_value()
         self.SELECT_KWARGS['th2'] = self.th2.get_value()
 
+    def prepare(self, data):
+        _ensure_photon_counts(data)
+
 class BurstSelectorENode(BaseSelectorNode):
     __identifier__ = 'Selectors'
     NODE_NAME = 'FRET Efficiency'
@@ -54,19 +105,25 @@ class BurstSelectorENode(BaseSelectorNode):
         self.SELECT_KWARGS['E1'] = self.th1.get_value()
         self.SELECT_KWARGS['E2'] = self.th2.get_value()
 
+    def prepare(self, data):
+        _ensure_fret(data)
+
 
 class BurstSelectorBrightnessNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
     NODE_NAME = 'Burst Brightness'
-    DESCRIPTION = 'Keep bursts whose brightness (burst size divided by width) is within the selected cps range.'
+    DESCRIPTION = 'Keep bursts whose brightness (burst size divided by width) is within the selected kcps range.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.brightness)
     def __init__(self):
         super().__init__()
-        self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [0, 1000000, 1], 0)
-        self.th2 = self.node_builder.build_float_spinbox('High Threshold', [0, 1000000, 1], 1000000)
+        self.th1 = self.node_builder.build_float_spinbox('Low, kcps', [0, 5000, 1], 0)
+        self.th2 = self.node_builder.build_float_spinbox('High, kcps', [0, 5000, 1], 1000)
     def update_select_kwargs(self):
-        self.SELECT_KWARGS['th1'] = self.th1.get_value()
-        self.SELECT_KWARGS['th2'] = self.th2.get_value()
+        self.SELECT_KWARGS['th1'] = _kcps_to_cps(self.th1.get_value())
+        self.SELECT_KWARGS['th2'] = _kcps_to_cps(self.th2.get_value())
+
+    def prepare(self, data):
+        _ensure_photon_counts(data)
 
 class BurstSelectorConsecutiveNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
@@ -94,6 +151,9 @@ class BurstSelectorNANode(BaseSelectorNode):
         self.SELECT_KWARGS['th1'] = self.th1.get_value()
         self.SELECT_KWARGS['th2'] = self.th2.get_value()
 
+    def prepare(self, data):
+        _ensure_photon_counts(data)
+
 class BurstSelectorNABGNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
     NODE_NAME = 'Acceptor Count vs Background'
@@ -104,6 +164,9 @@ class BurstSelectorNABGNode(BaseSelectorNode):
         self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [0, 100, 1], 0)
     def update_select_kwargs(self):
         self.SELECT_KWARGS['F'] = self.th1.get_value()
+
+    def prepare(self, data):
+        _ensure_photon_counts(data)
 
 class BurstSelectorNDNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
@@ -118,6 +181,9 @@ class BurstSelectorNDNode(BaseSelectorNode):
         self.SELECT_KWARGS['th1'] = self.th1.get_value()
         self.SELECT_KWARGS['th2'] = self.th2.get_value()
 
+    def prepare(self, data):
+        _ensure_photon_counts(data)
+
 class BurstSelectorNDBGNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
     NODE_NAME = 'Donor Count vs Background'
@@ -129,18 +195,24 @@ class BurstSelectorNDBGNode(BaseSelectorNode):
     def update_select_kwargs(self):
         self.SELECT_KWARGS['F'] = self.th1.get_value()
 
+    def prepare(self, data):
+        _ensure_photon_counts(data)
+
 class BurstSelectorPeakPhrateNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
     NODE_NAME = 'Peak Photon Rate'
-    DESCRIPTION = 'Keep bursts whose peak photon rate is within the selected counts-per-second range.'
+    DESCRIPTION = 'Keep bursts whose peak photon rate is within the selected kcps range.'
     SELECT_FUNC = staticmethod(fretbursts.select_bursts.peak_phrate)
     def __init__(self):
         super().__init__()
-        self.th1 = self.node_builder.build_float_spinbox('Low Threshold', [0, 1000000, 1], 0)
-        self.th2 = self.node_builder.build_float_spinbox('High Threshold', [0, 10000000, 1], 10000000)
+        self.th1 = self.node_builder.build_float_spinbox('Low, kcps', [0, 5000, 1], 0)
+        self.th2 = self.node_builder.build_float_spinbox('High, kcps', [0, 5000, 1], 1000)
     def update_select_kwargs(self):
-        self.SELECT_KWARGS['th1'] = self.th1.get_value()
-        self.SELECT_KWARGS['th2'] = self.th2.get_value()
+        self.SELECT_KWARGS['th1'] = _kcps_to_cps(self.th1.get_value())
+        self.SELECT_KWARGS['th2'] = _kcps_to_cps(self.th2.get_value())
+
+    def prepare(self, data):
+        _ensure_max_rate(data)
 
 class BurstSelectorPeriodNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
@@ -167,6 +239,9 @@ class BurstSelectorSBRNode(BaseSelectorNode):
     def update_select_kwargs(self):
         self.SELECT_KWARGS['th1'] = self.th1.get_value()
         self.SELECT_KWARGS['th2'] = self.th2.get_value()
+
+    def prepare(self, data):
+        _ensure_photon_counts(data)
 
 class BurstSelectorSingleNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
@@ -203,6 +278,9 @@ class BurstSelectorTopNMaxRateNode(BaseSelectorNode):
     def update_select_kwargs(self):
         self.SELECT_KWARGS['N'] = self.th1.get_value()
 
+    def prepare(self, data):
+        _ensure_max_rate(data)
+
 class BurstSelectorTopNNDANode(BaseSelectorNode):
     __identifier__ = 'Selectors'
     NODE_NAME = 'Top N by Size'
@@ -214,6 +292,9 @@ class BurstSelectorTopNNDANode(BaseSelectorNode):
     def update_select_kwargs(self):
         self.SELECT_KWARGS['N'] = self.th1.get_value()
 
+    def prepare(self, data):
+        _ensure_photon_counts(data)
+
 class BurstSelectorTopNSBRNode(BaseSelectorNode):
     __identifier__ = 'Selectors'
     NODE_NAME = 'Top N by Signal-to-Background'
@@ -224,6 +305,9 @@ class BurstSelectorTopNSBRNode(BaseSelectorNode):
         self.th1 = self.node_builder.build_int_spinbox('N', [0, 100000, 1], 1000)
     def update_select_kwargs(self):
         self.SELECT_KWARGS['N'] = self.th1.get_value()
+
+    def prepare(self, data):
+        _ensure_photon_counts(data)
 
 class BurstSelectorWidthNode(BaseSelectorNode):
     __identifier__ = 'Selectors'

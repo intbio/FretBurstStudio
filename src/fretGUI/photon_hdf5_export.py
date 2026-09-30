@@ -67,6 +67,10 @@ def data_dict_from_fretbursts(data):
     sample = _copy_mapping(_field(data, 'sample'))
     if sample is not None:
         payload['sample'] = sample
+    for name in ('identity', 'provenance'):
+        group = _copy_mapping(_field(data, name))
+        if group:
+            payload[name] = group
 
     fname = _field(data, 'fname')
     if isinstance(fname, str) and os.path.isfile(fname):
