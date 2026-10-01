@@ -36,6 +36,16 @@ from fretGUI.custom_widgets.node_sidebar import (
 from fretGUI.custom_widgets.graph_file_drop import enable_graph_file_drop
 from fretGUI.custom_widgets.graph_pan import enable_right_button_pan
 from fretGUI.custom_widgets.graph_scale import keep_graph_scale_on_resize
+from fretGUI.bva import (
+    BvaSettings,
+    analyze_bursts,
+    analyze_measurement,
+    assign_bins,
+    bin_grid,
+    draw_bva,
+    shot_noise,
+)
+from fretGUI.custom_widgets.bva_explorer import BvaExplorerWindow
 from fretGUI.custom_widgets.pda_explorer import PdaExplorerWindow
 from fretGUI.custom_widgets.plot_widget import (
     TemplatePlotWidget,
@@ -61,7 +71,13 @@ from fretGUI.custom_widgets.sliders import (
     ComboBoxWidget,
     qcolor_from_item_data,
 )
-from fretGUI.main import THEME_COLORS, build_theme_palette, build_theme_stylesheet
+from fretGUI.main import (
+    RUN_SHORTCUT,
+    THEME_COLORS,
+    build_theme_palette,
+    build_theme_stylesheet,
+    configure_run_button,
+)
 
 from PySide6.QtTest import QSignalSpy
 
@@ -163,6 +179,54 @@ class TestGraph(unittest.TestCase):
             self.fail("impropper connection was created")
          
             
+def _static_bva_sample(seed):
+    rng = np.random.default_rng(seed)
+    photons_per_window = 5
+    n_bursts = 800
+    windows_per_burst = 20
+    counts = rng.binomial(
+        photons_per_window,
+        0.5,
+        size=(n_bursts, windows_per_burst),
+    )
+    photon = np.arange(photons_per_window)
+    acceptor = (photon[None, :] < counts.reshape(-1)[:, None]).ravel()
+    span = windows_per_burst * photons_per_window
+    istart = np.arange(n_bursts) * span
+    return analyze_bursts(
+        acceptor,
+        istart,
+        istart + span - 1,
+        BvaSettings(
+            photons_per_window=photons_per_window,
+            bin_width=0.05,
+            min_bursts=30,
+            alpha=0.001,
+            replicates=5000,
+            seed=seed,
+        ),
+    )
+
+
+def _dynamic_bva_sample():
+    n_bursts = 80
+    pattern = np.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0], dtype=bool)
+    istart = np.arange(n_bursts) * pattern.size
+    return analyze_bursts(
+        np.tile(pattern, n_bursts),
+        istart,
+        istart + pattern.size - 1,
+        BvaSettings(
+            photons_per_window=5,
+            bin_width=0.05,
+            min_bursts=50,
+            alpha=0.001,
+            replicates=5000,
+            seed=2,
+        ),
+    )
+
+
 class TestWidgets(unittest.TestCase):
     def test_graph_context_menu_keeps_file_edit_and_skips_plot_area(self):
         import json
@@ -730,46 +794,223 @@ class TestWidgets(unittest.TestCase):
         self.assertEqual(window._spot_index(), 0)
         window.close()
 
-    def test_bva_contours_stay_on_each_nodes_own_axes(self):
-        class Bursts(list):
-            def recompute_index_reduce(self, _ph_times):
-                return self
+    def test_bva_pools_windows_and_ignores_corrected_efficiency(self):
+        from fretbursts.phtools.burstsearch import BurstsGap
 
+        timestamps = np.arange(33, dtype=np.int64)
+        acceptor = np.array(
+            [
+                0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+                1, 1, 0, 0, 0, 1, 1, 1, 0, 0,
+                1, 0, 1,
+                1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+            ],
+            dtype=bool,
+        )
+        bursts = np.array(
+            [
+                [0, 9, timestamps[0], timestamps[9], 0, 0],
+                [10, 19, timestamps[10], timestamps[19], 0, 0],
+                [20, 22, timestamps[20], timestamps[22], 0, 0],
+                [23, 32, timestamps[23], timestamps[32], 8, 0],
+            ],
+            dtype=np.int64,
+        )
         data = custom_nodes.Data(
-            ph_times_m=[np.arange(14)],
-            A_em=[np.ones(14, dtype=bool)],
+            ph_times_m=[timestamps],
+            A_em=[acceptor],
             clk_p=1e-6,
             alternated=False,
             nch=1,
             fname='bva-test.h5',
         )
-        data.E = [np.array([0.5])]
-        data.mburst = [
-            Bursts([SimpleNamespace(istart=0, istop=13)])
-        ]
-        data.get_ph_times = lambda ph_sel: np.arange(14)
-        data.get_ph_mask = lambda ph_sel: np.ones(14, dtype=bool)
-        plotted_data = SimpleNamespace(id=1, data=data)
+        data.mburst = [BurstsGap(bursts)]
+        data.E = [np.array([0.1, 0.1, 0.1, 0.1])]
+        result = analyze_measurement(
+            data,
+            settings=BvaSettings(
+                photons_per_window=5,
+                bin_width=0.05,
+                min_bursts=2,
+                alpha=0.001,
+                replicates=1000,
+                seed=1,
+            ),
+        )
 
+        self.assertEqual(result.info['requested_bursts'], 4)
+        self.assertEqual(result.info['excluded_short'], 1)
+        self.assertEqual(result.info['excluded_gapped'], 1)
+        self.assertEqual(result.info['kept_bursts'], 2)
+        self.assertTrue(np.allclose(result.E, [0.5, 0.5]))
+        self.assertTrue(np.allclose(result.s_i, [0.5, 0.1]))
+        self.assertTrue(np.isfinite(result.s_i).all())
+        windows = np.array([0.0, 1.0, 0.4, 0.6])
+        expected = np.sqrt(np.mean((windows - windows.mean()) ** 2))
+        self.assertEqual(result.centers.size, 1)
+        self.assertAlmostEqual(result.centers[0], 0.5)
+        self.assertAlmostEqual(result.s_E[0], expected)
+        self.assertNotAlmostEqual(result.s_E[0], float(np.mean(result.s_i)))
+
+        remainder = np.array(
+            [1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],
+            dtype=bool,
+        )
+        remainder_result = analyze_bursts(
+            remainder,
+            [0],
+            [10],
+            BvaSettings(
+                photons_per_window=5,
+                min_bursts=1,
+                replicates=100,
+                seed=1,
+            ),
+        )
+        self.assertAlmostEqual(remainder_result.E[0], 7 / 11)
+        self.assertAlmostEqual(remainder_result.s_i[0], 0.0)
+        figure = Figure()
+        draw_bva(figure, result)
+        self.assertEqual(len(figure.axes), 1)
+        self.assertEqual(figure.axes[0].get_xlabel(), '$E^*$')
+
+    def test_bva_counts_only_donor_excitation_photons(self):
+        from fretbursts.phtools.burstsearch import Bursts
+        import fretbursts
+
+        timestamps = np.arange(6, dtype=np.int64)
+        dex = np.array([True, False, True, False, True, False])
+        acceptor = np.array([True, False, False, False, False, False])
+        bursts = Bursts(np.array(
+            [[0, 5, int(timestamps[0]), int(timestamps[5])]],
+            dtype=np.int64,
+        ))
+
+        def get_ph_mask(ich=0, ph_sel=None):
+            if ph_sel == fretbursts.Ph_sel(Dex='DAem'):
+                return dex
+            if ph_sel == fretbursts.Ph_sel(Dex='Aem'):
+                return acceptor
+            raise AssertionError(ph_sel)
+
+        data = SimpleNamespace(
+            nch=1,
+            mburst=[bursts],
+            get_ph_times=lambda ich=0, ph_sel=None: timestamps,
+            get_ph_mask=get_ph_mask,
+        )
+        result = analyze_measurement(
+            data,
+            settings=BvaSettings(
+                photons_per_window=3,
+                min_bursts=1,
+                replicates=200,
+                seed=0,
+            ),
+        )
+        self.assertAlmostEqual(result.E[0], 1 / 3)
+        self.assertAlmostEqual(result.s_i[0], 0.0)
+        self.assertEqual(result.info['kept_bursts'], 1)
+
+    def test_bva_bin_on_one_half_is_half_open(self):
+        centers, half, step = bin_grid(0.05)
+        self.assertEqual(centers.size, 20)
+        self.assertAlmostEqual(step, 0.05)
+        center_index = int(np.where(np.isclose(centers, 0.5))[0][0])
+        self.assertAlmostEqual(centers[center_index] - half, 0.475)
+        self.assertAlmostEqual(centers[center_index] + half, 0.525)
+        left = centers[center_index] - half
+        right = centers[center_index] + half
+        assigned, grid = assign_bins(
+            np.array([left, np.nextafter(right, 0.0), right, 0.0, 1.0]),
+            0.05,
+        )
+        self.assertEqual(assigned[0], center_index)
+        self.assertEqual(assigned[1], center_index)
+        self.assertEqual(assigned[2], center_index + 1)
+        self.assertEqual(assigned[3], -1)
+        self.assertEqual(grid[assigned[4]], 1.0)
+        self.assertTrue(np.isclose(shot_noise(0.5, 5), np.sqrt(0.25 / 5)))
+
+    def test_bva_static_sample_stays_inside_dynamic_sample_exceeds_limit(self):
+        static = _static_bva_sample(seed=1)
+        central = np.argmin(np.abs(static.centers - 0.5))
+        self.assertLess(abs(static.centers[central] - 0.5), 0.03)
+        self.assertLessEqual(static.s_E[central], static.upper[central])
+        self.assertGreater(
+            static.upper[central],
+            float(shot_noise(static.centers[central], static.n)) * 0.99,
+        )
+        near = (static.centers >= 0.4) & (static.centers <= 0.6)
+        self.assertTrue(np.any(near))
+        self.assertTrue(
+            np.all(static.s_E[near] <= static.upper[near])
+        )
+
+        dynamic = _dynamic_bva_sample()
+        self.assertGreater(dynamic.info['bins_above'], 0)
+        self.assertGreater(dynamic.dynamic_score, 0.0)
+        self.assertTrue(np.any(dynamic.s_E > dynamic.upper))
+
+    def test_bva_node_opens_with_paper_defaults(self):
         graph = BaseUtils.init_graph()
-        first = graph.create_node('BurstAnalysis.BVAPlotterNode')
-        second = graph.create_node('BurstAnalysis.BVAPlotterNode')
-        self.assertEqual(len(first.input_ports()), 1)
-        self.assertEqual(len(second.input_ports()), 1)
-        first.data_to_plot = [plotted_data]
-        second.data_to_plot = [plotted_data]
+        node = graph.create_node('BurstAnalysis.BVAPlotterNode')
 
-        with patch(
-            'fretGUI.custom_nodes.custom_nodes.sns.kdeplot'
-        ) as kdeplot:
-            first._on_refresh_canvas()
-            second._on_refresh_canvas()
+        self.assertIsInstance(node, AbstractRecomputable)
+        self.assertNotIsInstance(node, ResizableContentNode)
+        self.assertEqual(len(node.input_ports()), 1)
+        self.assertEqual(node.NODE_NAME, 'Burst Variance Analysis (BVA)')
+        self.assertTrue(node.has_property('plot_widget'))
+        node.model.set_property('plot_widget', None)
+        self.assertIn('File to plot:', node.view.widgets)
 
-        first_ax = kdeplot.call_args_list[0].kwargs['ax']
-        second_ax = kdeplot.call_args_list[1].kwargs['ax']
-        self.assertIsNot(first_ax, second_ax)
-        self.assertIs(first_ax, first.plot_widget.figure.axes[0])
-        self.assertIs(second_ax, second.plot_widget.figure.axes[0])
+        data = custom_nodes.Data(
+            ph_times_m=[np.arange(5)],
+            A_em=[np.zeros(5, dtype=bool)],
+            clk_p=1e-6,
+            alternated=False,
+            nch=1,
+            fname='bva-test.h5',
+        )
+        wrapped = FBSData(data, 'bva-test.h5', id=12)
+        self.assertEqual(node.execute(wrapped), [wrapped])
+        self.assertIs(node._selected_data(), data)
+        self.assertIn('bva-test.h5', node.items_to_plot.get_value())
+
+        window = BvaExplorerWindow()
+        self.assertEqual(window.windowTitle(), 'Burst Variance Analysis')
+        self.assertEqual(window.photons_spin.value(), 5)
+        self.assertAlmostEqual(window.bin_width_spin.value(), 0.05)
+        self.assertEqual(window.min_bursts_spin.value(), 50)
+        self.assertAlmostEqual(window.confidence_combo.currentData(), 0.001)
+        self.assertTrue(window.spot_combo.isHidden())
+        window.set_files(['bva-test.h5'], 'bva-test.h5')
+        window.set_data(data, file_label='bva-test.h5')
+        QtCore.QThreadPool.globalInstance().waitForDone(10000)
+        app.processEvents()
+        self.assertIn('bva-test.h5', window.windowTitle())
+        self.assertTrue(window.status_label.text())
+        self.assertNotIn('Computing', window.status_label.text())
+        data.nch = 2
+        window.set_data(data, file_label='bva-test.h5', preserve_view=True)
+        self.assertFalse(window.spot_combo.isHidden())
+        self.assertEqual(window.spot_combo.count(), 2)
+        self.assertEqual(window._spot_index(), 0)
+        self.assertEqual(window.photons_spin.value(), 5)
+        window.close()
+        QtCore.QThreadPool.globalInstance().waitForDone(10000)
+        app.processEvents()
+
+    def test_run_button_uses_ctrl_space(self):
+        button = QtWidgets.QPushButton()
+        configure_run_button(button)
+        self.assertIn('Run', button.text())
+        self.assertIn(RUN_SHORTCUT, button.text())
+        self.assertEqual(
+            button.shortcut().toString(),
+            QtGui.QKeySequence(RUN_SHORTCUT).toString(),
+        )
+        self.assertIn(RUN_SHORTCUT, button.toolTip())
 
     def test_node_sidebar_groups_nodes_and_has_fixed_width(self):
         graph = BaseUtils.init_graph()

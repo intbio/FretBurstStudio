@@ -27,6 +27,7 @@ from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, PropertiesBinWidget
 
 
+RUN_SHORTCUT = 'Ctrl+Space'
 THEME = 'light'
 THEME_COLORS = {
     'light': {
@@ -229,6 +230,13 @@ def start_graph_run(graph, context):
             for unscheduled in workers[index + 1:]:
                 context.worker_finished(unscheduled.uid)
             raise
+
+
+def configure_run_button(button):
+    """Label the Run button with its shortcut and activate that shortcut."""
+    button.setText(f'Run  ({RUN_SHORTCUT})')
+    button.setShortcut(QtGui.QKeySequence(RUN_SHORTCUT))
+    button.setToolTip(f'Run ({RUN_SHORTCUT})')
 
 
 def on_run_btn_clicked(graph, btn):
@@ -494,7 +502,8 @@ def main():
     
     # Define helper functions that are needed for the UI
     
-    run_button = QtWidgets.QPushButton("Run", parent=app_window)
+    run_button = QtWidgets.QPushButton(parent=app_window)
+    configure_run_button(run_button)
     # run_button.setFixedSize(50, 50)    
     run_button.setStyleSheet("""
         QPushButton {

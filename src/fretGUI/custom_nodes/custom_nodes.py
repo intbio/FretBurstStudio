@@ -18,7 +18,6 @@ from fretGUI.burst_corrections import (
     install_proportional_direct_excitation,
 )
 import pandas as pd
-import seaborn as sns
 from matplotlib.markers import MarkerStyle
 from threading import RLock
 from fretGUI.custom_widgets.dataset_list import DatasetListWrapper
@@ -28,6 +27,7 @@ from fretGUI.custom_widgets.timetrace_explorer import (
     TimetraceExplorerWindow,
 )
 from fretGUI.custom_widgets.pda_explorer import PdaExplorerWindow
+from fretGUI.custom_widgets.bva_explorer import BvaExplorerWindow
 from fretGUI.measurement_kind import method_chips, method_type_line
 
 install_proportional_direct_excitation()
@@ -1658,132 +1658,158 @@ class HistBurstPhratePlotterNode(BaseMultiFilePlotterNode):
 
 
     
-class BVAPlotterNode(AbstractContentNode):
+class BVAPlotterNode(AbstractRecomputable):
+    """Plot node that opens burst variance analysis in a separate window."""
+
     __identifier__ = 'BurstAnalysis'
     NODE_NAME = 'Burst Variance Analysis (BVA)'
-    DESCRIPTION = 'Perform burst variance analysis by plotting sub-burst FRET-efficiency variation against burst FRET efficiency.'
+    DESCRIPTION = (
+        'Compare within-burst FRET variation to the shot-noise confidence '
+        'limit to distinguish static and dynamic heterogeneity.'
+    )
 
-    LEFT_RIGHT_MARGIN = 3
-    TOP_MARGIN = 25
-    BOTTOM_MARGIN = 0
-    PLOT_NODE = True
-    MIN_WIDTH = 450
-    MIN_HEIGHT = 300
-
-    def __init__(self, widget_name='plot_widget', qgraphics_item=None):
-        super().__init__(widget_name, qgraphics_item)
-        self.PLOT_KWARGS = {}
+    def __init__(self, widget_name='open_btn', qgraphics_item=None):
+        if qgraphics_item is None:
+            super().__init__()
+        else:
+            super().__init__(qgraphics_item=qgraphics_item)
         self.node_builder = NodeBuilder(self)
+        self._map_name_to_data = {}
+        self._run_buffers = {}
+        self._data_lock = RLock()
+        self._explorer_window = None
+        self._theme_kind = 'light'
+        self._theme_colors = None
+        # Saved graphs stored a plot widget under this name.
+        self.create_property('plot_widget', None)
 
-        self.node_builder.build_plot_widget('plot_widget', mpl_width=3.0, mpl_height=3.0)
+        self.add_input('inport')
+        self.open_btn = OpenExplorerButtonWrapper(
+            parent=self.view,
+            text='Open BVA',
+        )
+        self.open_btn.set_name('open_btn')
+        self.add_custom_widget(self.open_btn, tab='custom')
+        self.open_btn.clicked.connect(self._on_open_explorer)
+
         self.items_to_plot = self.node_builder.build_combobox(
             widget_name="File to plot:",
             items=[],
             value=None,
-            tooltip="Select an option"
+            tooltip="Select a file to analyze",
+            min_width=200,
         )
+        self.items_to_plot.widget_changed_signal.connect(self._on_node_file_changed)
 
-    def _on_refresh_canvas(self):
-        plot_widget = self.get_widget('plot_widget').plot_widget
-        fig = plot_widget.figure
-        fig.clear()
-        ax = fig.add_subplot()
+        coordinator = RunCoordinator()
+        coordinator.run_started.connect(self._on_run_started)
+        coordinator.run_completed.connect(self._on_run_completed)
+        coordinator.run_discarded.connect(self._on_run_discarded)
 
+    def _on_run_started(self, run_id):
+        with self._data_lock:
+            self._run_buffers[run_id] = []
+
+    def _on_run_discarded(self, run_id):
+        with self._data_lock:
+            self._run_buffers.pop(run_id, None)
+
+    def _on_run_completed(self, run_id):
+        with self._data_lock:
+            data_items = self._run_buffers.pop(run_id, [])
+        self._update_data_options(data_items)
+
+    def execute(self, fbsdata=None):
+        if fbsdata is None:
+            return [fbsdata]
+        run_id = getattr(fbsdata, 'run_id', None)
+        if run_id in (None, 0):
+            self._update_data_options([fbsdata])
+            return [fbsdata]
+        with self._data_lock:
+            self._run_buffers.setdefault(run_id, []).append(fbsdata)
+        return [fbsdata]
+
+    def _update_data_options(self, data_items):
         map_name_to_data = {}
-        for cur_data, label in zip(
-            self.data_to_plot,
-            _unique_file_labels(self.data_to_plot),
-        ):
+        item_colors = []
+        data_items = sorted(data_items, key=_source_order)
+        for cur_data, label in zip(data_items, _unique_file_labels(data_items)):
             map_name_to_data[label] = cur_data.data
+            item_colors.append(cur_data.color)
 
-        self.items_to_plot.set_items(
-            list(map_name_to_data.keys()),
-            [cur_data.color for cur_data in self.data_to_plot],
-        )
+        self._map_name_to_data = map_name_to_data
+        self.items_to_plot.set_items(list(map_name_to_data.keys()), item_colors)
+        self._sync_open_window()
+
+    def _selected_data(self):
         selected_val = self.items_to_plot.get_value()
-        selected_data = map_name_to_data.get(selected_val)
+        selected_data = self._map_name_to_data.get(selected_val)
+        if selected_data is not None and isinstance(selected_data, Data):
+            return selected_data
+        return None
 
-        if selected_data is None or not isinstance(selected_data, Data):
-            plot_widget.canvas.draw()
+    def _push_files_to_window(self):
+        if self._explorer_window is None:
             return
-        def bva_sigma_E(n, bursts, DexAem_mask, out=None):
-            """
-            Perform BVA analysis computing std.dev. of E for sub-bursts in each burst.
-            
-            Split each burst in n-photons chunks (sub-bursts), compute E for each sub-burst,
-            then compute std.dev. of E across the sub-bursts.
-
-            For details on BVA see:
-
-            - Torella et al. (2011) Biophys. J. doi.org/10.1016/j.bpj.2011.01.066
-            - Ingargiola et al. (2016) bioRxiv, doi.org/10.1101/039198
-
-            Arguments:
-                n (int): number of photons in each sub-burst
-                bursts (Bursts object): burst-data object with indexes relative 
-                    to the Dex photon stream.
-                DexAem_mask (bool array): mask of A-emitted photons during D-excitation 
-                    periods. It is a boolean array indexing the array of Dex timestamps 
-                    (`Ph_sel(Dex='DAem')`).
-                out (None or list): append the result to the passed list. If None,
-                    creates a new list. This is useful to accumulate data from
-                    different spots in a single list.
-
-            Returns:
-                E_sub_std (1D array): contains for each burst, the standard deviation of 
-                sub-bursts FRET efficiency. Same length of input argument `bursts`.
-            """
-            E_sub_std = [] if out is None else out
-            
-            for burst in bursts:
-                E_sub_bursts = []
-                startlist = range(burst.istart, burst.istop + 2 - n, n)
-                stoplist = [i + n for i in startlist]
-                for start, stop in zip(startlist, stoplist):
-                    A_D = DexAem_mask[start:stop].sum()
-                    assert stop - start == n
-                    E = A_D / n
-                    E_sub_bursts.append(E)
-                E_sub_std.append(np.std(E_sub_bursts))
-                
-            return E_sub_std
-        ds_FRET = selected_data
-        ph_d = ds_FRET.get_ph_times(ph_sel=fretbursts.Ph_sel(Dex='DAem'))
-        bursts = ds_FRET.mburst[0]
-        bursts_d = bursts.recompute_index_reduce(ph_d)
-        Dex_mask = ds_FRET.get_ph_mask(ph_sel=fretbursts.Ph_sel(Dex='DAem'))   
-        DexAem_mask = ds_FRET.get_ph_mask(ph_sel=fretbursts.Ph_sel(Dex='Aem')) 
-        DexAem_mask_d = DexAem_mask[Dex_mask]
-        n = 7
-        E_sub_std = bva_sigma_E(n, bursts_d, DexAem_mask_d)
-
-        x = np.arange(0,1.01,0.01)
-        y = np.sqrt((x*(1-x))/n)
-        ax.plot(x, y, lw=2, color='k', ls='--')
-        sns.kdeplot(
-            data={
-                'E': ds_FRET.E[0],
-                'sigma': np.asfarray(E_sub_std),
-            },
-            x='E',
-            y='sigma',
-            fill=True,
-            cmap='Spectral_r',
-            thresh=0.05,
-            levels=20,
-            ax=ax,
+        self._explorer_window.set_files(
+            list(self._map_name_to_data.keys()),
+            self.items_to_plot.get_value(),
         )
-        ax.set_xlim(0,1)
-        ax.set_ylim(0,np.sqrt(0.5**2/7)*2)
-        ax.set_xlabel('E', fontsize=16)
-        ax.set_ylabel(r'$\sigma_i$', fontsize=16);
-        
-        # fig.tight_layout()
-        plot_widget.canvas.draw()    
-        
-    class InterBurstPlotterNode(BaseSingleFilePlotterNode):
-        NODE_NAME = 'Burst FRET vs Width'
-        PLOT_FUNC = staticmethod(fretbursts.scatter_fret_width)
+
+    def _set_window_data(self, preserve_view):
+        self._explorer_window.set_data(
+            self._selected_data(),
+            file_label=self.items_to_plot.get_value(),
+            preserve_view=preserve_view,
+        )
+
+    def _sync_open_window(self):
+        if self._explorer_window is None or not self._explorer_window.isVisible():
+            return
+        self._push_files_to_window()
+        self._set_window_data(preserve_view=True)
+
+    def _on_explorer_file_changed(self, label):
+        # set_value does not emit activated, so this does not rerun the pipeline.
+        self.items_to_plot.set_value(label)
+        if self._explorer_window is None:
+            return
+        self._push_files_to_window()
+        self._set_window_data(preserve_view=False)
+
+    def _on_node_file_changed(self):
+        if self._explorer_window is None or not self._explorer_window.isVisible():
+            return
+        self._push_files_to_window()
+        self._set_window_data(preserve_view=True)
+
+    def set_theme(self, kind, colors):
+        self._theme_kind = kind
+        self._theme_colors = colors
+        if self._explorer_window is not None:
+            self._explorer_window.set_theme(kind, colors)
+
+    def _on_open_explorer(self):
+        data_ready = self._explorer_window is not None
+        if self._explorer_window is None:
+            parent = None
+            try:
+                parent = self.graph.widget.window()
+            except Exception:
+                parent = None
+            self._explorer_window = BvaExplorerWindow(parent=parent)
+            self._explorer_window.file_changed.connect(self._on_explorer_file_changed)
+            self._explorer_window.set_theme(
+                self._theme_kind,
+                self._theme_colors,
+            )
+        self._push_files_to_window()
+        self._set_window_data(preserve_view=data_ready)
+        self._explorer_window.show()
+        self._explorer_window.raise_()
+        self._explorer_window.activateWindow()
+
 
 class InterBurstPlotterNode(AbstractContentNode):
     __identifier__ = 'Plot'
