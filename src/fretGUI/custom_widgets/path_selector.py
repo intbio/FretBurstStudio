@@ -1,6 +1,12 @@
 from Qt import QtWidgets, QtCore, QtGui
 from Qt.QtCore import Signal
 from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from fretGUI.custom_widgets.file_color import (
+    file_color_hex,
+    has_explicit_alpha,
+    opaque_preview,
+    qcolor_from_file_color,
+)
 from Qt.QtWidgets import QCheckBox
 from matplotlib import rcParams
 import os
@@ -52,6 +58,51 @@ class _CloseButton(QtWidgets.QPushButton):
         )
 
 
+def _attach_alpha_slider(dialog):
+    """Put a slider beside the color dialog's alpha number box.
+
+    Qt's own dialog only offers a spin box for alpha.
+    """
+    alpha_label = None
+    for label in dialog.findChildren(QtWidgets.QLabel):
+        if 'lpha' in label.text().lower():
+            alpha_label = label
+            break
+    if alpha_label is None:
+        return None
+    alpha_spin = alpha_label.buddy()
+    if not isinstance(alpha_spin, QtWidgets.QSpinBox):
+        return None
+    # Keep the parent referenced. A temporary parentWidget() wrapper can
+    # delete the grid layout as soon as the statement ends.
+    parent = alpha_label.parentWidget()
+    layout = parent.layout() if parent is not None else None
+    if not isinstance(layout, QtWidgets.QGridLayout):
+        return None
+
+    index = layout.indexOf(alpha_label)
+    row, column, _row_span, column_span = layout.getItemPosition(index)
+    slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, parent)
+    slider.setRange(alpha_spin.minimum(), alpha_spin.maximum())
+    slider.setValue(alpha_spin.value())
+    slider.setMinimumWidth(160)
+    slider.setToolTip("Alpha")
+    # The alpha label already fills this row. Sit the slider on the next one.
+    layout.addWidget(slider, row + 1, column, 1, column_span + 1)
+
+    def spin_changed(value):
+        if slider.value() != value:
+            slider.setValue(value)
+
+    def slider_changed(value):
+        if alpha_spin.value() != value:
+            alpha_spin.setValue(value)
+
+    alpha_spin.valueChanged.connect(spin_changed)
+    slider.valueChanged.connect(slider_changed)
+    return slider
+
+
 class _ColorIdLabel(QtWidgets.QLabel):
     """Clickable file ID swatch backed by a canonical Matplotlib color."""
 
@@ -70,18 +121,27 @@ class _ColorIdLabel(QtWidgets.QLabel):
         return self._color
 
     def set_color(self, color):
-        qcolor = QtGui.QColor(color)
+        qcolor = qcolor_from_file_color(color)
         if not qcolor.isValid():
             return
-        self._color = qcolor.name()
+        self._color = file_color_hex(
+            qcolor,
+            keep_opaque_alpha=has_explicit_alpha(color),
+        )
+        # The chip shows a solid composite. A stylesheet alpha would punch
+        # through the node, which lives in a QGraphicsProxyWidget.
+        preview = opaque_preview(
+            qcolor,
+            self.palette().color(QtGui.QPalette.Window),
+        )
         luminance = (
-            0.299 * qcolor.red()
-            + 0.587 * qcolor.green()
-            + 0.114 * qcolor.blue()
+            0.299 * preview.red()
+            + 0.587 * preview.green()
+            + 0.114 * preview.blue()
         )
         text_color = '#111111' if luminance > 150 else '#ffffff'
         self.setStyleSheet(
-            f"background-color: {self._color};"
+            f"background-color: {preview.name()};"
             f"color: {text_color};"
             "border: 1px solid palette(mid);"
         )
@@ -93,19 +153,23 @@ class _ColorIdLabel(QtWidgets.QLabel):
             # the scene. Use the real application window and Qt's widget-based
             # dialog so it is always rendered as a normal top-level window.
             parent_window = QtWidgets.QApplication.activeWindow()
-            dialog = QtWidgets.QColorDialog(
-                QtGui.QColor(self._color),
-                parent_window,
-            )
+            dialog = QtWidgets.QColorDialog(parent_window)
             dialog.setWindowTitle("Select file plot color")
             dialog.setOption(
                 QtWidgets.QColorDialog.DontUseNativeDialog,
                 True,
             )
+            dialog.setOption(
+                QtWidgets.QColorDialog.ShowAlphaChannel,
+                True,
+            )
+            # Alpha is ignored if the color is set before this option.
+            dialog.setCurrentColor(qcolor_from_file_color(self._color))
+            _attach_alpha_slider(dialog)
             dialog.setWindowModality(QtCore.Qt.ApplicationModal)
             if dialog.exec_():
                 selected = dialog.selectedColor()
-                new_color = selected.name()
+                new_color = file_color_hex(selected, keep_opaque_alpha=True)
                 if new_color != self._color:
                     self.set_color(new_color)
                     self.color_changed.emit(new_color)
@@ -192,12 +256,9 @@ class _MethodChip(QtWidgets.QWidget):
 
     @staticmethod
     def _plaque_width():
-        probe = QtWidgets.QWidget()
-        font = probe.font()
+        font = QtGui.QFont(QtWidgets.QApplication.font())
         font.setPointSize(8)
-        probe.setFont(font)
-        metrics = probe.fontMetrics()
-        probe.deleteLater()
+        metrics = QtGui.QFontMetrics(font)
         return max(metrics.horizontalAdvance(label) for label in _CHIP_LABELS) + 12
 
     def text(self):
@@ -359,7 +420,8 @@ class PathRowWidget(QtWidgets.QWidget):
             item = self._badge_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                widget.setParent(None)
+                # A visible widget with no parent becomes a top-level window.
+                widget.hide()
                 widget.deleteLater()
         for badge in shown:
             self._badge_layout.addWidget(
@@ -388,12 +450,15 @@ class PathSelectorWidget(QtWidgets.QWidget):
     paths_added = Signal(list)  # Signal emitted when paths are added, with list of paths
     _get_path_to_id_callback = None  # Callback to get path_to_id mapping
     _wrapper = None  # Reference to the wrapper widget
+    _size_update_callback = None  # Optional AbstractLoader size sync
     
     # Size constants
-    BASE_HEIGHT = 60  # Height for button and margins
-    ROW_HEIGHT = 35   # Height per path row widget
-    MIN_WIDTH = 360   # Minimum node width
-    DEFAULT_WIDTH = 360  # Default node width
+    # Fallback only; file_area_height() measures the live layout.
+    BASE_HEIGHT = 40
+    ROW_HEIGHT = 29   # Matches PathRowWidget sizeHint (was 35 → growing gap)
+    # Packed PathRowWidget sizeHint is ~288px.
+    MIN_WIDTH = 288
+    DEFAULT_WIDTH = 288
       
     def __init__(self, parent=None):
         super(PathSelectorWidget, self).__init__()
@@ -403,6 +468,7 @@ class PathSelectorWidget(QtWidgets.QWidget):
         self._state_lock = RLock()
         self._drag_preview = None
         self._drag_row = None
+        self._size_update_callback = None
         
         self.parentView = parent
                
@@ -416,6 +482,8 @@ class PathSelectorWidget(QtWidgets.QWidget):
         
         self.layout = QtWidgets.QVBoxLayout(self)
         self.layout.setContentsMargins(2, 2, 2, 2)
+        self.layout.setSpacing(4)
+        self.layout.setAlignment(QtCore.Qt.AlignTop)
         self.layout.addWidget(self.open_button, alignment=QtCore.Qt.AlignTop)
         
 
@@ -424,7 +492,12 @@ class PathSelectorWidget(QtWidgets.QWidget):
         self.setAcceptDrops(True)
         
         self.wire_signals()
-        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
+        # Preferred (not Expanding): Expanding fills the node and pushes
+        # later widgets such as Advanced outside the node bounds.
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Preferred,
+        )
         
     def wire_signals(self):
         button = self.open_button
@@ -527,27 +600,74 @@ class PathSelectorWidget(QtWidgets.QWidget):
         self.order_changed.emit()
     
     def count_path_rows(self) -> int:
-        """Count the number of path row widgets"""
-        count = 1
+        """Count actual path row widgets (no phantom +1)."""
+        count = 0
         total_widgets = self.layout.count()
         for i in range(total_widgets):
             item = self.layout.itemAt(i)
             if item is None:
                 continue
             row_widget = item.widget()
-            if row_widget and isinstance(item.widget(), PathRowWidget):
+            if row_widget and isinstance(row_widget, PathRowWidget):
                 count += 1
         return count
     
     def calculate_required_size(self):
         """Calculate the required node size based on number of path rows"""
-        num_rows = self.count_path_rows()
-        height = self.BASE_HEIGHT + (num_rows * self.ROW_HEIGHT)
-        width = self.DEFAULT_WIDTH
-        return (width, height)
+        return (self.DEFAULT_WIDTH, self.file_area_height())
     
+    def file_area_height(self):
+        """Height of Add File + path rows from the live layout (no per-row pad)."""
+        margins = self.layout.contentsMargins()
+        height = margins.top() + margins.bottom()
+        height += self.open_button.sizeHint().height()
+
+        rows = []
+        for index in range(self.layout.count()):
+            item = self.layout.itemAt(index)
+            if item is None:
+                continue
+            widget = item.widget()
+            if isinstance(widget, PathRowWidget):
+                rows.append(widget)
+
+        spacing = self.layout.spacing()
+        if rows:
+            height += spacing
+            for index, row in enumerate(rows):
+                height += max(row.sizeHint().height(), self.ROW_HEIGHT)
+                if index < len(rows) - 1:
+                    height += spacing
+        return max(self.BASE_HEIGHT, height)
+
+    def sizeHint(self):
+        width, height = self.calculate_required_size()
+        return QtCore.QSize(width, height)
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+    def pin_to_content_height(self):
+        """Lock height to the file list so the node can stack widgets below.
+
+        Width stays flexible so the loader can snug the node around content
+        without leaving a large empty right margin.
+        """
+        height = self.file_area_height()
+        self.setMinimumSize(self.DEFAULT_WIDTH, 0)
+        self.setMaximumHeight(height)
+        self.setMinimumHeight(height)
+        self.setFixedHeight(height)
+        self.setMaximumWidth(16777215)
+        self.updateGeometry()
+        return self.DEFAULT_WIDTH, height
+
     def update_node_size(self):
         """Manually update the node height based on current widget count (width stays unchanged)"""
+        if self._size_update_callback is not None:
+            self._size_update_callback()
+            return
+
         if not self.parentView:
             return
         
@@ -629,7 +749,12 @@ class PathSelectorWidget(QtWidgets.QWidget):
             color_index = (path_id - 1) if path_id is not None else len(
                 self.path_state
             )
-            color = color_cycle[color_index % len(color_cycle)]
+            # Explicit alpha 255, same as leaving the color dialog untouched.
+            # A six-digit cycle color would leave each scatter plot on its own alpha.
+            color = file_color_hex(
+                color_cycle[color_index % len(color_cycle)],
+                keep_opaque_alpha=True,
+            )
             new_row_widget = PathRowWidget(
                 parent=self,
                 path_id=path_id,
@@ -767,8 +892,11 @@ class PathSelectorWidgetWrapper(AbstractWidgetWrapper):
         self.border_frame.setObjectName("pathSelectorBorderFrame")
         # Use object name selector to prevent stylesheet cascading to children
         # self.border_frame.setStyleSheet("#pathSelectorBorderFrame { border: 1px solid grey; }")
-        # Set size policy to allow resizing with content
-        self.border_frame.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        # Preferred vertically so later Advanced settings are not pushed out.
+        self.border_frame.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Preferred,
+        )
         frame_layout = QtWidgets.QVBoxLayout(self.border_frame)
         frame_layout.setContentsMargins(0, 0, 0, 0)
         frame_layout.addWidget(self.path_widget)

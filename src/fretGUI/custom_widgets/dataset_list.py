@@ -4,6 +4,10 @@ from Qt import QtCore, QtGui, QtWidgets
 from Qt.QtCore import Signal
 
 from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from fretGUI.custom_widgets.file_color import (
+    opaque_preview,
+    qcolor_from_file_color,
+)
 
 
 LABEL_WIDTH = 176
@@ -143,9 +147,16 @@ class _DatasetRow(QtWidgets.QWidget):
         return self._full_label
 
     def set_color(self, color):
-        qcolor = _qcolor(color)
+        qcolor = qcolor_from_file_color(color)
+        if not qcolor.isValid():
+            qcolor = QtGui.QColor('#888888')
+        preview = opaque_preview(
+            qcolor,
+            self.palette().color(QtGui.QPalette.Window),
+        )
         self._swatch.setStyleSheet(
-            f'background-color: {qcolor.name()}; border: 1px solid palette(mid);'
+            f'background-color: {preview.name()};'
+            ' border: 1px solid palette(mid);'
         )
 
     def is_checked(self):
@@ -396,11 +407,3 @@ class DatasetListWrapper(AbstractWidgetWrapper):
         return
 
 
-def _qcolor(color):
-    if isinstance(color, QtGui.QColor):
-        return color if color.isValid() else QtGui.QColor('#888888')
-    if isinstance(color, (tuple, list)):
-        qcolor = QtGui.QColor(*color)
-        return qcolor if qcolor.isValid() else QtGui.QColor('#888888')
-    qcolor = QtGui.QColor(str(color or ''))
-    return qcolor if qcolor.isValid() else QtGui.QColor('#888888')

@@ -86,3 +86,47 @@ class CompactNodeItem(NodeItem):
             )
 
         return max(title_width, content_width), height
+
+
+class LoaderNodeItem(CompactNodeItem):
+    """Loader nodes size from file-list content, not CompactNodeItem side pads."""
+
+    LEFT_PAD = 10.0
+    RIGHT_PAD = 8.0
+    TITLE_PAD = 20.0
+
+    def _loader_content_width(self):
+        from fretGUI.custom_widgets.path_selector import PathSelectorWidget
+        return float(PathSelectorWidget.DEFAULT_WIDTH)
+
+    def _calc_size_horizontal(self):
+        # Width: snug file-list content (no CompactNodeItem mirrored port pads).
+        # Height: widget stack only — NodeItem._draw_node_horizontal adds the
+        # title via add_h; including it here double-counts and flashes tall.
+        content_width = self._loader_content_width()
+        widget_width = content_width
+        widget_height = 0.0
+        for widget in self._widgets.values():
+            if not widget.isVisible():
+                continue
+            rect = widget.boundingRect()
+            widget_width = max(widget_width, rect.width())
+            widget_height += rect.height()
+
+        width = widget_width + self.LEFT_PAD + self.RIGHT_PAD
+        title_width = self._text_item.boundingRect().width() + self.TITLE_PAD
+        title_h = self._text_item.boundingRect().height() + 4.0
+        body_height = widget_height + 4.0
+        # After add_h=title_h, match AbstractLoader's max(90, title+widgets+4).
+        height = max(90.0 - title_h, body_height)
+        return max(width, title_width), height
+
+    def draw_node(self):
+        callback = getattr(self, '_after_draw_callback', None)
+        # Pin file/advanced widgets before NodeGraphQt measures them so the
+        # first draw_node pass does not flash a wrong size.
+        if callable(callback):
+            callback()
+        super().draw_node()
+        if callable(callback):
+            callback()

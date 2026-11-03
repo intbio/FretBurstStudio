@@ -23,6 +23,8 @@ from fretGUI.custom_widgets.plot_widget import (
     set_matplotlib_theme,
 )
 from fretGUI.node_workers import NodeWorker
+from fretGUI.custom_widgets.about_dialog import AboutDialog
+from fretGUI.misc.update_check import UpdateChecker
 from Qt.QtCore import QThreadPool
 from NodeGraphQt import NodeGraph, PropertiesBinWidget
 
@@ -435,7 +437,8 @@ def main():
     graph.register_nodes(
         [
              
-            custom_nodes.LSM510Node,    
+            custom_nodes.LSM510Node,
+            custom_nodes.LSM710Node,
             custom_nodes.PhHDF5Node,
             custom_nodes.JoinDataNode,
             custom_nodes.CollectMeasurementsNode,
@@ -784,7 +787,7 @@ def main():
         app.quit()
 
     def show_about():
-        QtWidgets.QMessageBox.information(app_window, "About", "FretBurstStudio based on FretBursts library<br><br>Version 0.0.1 <br><br>Developed by: Dmitry Ryabov and Grigory Armeev")
+        AboutDialog(app_window).exec()
 
     def load_template(template_path):
         """Load a template session from the configs folder."""
@@ -840,7 +843,13 @@ def main():
     log_menu.addAction("Show Console").triggered.connect(toggle_log_window)
     
     about_menu = menu_bar.addMenu("About")
-    about_menu.addAction("About").triggered.connect(show_about)
+    about_menu.addAction("About FretBurstStudio").triggered.connect(show_about)
+    update_checker = UpdateChecker(app_window)
+    about_menu.addAction("Check for updates").triggered.connect(
+        lambda: update_checker.start(manual=True)
+    )
+    app.aboutToQuit.connect(update_checker.shutdown)
+    update_checker.start()
 
     apply_theme(read_saved_theme())
     app.exec()

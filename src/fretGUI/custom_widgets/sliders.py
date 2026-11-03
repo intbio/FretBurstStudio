@@ -1,11 +1,17 @@
 from Qt import QtWidgets, QtCore, QtGui      # pyright: ignore[reportMissingModuleSource]
 from abc import abstractmethod 
 from fretGUI.custom_widgets.abstract_widget_wrapper import AbstractWidgetWrapper
+from fretGUI.custom_widgets.file_color import (
+    opaque_preview,
+    qcolor_from_file_color,
+)
 from Qt.QtCore import Signal
 
 
 def contrasting_text_color(color):
-    qcolor = color if isinstance(color, QtGui.QColor) else QtGui.QColor(color)
+    qcolor = (
+        color if isinstance(color, QtGui.QColor) else qcolor_from_file_color(color)
+    )
     if not qcolor.isValid():
         return QtGui.QColor('#111111')
     luminance = (
@@ -24,7 +30,7 @@ def qcolor_from_item_data(value):
         return color if color.isValid() else None
     if value in (None, ''):
         return None
-    qcolor = QtGui.QColor(value)
+    qcolor = qcolor_from_file_color(value)
     return qcolor if qcolor.isValid() else None
 
 
@@ -39,14 +45,15 @@ class FileColorItemDelegate(QtWidgets.QStyledItemDelegate):
 
         item_option = QtWidgets.QStyleOptionViewItem(option)
         self.initStyleOption(item_option, index)
+        base = item_option.palette.color(QtGui.QPalette.Base)
+        preview = opaque_preview(background, base)
         painter.save()
+        painter.fillRect(item_option.rect, base)
         painter.fillRect(item_option.rect, background)
         if item_option.state & QtWidgets.QStyle.State_Selected:
             painter.setPen(QtGui.QPen(item_option.palette.highlight().color(), 2))
             painter.drawRect(item_option.rect.adjusted(1, 1, -2, -2))
-        foreground = qcolor_from_item_data(index.data(QtCore.Qt.ForegroundRole))
-        if foreground is None:
-            foreground = contrasting_text_color(background)
+        foreground = contrasting_text_color(preview)
         painter.setPen(foreground)
         text_rect = item_option.rect.adjusted(6, 0, -6, 0)
         painter.drawText(
@@ -436,9 +443,13 @@ class ComboBoxWidget(QtWidgets.QWidget):
         if qcolor is None:
             return
         self.combobox.setItemData(index, qcolor, QtCore.Qt.BackgroundRole)
+        preview = opaque_preview(
+            qcolor,
+            self.combobox.palette().color(QtGui.QPalette.Button),
+        )
         self.combobox.setItemData(
             index,
-            contrasting_text_color(qcolor),
+            contrasting_text_color(preview),
             QtCore.Qt.ForegroundRole,
         )
 
@@ -452,11 +463,15 @@ class ComboBoxWidget(QtWidgets.QWidget):
         if color is None:
             self.combobox.setStyleSheet('')
             return
-        text = contrasting_text_color(color)
+        preview = opaque_preview(
+            color,
+            self.combobox.palette().color(QtGui.QPalette.Button),
+        )
+        text = contrasting_text_color(preview)
         self.combobox.setStyleSheet(
             f"""
             QComboBox {{
-                background-color: {color.name()};
+                background-color: {preview.name()};
                 color: {text.name()};
             }}
             """

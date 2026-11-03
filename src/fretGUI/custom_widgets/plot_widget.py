@@ -1,6 +1,9 @@
+import contextlib
+
 from Qt import QtCore, QtGui, QtWidgets
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+import matplotlib.backends.qt_editor.figureoptions as mpl_figureoptions
 import matplotlib.pyplot as plt
 from NodeGraphQt import NodeBaseWidget
 import matplotlib
@@ -24,6 +27,145 @@ _LIGHT_MPL_STYLE = {
     for key in _DARK_MPL_STYLE
 }
 _ACTIVE_MPL_THEME = 'light'
+
+
+def _embedded_in_graphics_proxy(widget):
+    """True when Qt would draw this widget inside the node graph."""
+    while widget is not None:
+        if widget.graphicsProxyWidget() is not None:
+            return True
+        widget = widget.parentWidget()
+    return False
+
+
+def _external_dialog_parent(widget):
+    """A real window that can own a dialog opened from a plot node.
+
+    Plot nodes are QGraphicsProxyWidget children. A dialog parented to one
+    of them is embedded in the graph. Prefer the widget's own window when
+    that window is already outside the graph, otherwise the active window.
+    """
+    if widget is not None and not _embedded_in_graphics_proxy(widget):
+        window = widget.window()
+        if window is not None:
+            return window
+
+    active = QtWidgets.QApplication.activeWindow()
+    if active is not None and not _embedded_in_graphics_proxy(active):
+        return active
+
+    fallback = None
+    for candidate in QtWidgets.QApplication.topLevelWidgets():
+        if not candidate.isVisible() or _embedded_in_graphics_proxy(candidate):
+            continue
+        if isinstance(candidate, QtWidgets.QDialog):
+            continue
+        if isinstance(candidate, QtWidgets.QMainWindow):
+            return candidate
+        if fallback is None:
+            fallback = candidate
+    return fallback
+
+
+def _release_embedded_dialog(dialog):
+    """Move a dialog Matplotlib already built out of the graphics scene."""
+    if dialog is None:
+        return
+    if (
+        dialog.isWindow()
+        and not _embedded_in_graphics_proxy(dialog)
+        and not _embedded_in_graphics_proxy(dialog.parentWidget())
+    ):
+        return
+
+    external = _external_dialog_parent(None)
+    flags = (
+        QtCore.Qt.Dialog
+        | QtCore.Qt.WindowTitleHint
+        | QtCore.Qt.WindowSystemMenuHint
+        | QtCore.Qt.WindowCloseButtonHint
+    )
+    bypass = getattr(QtCore.Qt, "BypassGraphicsProxyWidget", None)
+    if bypass is not None:
+        flags |= bypass
+    was_modal = dialog.isModal()
+    dialog.setParent(external, flags)
+    dialog.setModal(was_modal)
+    dialog.show()
+    dialog.raise_()
+    dialog.activateWindow()
+
+
+class _PlotNavigationToolbar(NavigationToolbar):
+    """Matplotlib toolbar whose dialogs stay outside a graphics-proxy node."""
+
+    @contextlib.contextmanager
+    def _external_dialog_parents(self):
+        # Keep Matplotlib's panels. Only the parent passed into them changes,
+        # and only while this toolbar itself lives inside the node graph.
+        if not _embedded_in_graphics_proxy(self):
+            yield
+            return
+
+        canvas = self.canvas
+        original_parent = canvas.parent
+        original_edit = mpl_figureoptions.figure_edit
+
+        def parent(*_args, **_kwargs):
+            return _external_dialog_parent(original_parent())
+
+        def figure_edit(axes, parent=None, *args, **kwargs):
+            if _embedded_in_graphics_proxy(parent):
+                parent = _external_dialog_parent(parent)
+            return original_edit(axes, parent, *args, **kwargs)
+
+        canvas.parent = parent
+        mpl_figureoptions.figure_edit = figure_edit
+        try:
+            yield
+        finally:
+            canvas.parent = original_parent
+            mpl_figureoptions.figure_edit = original_edit
+
+    def configure_subplots(self, *args, **kwargs):
+        with self._external_dialog_parents():
+            dialog = super().configure_subplots(*args, **kwargs)
+        _release_embedded_dialog(dialog)
+        self._guard_subplot_close()
+        return dialog
+
+    def _guard_subplot_close(self):
+        """Ignore the subplot dialog if its window was already destroyed."""
+        if getattr(self, "_subplot_close_guarded", False):
+            return
+        registry = self.canvas.callbacks.callbacks.get("close_event", {})
+        for cid, ref in list(registry.items()):
+            func = ref if hasattr(ref, "__code__") else ref()
+            names = getattr(getattr(func, "__code__", None), "co_names", ())
+            if "_subplot_dialog" in names and "reject" in names:
+                self.canvas.mpl_disconnect(cid)
+
+        def _close_subplot_dialog(_event):
+            dialog = self._subplot_dialog
+            if dialog is None:
+                return
+            try:
+                dialog.reject()
+            except RuntimeError:
+                self._subplot_dialog = None
+
+        self.canvas.mpl_connect("close_event", _close_subplot_dialog)
+        self._subplot_close_guarded = True
+
+    def edit_parameters(self, *args, **kwargs):
+        with self._external_dialog_parents():
+            result = super().edit_parameters(*args, **kwargs)
+        owners = (self, _external_dialog_parent(self))
+        for owner in owners:
+            if owner is None:
+                continue
+            _release_embedded_dialog(getattr(owner, "_fedit_dialog", None))
+        return result
 
 
 def set_matplotlib_theme(kind):
@@ -74,7 +216,7 @@ class TemplatePlotWidget(QtWidgets.QWidget):
         self.canvas.setStyleSheet('background: transparent;')
         self.setContextMenuPolicy(QtCore.Qt.PreventContextMenu)
         self.canvas.setContextMenuPolicy(QtCore.Qt.PreventContextMenu)
-        self.toolbar = NavigationToolbar(self.canvas, self)
+        self.toolbar = _PlotNavigationToolbar(self.canvas, self)
         self.toolbar.setContextMenuPolicy(QtCore.Qt.PreventContextMenu)
         self.toolbar.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.toolbar.setAutoFillBackground(False)

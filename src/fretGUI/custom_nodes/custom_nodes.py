@@ -1,5 +1,6 @@
 import fretGUI.custom_widgets.path_selector as path_selector
 from fretGUI.custom_nodes.abstract_nodes import AbstractRecomputable, ResizableContentNode
+from fretGUI.custom_nodes.compact_node_item import LoaderNodeItem
 import fretbursts, os
 from fretGUI.node_builder import NodeBuilder
 import NodeGraphQt
@@ -13,6 +14,7 @@ from Qt.QtWidgets import QAction, QFileDialog  # pyright: ignore[reportMissingMo
 from abc import abstractmethod
 import numpy as np
 from fretbursts.burstlib import Data
+from fretGUI.custom_widgets.file_color import explicit_file_alpha
 from fretGUI.burst_corrections import (
     DIRECT_EXCITATION_TOOLTIP,
     install_proportional_direct_excitation,
@@ -20,6 +22,13 @@ from fretGUI.burst_corrections import (
 import pandas as pd
 from matplotlib.markers import MarkerStyle
 from threading import RLock
+from fretGUI.custom_widgets.advanced_settings import build_channel_mapping_settings
+from fretGUI.misc.convert_lsm710 import (
+    channel_name,
+    channel_tooltip,
+    group_channel_files,
+    merge_channel_files,
+)
 from fretGUI.custom_widgets.dataset_list import DatasetListWrapper
 from fretGUI.custom_widgets.export_folder import ExportFolderWrapper
 from fretGUI.custom_widgets.timetrace_explorer import (
@@ -40,6 +49,32 @@ def _artist_counts(ax):
     return len(ax.lines), len(ax.collections), len(ax.patches)
 
 
+def _file_color_alpha(color):
+    """Explicit file alpha, including 1.0 when the user set the slider to 255."""
+    return explicit_file_alpha(color)
+
+
+def _scale_alpha(current, factor):
+    """Scale a plot's own alpha. Fully opaque file colors pass the plot alpha through."""
+    base = 1.0 if current is None else current
+    scaled = np.clip(np.asarray(base, dtype=float) * float(factor), 0.0, 1.0)
+    if scaled.shape == ():
+        return float(scaled)
+    return scaled
+
+
+def _has_marker(line):
+    marker = line.get_marker()
+    return marker not in (None, 'None', 'none', '', ' ')
+
+
+def _has_points(collection):
+    if not hasattr(collection, 'get_offsets'):
+        return False
+    offsets = np.asarray(collection.get_offsets())
+    return offsets.size >= 2
+
+
 def _style_new_data_artists(
     ax,
     previous_counts,
@@ -58,14 +93,16 @@ def _style_new_data_artists(
     styled_collections = collections
     styled_patches = patches
     if primary_only:
+        # Scatter helpers draw the cloud as marker lines (ax.plot) or as a
+        # PathCollection (ax.scatter), sometimes with guide lines after it.
+        # Color every point artist. A collection must not hide the lines,
+        # and a guide line must not take the color instead of the points.
+        point_lines = [line for line in lines if _has_marker(line)]
         point_collections = [
-            collection
-            for collection in collections
-            if hasattr(collection, 'get_offsets')
-            and len(collection.get_offsets()) > 1
+            collection for collection in collections if _has_points(collection)
         ]
-        if point_collections:
-            styled_lines = []
+        if point_lines or point_collections:
+            styled_lines = point_lines
             styled_collections = point_collections
             styled_patches = []
         elif patches:
@@ -77,14 +114,40 @@ def _style_new_data_artists(
             styled_patches = []
 
     if color:
+        # Scatter helpers bake in their own alpha, and it is not the same
+        # value: rate, FRET-size, and FRET-duration use 0.1, while duration
+        # vs size uses 0.7. Scaling 0.1 by the file alpha washes those three
+        # clouds out. Point markers use the file alpha directly. Lines and
+        # bars without markers keep their own alpha, scaled by the file alpha.
+        file_alpha = _file_color_alpha(color)
         for line in styled_lines:
+            current_alpha = line.get_alpha()
             line.set_color(color)
+            if line.get_markerfacecolor() not in ('none', 'None'):
+                line.set_markerfacecolor(color)
+                line.set_markeredgecolor(color)
+            if file_alpha is None:
+                continue
+            if _has_marker(line):
+                line.set_alpha(file_alpha)
+            else:
+                line.set_alpha(_scale_alpha(current_alpha, file_alpha))
         for collection in styled_collections:
+            current_alpha = collection.get_alpha()
             collection.set_facecolor(color)
             collection.set_edgecolor(color)
+            if file_alpha is None:
+                continue
+            if _has_points(collection):
+                collection.set_alpha(file_alpha)
+            else:
+                collection.set_alpha(_scale_alpha(current_alpha, file_alpha))
         for patch in styled_patches:
+            current_alpha = patch.get_alpha()
             patch.set_facecolor(color)
             patch.set_edgecolor(color)
+            if file_alpha is not None:
+                patch.set_alpha(_scale_alpha(current_alpha, file_alpha))
 
     if marker:
         for line in lines:
@@ -171,6 +234,9 @@ def _multifile_legend_label(cur_data, input_port, show_port, file_label):
 class AbstractLoader(AbstractRecomputable):
     # None accepts every extension. Subclasses set a tuple of suffixes.
     ACCEPTED_EXTENSIONS = None
+    # Content-driven; only a small floor so an empty loader stays clickable.
+    LOADER_MIN_HEIGHT = 90
+    ADVANCED_SIZE_PADDING = 28
 
     def accepts_dropped_files(self, paths):
         """True when every path is a file this loader can import."""
@@ -187,6 +253,7 @@ class AbstractLoader(AbstractRecomputable):
         )
 
     def __init__(self, *args, **kwargs):
+        kwargs.setdefault('qgraphics_item', LoaderNodeItem)
         super().__init__(*args, **kwargs)
         
         # ConstraintsBuilder.add_loader_constraints(self) CONSTRAInts EXAMPLE
@@ -195,15 +262,175 @@ class AbstractLoader(AbstractRecomputable):
         # p.type_ = lambda: 'no_burst'
 
         self.file_widget = path_selector.PathSelectorWidgetWrapper(self.view)  
-        self.add_custom_widget(self.file_widget, tab='Custom')  
+        self.add_custom_widget(self.file_widget, tab='Custom')
+
+        self.advanced_settings = self.build_advanced_settings()
+        if self.advanced_settings is not None:
+            self.add_custom_widget(self.advanced_settings, tab='Custom')
+            self.advanced_settings.size_changed.connect(
+                self.update_loader_node_size
+            )
+            self.advanced_settings.widget_changed_signal.connect(
+                self.on_advanced_settings_changed
+            )
         
-        self.opened_paths = dict()  # path_hash -> FBSData
+        self.opened_paths = dict()  # (abspath, settings_signature) -> FBSData
         self.path_to_id = dict()    # path -> id mapping
+
+        self.file_widget.path_widget._size_update_callback = (
+            self.update_loader_node_size
+        )
+        # Re-apply after NodeGraphQt post_init draw_node so width does not
+        # jump on the first file add.
+        self.view._after_draw_callback = self.update_loader_node_size
         
         # Connect to paths_added signal to assign IDs immediately (use DirectConnection for synchronous execution)
         from Qt.QtCore import Qt
         self.file_widget.paths_added.connect(self.on_paths_added, Qt.DirectConnection)
-        
+        self.update_loader_node_size()
+
+    def build_advanced_settings(self):
+        """Override to attach a collapsible Advanced panel. Default: none."""
+        return None
+
+    def get_load_settings(self):
+        """Load-affecting advanced settings (excludes presentation state)."""
+        if self.advanced_settings is None:
+            return {}
+        return self.advanced_settings.get_load_settings()
+
+    def load_settings_signature(self):
+        """Hashable key fragment for opened_paths cache entries."""
+        settings = self.get_load_settings()
+        return tuple(sorted(settings.items()))
+
+    def _cache_path_key(self, path):
+        return os.path.abspath(path)
+
+    def _cache_key(self, path):
+        return (self._cache_path_key(path), self.load_settings_signature())
+
+    def on_advanced_settings_changed(self):
+        """Drop cached loads so the next run reloads with new settings."""
+        self.opened_paths.clear()
+
+    def _loader_widget_proxy(self, wrapper):
+        if wrapper is None:
+            return None
+        inner = wrapper.get_custom_widget()
+        current = inner
+        while current is not None:
+            proxy = current.graphicsProxyWidget()
+            if proxy is not None:
+                return proxy
+            current = current.parentWidget()
+        return None
+
+    def _sync_loader_widget_proxy(self, wrapper, width=None):
+        """Resize the NodeGraphQt proxy to the pinned content widget."""
+        if wrapper is None:
+            return
+        inner = wrapper.get_custom_widget()
+        if inner is None:
+            return
+        hint = inner.sizeHint()
+        target_w = int(width) if width is not None else max(hint.width(), 1)
+        target_h = max(hint.height(), 1)
+        inner.setMinimumSize(0, 0)
+        inner.setFixedHeight(target_h)
+        if width is not None:
+            inner.setFixedWidth(target_w)
+        inner.updateGeometry()
+
+        proxy = self._loader_widget_proxy(wrapper)
+        if proxy is None or proxy.widget() is None:
+            return
+
+        container = proxy.widget()
+        layout = container.layout()
+        if layout is not None:
+            layout.activate()
+        container.updateGeometry()
+        container_hint = container.sizeHint()
+        proxy.setMinimumSize(0, 0)
+        proxy.resize(
+            max(container_hint.width(), target_w),
+            max(container_hint.height(), target_h),
+        )
+
+    def _loader_target_width(self, content_width):
+        """Stable snug width around the file list.
+
+        out_file sits in the top port band and does not need a full-height
+        text column beside the rows.
+        """
+        view = self.view
+        left_pad = getattr(view, 'LEFT_PAD', 10.0)
+        right_pad = getattr(view, 'RIGHT_PAD', 8.0)
+        title_pad = getattr(view, 'TITLE_PAD', 20.0)
+        target_width = content_width + left_pad + right_pad
+        title_width = view._text_item.boundingRect().width() + title_pad
+        return max(target_width, title_width)
+
+    def update_loader_node_size(self):
+        """Resize the loader node to fit file rows and advanced settings.
+
+        Avoid draw_node() here: it recalculates CompactNodeItem width with
+        mirrored port padding and makes the node jump/shrink on every file add.
+        """
+        if getattr(self, '_resizing_loader', False):
+            return
+        view = getattr(self, 'view', None)
+        if view is None or not hasattr(view, '_height'):
+            return
+
+        self._resizing_loader = True
+        try:
+            path_widget = self.file_widget.path_widget
+            content_width = path_selector.PathSelectorWidget.DEFAULT_WIDTH
+
+            path_widget.pin_to_content_height()
+            path_widget.setFixedWidth(content_width)
+            if hasattr(self.file_widget, 'resize_border_frame'):
+                self.file_widget.resize_border_frame()
+            self._sync_loader_widget_proxy(self.file_widget, width=content_width)
+
+            if self.advanced_settings is not None:
+                adv_widget = self.advanced_settings.settings_widget
+                adv_widget.setMinimumWidth(content_width)
+                adv_widget.pin_to_content_height()
+                adv_widget.setFixedWidth(content_width)
+                self._sync_loader_widget_proxy(
+                    self.advanced_settings,
+                    width=content_width,
+                )
+
+            title_h = view._text_item.boundingRect().height() + 4.0
+            widget_height = 0.0
+            for gw in (getattr(view, '_widgets', {}) or {}).values():
+                if gw.isVisible():
+                    widget_height += gw.boundingRect().height()
+
+            target_width = self._loader_target_width(content_width)
+            target_height = max(
+                self.LOADER_MIN_HEIGHT,
+                title_h + widget_height + 4.0,
+            )
+
+            view.prepareGeometryChange()
+            view._width = target_width
+            view._height = target_height
+            view.align_label()
+            view.align_icon(h_offset=2.0, v_offset=1.0)
+            view.align_ports(v_offset=title_h)
+            view.align_widgets(v_offset=title_h)
+            view.update()
+            scene = view.scene()
+            if scene:
+                scene.update()
+        finally:
+            self._resizing_loader = False
+
     def on_paths_added(self, paths):
         """Assign IDs immediately when paths are added"""
         for path in paths:
@@ -304,7 +531,7 @@ class AbstractLoader(AbstractRecomputable):
         
         data_list = []
         for path_id, cur_path, is_checked, color, display_name in file_entries:
-            path_hash = hash(cur_path)
+            cache_key = self._cache_key(cur_path)
             # Use the immutable row snapshot rather than a live Qt widget.
             assigned_id = path_id
             if assigned_id is None:
@@ -314,9 +541,9 @@ class AbstractLoader(AbstractRecomputable):
                 continue
             list_order = len(data_list)
 
-            if path_hash in self.opened_paths:
+            if cache_key in self.opened_paths:
                 # Use existing FBSData (which already has an ID)
-                existing_fbsdata = self.opened_paths[path_hash]
+                existing_fbsdata = self.opened_paths[cache_key]
                 fbsdata_copy = existing_fbsdata.copy()
                 fbsdata_copy.set_checked(is_checked)
                 fbsdata_copy.color = color
@@ -334,20 +561,21 @@ class AbstractLoader(AbstractRecomputable):
                 loaded_fbsdata.color = color
                 loaded_fbsdata.source_order = list_order
                 loaded_fbsdata.display_name = display_name
-                self.opened_paths[path_hash] = loaded_fbsdata.copy()
-                # self.__wire_fbsdata(self.opened_paths[path_hash])
+                self.opened_paths[cache_key] = loaded_fbsdata.copy()
+                # self.__wire_fbsdata(self.opened_paths[cache_key])
                 data_list.append(loaded_fbsdata)
                 self._publish_loaded_file(cur_path, loaded_fbsdata)
         
         return data_list
     
     def __delete_closed_files(self, selected_paths: list):
-        selected_hashes = set([hash(path) for path in selected_paths])
-        saved = set(self.opened_paths.keys())
-        for_kill = saved - selected_hashes
-        if len(for_kill) > 0:
-            for item in for_kill:
-                self.opened_paths.pop(item)
+        selected_keys = {
+            self._cache_path_key(path) for path in selected_paths
+        }
+        for cache_key in list(self.opened_paths.keys()):
+            cached_path = cache_key[0] if isinstance(cache_key, tuple) else cache_key
+            if cached_path not in selected_keys:
+                self.opened_paths.pop(cache_key, None)
         
         # Keep path IDs stable if a file is later reopened. In-flight workers
         # may still hold a snapshot containing a recently closed path.
@@ -376,28 +604,231 @@ class LSM510Node(AbstractLoader):
     DESCRIPTION = 'Import donor and acceptor photon timestamps from a ConfoCor2 RAW measurement as single-spot smFRET data.'
 
     def __init__(self):
-        super().__init__() 
+        super().__init__()
+
+    def build_advanced_settings(self):
+        # Defaults match the previous hardcoded mapping: ch0=acceptor, ch1=donor.
+        return build_channel_mapping_settings(
+            parent=self.view,
+            channel_count=2,
+            donor_channel=1,
+            acceptor_channel=0,
+        )
     
     def load(self, path: str, id=None, checked=False):
-        fcs=self.ConfoCor2Raw(path)
-        times_acceptor, times_donor = fcs.asarray()
-        fcs.frequency
+        settings = self.get_load_settings()
+        donor_channel = int(settings.get('donor_channel', 1))
+        acceptor_channel = int(settings.get('acceptor_channel', 0))
+        if donor_channel == acceptor_channel:
+            raise ValueError(
+                'Donor and acceptor must use different physical channels'
+            )
 
-        df = np.hstack([np.vstack( [   times_donor, np.zeros(   times_donor.size)] ),
-                        np.vstack( [times_acceptor,  np.ones(times_acceptor.size)] )]).T
+        with self.ConfoCor2Raw(path) as fcs:
+            channels = fcs.asarray()
+            if donor_channel >= len(channels) or acceptor_channel >= len(channels):
+                raise ValueError(
+                    f'Channel index out of range for {path} '
+                    f'(channels={len(channels)})'
+                )
+            times_donor = channels[donor_channel]
+            times_acceptor = channels[acceptor_channel]
+            timestamps_unit = 1.0 / fcs.frequency
 
-        df_sorted = df[np.argsort(df[:,0])].T
-        timestamps=df_sorted[0].astype('int64')
-        timestamps_unit = 1.0/fcs.frequency
+        # Cast through float64 before argsort so simultaneous-photon tie order
+        # matches the previous hstack/vstack merge path.
+        merged = np.concatenate((times_donor, times_acceptor))
+        order = np.argsort(merged.astype(np.float64, copy=False))
+        timestamps = merged[order].astype(np.int64, copy=False)
+        detectors = order >= times_donor.size
 
-        detectors=df_sorted[1].astype('bool')
-        
         data = fretbursts.Data(ph_times_m=[timestamps], A_em=[detectors],
                                      clk_p=timestamps_unit, alternated=False,nch=1,
                                      fname=path,meas_type='smFRET')  
         data.name = os.path.basename(path)
         fbsdata = FBSData(data, path, id=id, checked=checked)
-        return fbsdata   
+        return fbsdata
+
+
+class LSM710Node(AbstractLoader):
+    """One list row per ConfoCor3 measurement, paired from per-channel files."""
+
+    __identifier__ = 'Loaders'
+    NODE_NAME = 'ConfoCor3 RAW'
+    ACCEPTED_EXTENSIONS = ('.raw',)
+    DESCRIPTION = (
+        'Import donor and acceptor photon timestamps from paired ConfoCor3 '
+        'RAW channel files as single-spot smFRET data.'
+    )
+
+    def __init__(self):
+        super().__init__()
+        # row path (channel 0 file) -> {key, channels, label, row_path}
+        self._experiments = {}
+        # group key -> {channel: path} until both channel 0 and 1 arrive
+        self._pending = {}
+        widget = self.file_widget.path_widget
+        original_process_files = widget.process_files
+
+        def process_files(file_paths, _process=original_process_files):
+            self._import_channel_files(file_paths, _process)
+
+        widget.process_files = process_files
+        widget.file_dialog.setNameFilter('ConfoCor3 raw (*.raw);;All files (*)')
+
+    def build_advanced_settings(self):
+        # Ch1 (header channel 0) is the acceptor. Ch2 is the donor.
+        return build_channel_mapping_settings(
+            parent=self.view,
+            channel_count=2,
+            donor_channel=1,
+            acceptor_channel=0,
+            channel_names=('Ch1', 'Ch2'),
+        )
+
+    def _import_channel_files(self, file_paths, process_files):
+        self._prune_experiments()
+        experiments, pending, messages = group_channel_files(
+            file_paths,
+            self._pending,
+        )
+        for message in messages:
+            print(f'{type(self).NODE_NAME}: {message}')
+        experiments = self._merge_known_experiments(experiments, pending)
+        self._pending = pending
+        if not experiments:
+            return
+        process_files([item['row_path'] for item in experiments])
+        for item in experiments:
+            self._experiments[item['row_path']] = {
+                'key': item['key'],
+                'channels': dict(item['channels']),
+                'label': item['label'],
+                'row_path': item['row_path'],
+            }
+            self._show_experiment_row(self._experiments[item['row_path']])
+
+    def _prune_experiments(self):
+        listed = {
+            os.path.abspath(path)
+            for path in self.file_widget.path_widget.get_paths()
+        }
+        self._experiments = {
+            path: record
+            for path, record in self._experiments.items()
+            if path in listed
+        }
+
+    def _merge_known_experiments(self, experiments, pending):
+        """Fold files for an existing row into that row instead of adding one."""
+        known = {
+            record['key']: record for record in self._experiments.values()
+        }
+        fresh = []
+        for item in experiments:
+            record = known.get(item['key'])
+            if record is None:
+                fresh.append(item)
+                continue
+            self._merge_channels(record, item['channels'])
+            self._show_experiment_row(record)
+        for key in list(pending):
+            record = known.get(key)
+            if record is None:
+                continue
+            self._merge_channels(record, pending.pop(key))
+            self._show_experiment_row(record)
+        return fresh
+
+    def _merge_channels(self, record, channels):
+        for channel, path in sorted(channels.items()):
+            current = record['channels'].get(channel)
+            if current is None:
+                record['channels'][channel] = path
+                print(
+                    f'{type(self).NODE_NAME}: added {channel_name(channel)} '
+                    f'to {record["label"]}: {path}'
+                )
+            elif os.path.abspath(current) != os.path.abspath(path):
+                print(
+                    f'{type(self).NODE_NAME}: duplicate {channel_name(channel)} '
+                    f'ignored: {path} (keeping {current})'
+                )
+
+    def _show_experiment_row(self, record):
+        widget = self.file_widget.path_widget
+        row = widget._row_for_path(record['row_path'])
+        if row is None:
+            return
+        label = record['label']
+        row._display_name = label
+        row.text_field.setText(label)
+        path_id = row.get_id()
+        with widget._state_lock:
+            state = widget.path_state.get(path_id)
+            if state is not None:
+                state['display_name'] = label
+        tooltip = 'Not loaded, press RUN\n' + channel_tooltip(record['channels'])
+        row.set_tooltip(tooltip)
+        row.text_field.setToolTip(tooltip)
+
+    def _publish_loaded_file(self, path, fbsdata):
+        super()._publish_loaded_file(path, fbsdata)
+        # The filename field has its own tooltip and would keep showing
+        # "Not loaded" after the row tooltip has been replaced.
+        row = self.file_widget.path_widget._row_for_path(path)
+        if row is not None:
+            row.text_field.setToolTip(row.toolTip())
+
+    def _format_metadata_tooltip(self, fbsdata):
+        tooltip = super()._format_metadata_tooltip(fbsdata)
+        path = os.path.abspath(getattr(fbsdata, 'path', '') or '')
+        record = self._experiments.get(path)
+        if record is None:
+            return tooltip
+        return tooltip + '\n' + channel_tooltip(record['channels'])
+
+    def load(self, path, id=None, checked=False):
+        record = self._experiments.get(os.path.abspath(path))
+        if record is None:
+            raise ValueError(f'No ConfoCor3 channel pair stored for {path}')
+
+        settings = self.get_load_settings()
+        donor_channel = int(settings.get('donor_channel', 1))
+        acceptor_channel = int(settings.get('acceptor_channel', 0))
+        if donor_channel == acceptor_channel:
+            raise ValueError(
+                'Donor and acceptor must use different physical channels'
+            )
+        channels = record['channels']
+        try:
+            donor_path = channels[donor_channel]
+            acceptor_path = channels[acceptor_channel]
+        except KeyError:
+            present = ', '.join(
+                channel_name(channel) for channel in sorted(channels)
+            )
+            raise ValueError(
+                f'{record["label"]} has {present}, not donor '
+                f'{channel_name(donor_channel)} and acceptor '
+                f'{channel_name(acceptor_channel)}'
+            )
+
+        timestamps, detectors, timestamps_unit = merge_channel_files(
+            donor_path,
+            acceptor_path,
+        )
+        data = fretbursts.Data(
+            ph_times_m=[timestamps],
+            A_em=[detectors],
+            clk_p=timestamps_unit,
+            alternated=False,
+            nch=1,
+            fname=path,
+            meas_type='smFRET',
+        )
+        data.name = record['label']
+        return FBSData(data, path, id=id, checked=checked)
 
 
 def _measurement_label(fbsdata):

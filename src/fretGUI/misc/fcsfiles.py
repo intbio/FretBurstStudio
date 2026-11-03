@@ -421,19 +421,36 @@ class ConfoCor2Raw(object):
         """
         self._fh.seek(30 + skip*2)
         data = numpy.fromfile(self._fh, dtype='u1', count=count*2)
-        # accumulate clock time
-        times = numpy.empty((len(data)//2, 4), dtype='u8')
-        times[:, 0] = data[::2]
-        times[:, 1:] = 1
-        times = times.flatten()
-        numpy.cumsum(times, out=times)
-        # extract events for each channel
-        data = numpy.repeat(data[1::2], 8).reshape(-1, 8)
-        data &= numpy.array([1, 2, 4, 8, 16, 32, 64, 128], dtype='u1')
-        ch0 = numpy.take(times, numpy.where(data[:, 0::2].flatten() != 0)[0])
-        ch1 = numpy.take(times, numpy.where(data[:, 1::2].flatten() != 0)[0])
-        del data
-        del times
+        # Slot-mask decode: avoid expanding every word into N×4 times and N×8
+        # flag matrices. Word i contributes clock increments [delta, 1, 1, 1],
+        # so slot 0 of word i is cumsum(deltas)[i] + 3*i.
+        if data.size == 0:
+            ch0 = numpy.empty(0, dtype='u8')
+            ch1 = numpy.empty(0, dtype='u8')
+        else:
+            deltas = data[0::2]
+            flags = data[1::2]
+            n = deltas.size
+            base = numpy.cumsum(deltas, dtype='u8')
+            base += numpy.arange(n, dtype='u8') * numpy.uint64(3)
+            parts0 = []
+            parts1 = []
+            for slot, (bit0, bit1) in enumerate(
+                    ((1, 2), (4, 8), (16, 32), (64, 128))):
+                mask0 = (flags & bit0) != 0
+                mask1 = (flags & bit1) != 0
+                if numpy.any(mask0):
+                    parts0.append(base[mask0] + numpy.uint64(slot))
+                if numpy.any(mask1):
+                    parts1.append(base[mask1] + numpy.uint64(slot))
+            ch0 = (numpy.concatenate(parts0) if parts0
+                   else numpy.empty(0, dtype='u8'))
+            ch1 = (numpy.concatenate(parts1) if parts1
+                   else numpy.empty(0, dtype='u8'))
+            # Slot-major gather is not word-major; timestamps within a channel
+            # are unique, so sorting restores chronological order.
+            ch0.sort()
+            ch1.sort()
         if kwargs:
             result = fcs_bincount((ch0, ch1), self.frequency, **kwargs)
             return result[0], result[1][0], result[1][1]

@@ -1,3 +1,4 @@
+import re
 import sys
 
 import unittest
@@ -67,6 +68,11 @@ from fretGUI.static_pda import (
     plot_check,
     simulate_counts,
 )
+from fretGUI.custom_widgets.path_selector import _attach_alpha_slider
+from fretGUI.custom_widgets.file_color import (
+    file_color_hex,
+    qcolor_from_file_color,
+)
 from fretGUI.custom_widgets.sliders import (
     ComboBoxWidget,
     qcolor_from_item_data,
@@ -97,7 +103,8 @@ class BaseUtils():
              
         graph.register_nodes(
                 [
-                    custom_nodes.LSM510Node,    
+                    custom_nodes.LSM510Node,
+                    custom_nodes.LSM710Node,
                     custom_nodes.PhHDF5Node,
                     custom_nodes.JoinDataNode,
                     custom_nodes.CollectMeasurementsNode,
@@ -1188,7 +1195,8 @@ class TestWidgets(unittest.TestCase):
         ].by_key()['color']
         self.assertEqual(
             initial_color,
-            QtGui.QColor(color_cycle[(path_id - 1) % len(color_cycle)]).name(),
+            QtGui.QColor(color_cycle[(path_id - 1) % len(color_cycle)]).name()
+            + 'ff',
         )
 
         row_widget = path_widget.rowwidget_map[path_id]
@@ -1465,6 +1473,118 @@ class TestWidgets(unittest.TestCase):
         )
         self.assertIn('#112233', plot_combo.styleSheet())
 
+    def test_file_color_alpha_reaches_plots_and_stays_off_qt_panes(self):
+        parsed = qcolor_from_file_color('#33669980')
+        self.assertEqual(parsed.red(), 0x33)
+        self.assertEqual(parsed.green(), 0x66)
+        self.assertEqual(parsed.blue(), 0x99)
+        self.assertEqual(parsed.alpha(), 0x80)
+        self.assertEqual(file_color_hex(parsed), '#33669980')
+        self.assertEqual(file_color_hex('#336699'), '#336699')
+        self.assertEqual(
+            file_color_hex('#336699', keep_opaque_alpha=True),
+            '#336699ff',
+        )
+        swapped = QtGui.QColor('#33669980')
+        self.assertEqual(swapped.alpha(), 0x33)
+        self.assertNotEqual(swapped.red(), parsed.red())
+
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Loaders.PhHDF5Node')
+        path_widget = node.file_widget.path_widget
+        path_widget.process_files(['/tmp/alpha-file.h5'])
+        path_id = path_widget.get_file_entries()[0][0]
+        row_widget = path_widget.rowwidget_map[path_id]
+        row_widget.set_color('#33669980')
+        row_widget.color_changed.emit(row_widget.get_color())
+        self.assertEqual(row_widget.get_color(), '#33669980')
+        self.assertEqual(path_widget.get_file_entries()[0][3], '#33669980')
+
+        swatch = row_widget.id_label
+        swatch.show()
+        app.processEvents()
+        stylesheet_colors = re.findall(r'#[0-9a-fA-F]+', swatch.styleSheet())
+        self.assertTrue(stylesheet_colors)
+        self.assertTrue(all(len(color) == 7 for color in stylesheet_colors))
+        pixel = swatch.grab().toImage().pixelColor(
+            swatch.width() // 2,
+            swatch.height() // 2,
+        )
+        self.assertEqual(pixel.alpha(), 255)
+
+        figure = Figure()
+        ax = figure.add_subplot()
+        previous_counts = custom_nodes._artist_counts(ax)
+        faint, = ax.plot(
+            [0, 1, 2], [0, 1, 0],
+            linestyle='', marker='o', alpha=0.1, color='blue',
+        )
+        solid, = ax.plot(
+            [0, 1, 2], [1, 0, 1],
+            'o', mew=0, ms=3, alpha=0.7, color='blue',
+        )
+        guide, = ax.plot([0, 1, 2], [0.5, 0.5, 0.5], '--', color='black')
+        points = ax.scatter([0, 1], [1, 2], color='#000000', alpha=0.3)
+        custom_nodes._style_new_data_artists(
+            ax,
+            previous_counts,
+            '#33669980',
+            primary_only=True,
+        )
+        factor = 0x80 / 255
+        self.assertAlmostEqual(faint.get_alpha(), factor)
+        self.assertAlmostEqual(solid.get_alpha(), factor)
+        self.assertAlmostEqual(points.get_alpha(), factor)
+        self.assertAlmostEqual(points.get_facecolors()[0][3], factor)
+        self.assertEqual(guide.get_color(), 'black')
+        self.assertIsNone(guide.get_alpha())
+
+        kept_counts = custom_nodes._artist_counts(ax)
+        opaque_points = ax.scatter([0, 1], [2, 3], color='#000000', alpha=0.3)
+        custom_nodes._style_new_data_artists(
+            ax,
+            kept_counts,
+            '#2468ac',
+            primary_only=True,
+        )
+        self.assertAlmostEqual(opaque_points.get_alpha(), 0.3)
+
+        opaque_counts = custom_nodes._artist_counts(ax)
+        forced_opaque, = ax.plot(
+            [0, 1], [0, 1],
+            linestyle='', marker='o', alpha=0.1, color='blue',
+        )
+        custom_nodes._style_new_data_artists(
+            ax,
+            opaque_counts,
+            '#336699ff',
+            primary_only=True,
+        )
+        self.assertAlmostEqual(forced_opaque.get_alpha(), 1.0)
+
+        dialog = QtWidgets.QColorDialog()
+        dialog.setOption(QtWidgets.QColorDialog.DontUseNativeDialog, True)
+        dialog.setOption(QtWidgets.QColorDialog.ShowAlphaChannel, True)
+        dialog.setCurrentColor(QtGui.QColor(0x33, 0x66, 0x99, 0xcc))
+        alpha_slider = _attach_alpha_slider(dialog)
+        self.assertIsNotNone(alpha_slider)
+        self.assertEqual(alpha_slider.value(), 0xcc)
+        alpha_slider.setValue(40)
+        app.processEvents()
+        self.assertEqual(dialog.currentColor().alpha(), 40)
+
+        widget = ComboBoxWidget()
+        widget.setItems(['alpha.h5'], ['#33669980'])
+        combo = widget.combobox
+        stored = qcolor_from_item_data(
+            combo.itemData(0, QtCore.Qt.BackgroundRole)
+        )
+        self.assertEqual(stored.red(), 0x33)
+        self.assertEqual(stored.alpha(), 0x80)
+        combo_colors = re.findall(r'#[0-9a-fA-F]+', combo.styleSheet())
+        self.assertTrue(combo_colors)
+        self.assertTrue(all(len(color) == 7 for color in combo_colors))
+
     def test_combobox_popup_temporarily_raises_owning_node(self):
         graph = BaseUtils.init_graph()
         node = graph.create_node('Plot.ScatterRateDaPlotterNode')
@@ -1548,6 +1668,111 @@ class TestWidgets(unittest.TestCase):
         unretained_ax.plot([0, 100], [0, 200])
         unretained_plot.canvas.draw()
         self.assertNotEqual(unretained_ax.get_xlim(), (2.0, 4.0))
+
+    def test_plot_toolbar_dialogs_open_outside_the_graph(self):
+        import matplotlib.backends.backend_qt as backend_qt
+        import matplotlib.backends.qt_editor.figureoptions as mpl_figureoptions
+
+        def embedded(widget):
+            while widget is not None:
+                if widget.graphicsProxyWidget() is not None:
+                    return True
+                widget = widget.parentWidget()
+            return False
+
+        def assert_outside(dialog, plot, host):
+            self.assertIsNotNone(dialog)
+            self.assertTrue(dialog.isWindow())
+            self.assertIsNone(dialog.graphicsProxyWidget())
+            self.assertFalse(embedded(dialog))
+            self.assertIs(dialog.parentWidget(), host)
+            widget = dialog
+            while widget is not None:
+                self.assertIsNot(widget, plot)
+                self.assertIsNone(widget.graphicsProxyWidget())
+                widget = widget.parentWidget()
+
+        graph = BaseUtils.init_graph()
+        node = graph.create_node('Plot.ScatterRateDaPlotterNode')
+        plot = node.get_widget('plot_widget').get_custom_widget()
+        self.assertTrue(embedded(plot))
+
+        host = QtWidgets.QMainWindow()
+        host.setCentralWidget(graph.widget)
+        host.resize(900, 700)
+        host.show()
+        host.activateWindow()
+        app.processEvents()
+        original_edit = mpl_figureoptions.figure_edit
+        ax = plot.figure.add_subplot()
+        ax.plot([0, 1], [0, 1])
+        plot.canvas.draw()
+
+        try:
+            plot.toolbar._actions['configure_subplots'].trigger()
+            subplot_dialog = plot.toolbar._subplot_dialog
+            assert_outside(subplot_dialog, plot, host)
+            self.assertEqual(subplot_dialog.objectName(), 'SubplotTool')
+            subplot_dialog.close()
+
+            plot.toolbar._actions['edit_parameters'].trigger()
+            options = getattr(host, '_fedit_dialog', None)
+            assert_outside(options, plot, host)
+            self.assertEqual(options.windowTitle(), 'Figure options')
+            options.close()
+            self.assertIs(mpl_figureoptions.figure_edit, original_edit)
+
+            plot.figure.add_subplot(212)
+            with patch.object(
+                backend_qt.QtWidgets.QInputDialog,
+                'getItem',
+                return_value=('', False),
+            ) as get_item:
+                plot.toolbar._actions['edit_parameters'].trigger()
+            self.assertTrue(get_item.called)
+            self.assertIs(get_item.call_args[0][0], host)
+            self.assertIs(mpl_figureoptions.figure_edit, original_edit)
+        finally:
+            for dialog in (
+                getattr(plot.toolbar, '_subplot_dialog', None),
+                getattr(host, '_fedit_dialog', None),
+            ):
+                if dialog is not None:
+                    dialog.close()
+            host.close()
+            app.processEvents()
+
+    def test_standalone_plot_toolbar_dialogs_stay_on_their_window(self):
+        window = QtWidgets.QMainWindow()
+        plot = TemplatePlotWidget()
+        window.setCentralWidget(plot)
+        window.show()
+        window.activateWindow()
+        app.processEvents()
+        plot.figure.add_subplot().plot([0, 1], [0, 1])
+        plot.canvas.draw()
+        try:
+            plot.toolbar.configure_subplots()
+            dialog = plot.toolbar._subplot_dialog
+            self.assertTrue(dialog.isWindow())
+            self.assertIsNone(dialog.graphicsProxyWidget())
+            self.assertIs(dialog.parentWidget().window(), window)
+
+            plot.toolbar.edit_parameters()
+            options = getattr(plot.toolbar, '_fedit_dialog', None)
+            self.assertIsNotNone(options)
+            self.assertTrue(options.isWindow())
+            self.assertEqual(options.windowTitle(), 'Figure options')
+            self.assertIs(options.parentWidget().window(), window)
+        finally:
+            for dialog in (
+                getattr(plot.toolbar, '_subplot_dialog', None),
+                getattr(plot.toolbar, '_fedit_dialog', None),
+            ):
+                if dialog is not None:
+                    dialog.close()
+            window.close()
+            app.processEvents()
 
     def test_unchecking_keep_view_requests_recalculation(self):
         graph = BaseUtils.init_graph()
@@ -2380,6 +2605,11 @@ class TestWidgets(unittest.TestCase):
         loaded = row._badge_layout.itemAt(0).widget()
         self.assertEqual(loaded.width(), unknown.width())
         self.assertIn('microsecond', loaded.toolTip())
+        self.assertFalse(unknown.isWindow())
+        self.assertFalse(unknown.isVisible())
+        for index in range(row._badge_layout.count()):
+            chip = row._badge_layout.itemAt(index).widget()
+            self.assertFalse(chip.isWindow())
 
     def test_export_metadata_overlays_filled_fields(self):
         import os
